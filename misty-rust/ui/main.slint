@@ -609,6 +609,10 @@ export component MainWindow inherits Window {
                 }
                 Rectangle {
                     horizontal-stretch: 1;
+                    // la zone centrale prend la place qui reste, jamais plus : une page qui voudrait être
+                    // plus haute ne doit pas pousser la barre du bas hors de la fenêtre
+                    min-height: 0px;
+                    min-width: 0px;
                     // La page s'efface quand le choix de version s'ouvre : il prend sa place.
                     Rectangle {
                         opacity: HomeState.picker-open || SettingsState.open ? 0 : 1;
