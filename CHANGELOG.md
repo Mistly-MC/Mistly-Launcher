@@ -4,6 +4,10 @@
 - Misty is now called Mistly: the new name shows everywhere in the launcher (title, logo, loading screen, texts in every language) and in the installer. Your data, profiles and shortcuts stay where they were, and updates keep working
 - New: select log lines in the console and copy them. Click a line, drag or Shift+click to select several, then press Ctrl+C or the copy button; Ctrl+A selects everything
 - Fixed: on some setups the bottom bar (profile, Play, account) was cut off at the bottom of the window
+- Fixed: the MISTLY logo and the news pill on the Play page trembled while the mist drifted behind them
+- Texture pack cards: Edit, Export, Open folder and Delete are now always shown at the bottom of the card (the buttons that appeared on hover vanished as soon as the mouse reached them)
+- Fixed: a pack imported from Modrinth or CurseForge stayed marked Imported in Browse after you deleted it
+- Settings: the allocated memory is shown once, next to its slider, and the line under the selected tab is centered
 - New layout in tiles, all aligned on one grid with the same gap everywhere: the Misty logo, a top bar with the tabs (Play, Skin, Profiles, Release notes, Texture packs, Friends), a column with Quick play and each of your profiles (one click picks it), the page in the middle (on Play, the Misty landscape in a large frame with the MISTY logo, and the latest news in a small pill). A barely visible mist drifts over the landscape, and a launch bar at the bottom with Settings, the version or profile, a Play tile in Misty blue, your account with a white cloud when online or a grey one when offline, and your avatar. The console has its own tile at the top right
 - First launch: the screen is split in two to choose how you play, Premium (sign in with Microsoft) or Offline (just a username)
 - The version picker and the settings open in the middle of the window instead of over it: the page clears and the version posters fall in one after another. Clicking the version tile again closes the picker
