@@ -598,7 +598,7 @@
   "Hz_Installe": "Installato",
   "Hz_Supprimer": "Elimina questa build",
   "Hz_Telecharger": "Scarica questa build",
-  "Hz_ChoisisBuild": "Scarica prima una build",
+  "Hz_ChoisisBuild": "Scegli una build",
   "Hz_TelechargementBuild": "Download di {0}…",
   "Hz_InstallationMinecraft": "Installazione di Minecraft {0} per Horizon…",
   "Hz_Preparation": "Preparazione di Horizon (solo la prima volta)…",
@@ -815,5 +815,7 @@
   "Pack_ImporterBouton": "Importa",
   "Pack_Importe": "Importato",
   "Pack_DistantAucunFichier": "Questo pack non ha file da scaricare.",
-  "Console_CopierSelection": "Copia selezione"
+  "Console_CopierSelection": "Copia selezione",
+  "Hz_BuildIntrouvable": "Build {0} non trovata su GitHub",
+  "Home_TelechargementClient": "Download di Mistly Client…"
 }

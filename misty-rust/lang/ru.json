@@ -598,7 +598,7 @@
   "Hz_Installe": "Установлен",
   "Hz_Supprimer": "Удалить сборку",
   "Hz_Telecharger": "Скачать сборку",
-  "Hz_ChoisisBuild": "Сначала скачай сборку",
+  "Hz_ChoisisBuild": "Выбери сборку",
   "Hz_TelechargementBuild": "Загрузка {0}…",
   "Hz_InstallationMinecraft": "Установка Minecraft {0} для Horizon…",
   "Hz_Preparation": "Подготовка Horizon (только в первый раз)…",
@@ -815,5 +815,7 @@
   "Pack_ImporterBouton": "Импорт",
   "Pack_Importe": "Импортирован",
   "Pack_DistantAucunFichier": "У этого пака нет файла для загрузки.",
-  "Console_CopierSelection": "Копировать выделенное"
+  "Console_CopierSelection": "Копировать выделенное",
+  "Hz_BuildIntrouvable": "Сборка {0} не найдена на GitHub",
+  "Home_TelechargementClient": "Загрузка Mistly Client…"
 }

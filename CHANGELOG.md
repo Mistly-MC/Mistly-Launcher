@@ -1,6 +1,9 @@
 # Changelog
 ## 0.3.8-beta.3
 ### Launcher
+- Mistly Client is no longer built into the launcher: it is downloaded from GitHub (the Misty-Client releases) the first time a game needs it, and each new Mistly Client release reaches you without a launcher update
+- Fixed: joining a server could fail with "Invalid session" when the launcher had stayed open for a long time. The Microsoft session is now renewed before a game starts if it would expire during the game
+- Horizon: clicking a build only selects it, like a Minecraft version; it is downloaded when you press Play
 - Misty is now called Mistly: the new name shows everywhere in the launcher (title, logo, loading screen, texts in every language) and in the installer. Your data, profiles and shortcuts stay where they were, and updates keep working
 - New: select log lines in the console and copy them. Click a line, drag or Shift+click to select several, then press Ctrl+C or the copy button; Ctrl+A selects everything
 - Fixed: on some setups the bottom bar (profile, Play, account) was cut off at the bottom of the window
@@ -49,6 +52,7 @@
 - Fixed: Misty pinned to the taskbar (or its Start menu and desktop shortcuts) no longer stops working after an update. Shortcuts now point to a launcher whose path never changes (`Misty.exe` next to the version folders), which starts the newest version. Existing shortcuts and pins are redirected to it automatically, and the Misty window and its pin share one taskbar button
 
 ### Mistly Client (in game)
+- Fixed: joining a server could rarely be refused because Mistly's account check ran at the same moment
 - Misty Client is now called Mistly Client: the main menu, loading screen, settings, HUD editor and every text in game show the new name. Your settings and cosmetics are kept
 - New Reach module: the distance of the last player you hit, in blocks (from your eyes to their hitbox). The farther the hit, the redder (green up to 2 blocks, yellow around 2.6, red at 3); the colour can be turned off in the module settings
 - The ping module changes colour with your ping: green under 80 ms, yellow under 150 ms, orange under 250 ms, red above. The colour can be turned off

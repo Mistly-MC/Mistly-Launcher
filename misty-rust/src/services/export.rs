@@ -100,7 +100,7 @@ pub fn exporter(instance: &Instance, destination: &Path, avec_misty: bool) -> an
             if let Some((nom, jar)) = client::jar_a_exporter(&instance.version_mc) {
                 // un jar est déjà compressé : stocké tel quel
                 zip.start_file(format!("overrides/mods/{nom}"), options.compression_method(zip::CompressionMethod::Stored))?;
-                zip.write_all(jar)?;
+                zip.write_all(&jar)?;
             }
         }
         zip.finish()?;
@@ -151,7 +151,9 @@ mod tests {
     /// seule fois (celui du launcher, nommé avec sa version) si on le demande.
     #[test]
     fn export_mrpack() {
-        let Some(mc) = client::versions().last().map(|v| v.to_string()) else { return };
+        let Some(mc) = client::versions().last().cloned() else { return };
+        // le jar doit être téléchargé (test sans Internet : rien à vérifier)
+        let Some((_, jar)) = client::jar_a_exporter(&mc) else { return };
         let mut instance: Instance = serde_json::from_str("{}").unwrap();
         instance.id = format!("misty-test-export-{}", std::process::id());
         instance.nom = "Test".into();
@@ -162,7 +164,7 @@ mod tests {
         fs::create_dir_all(racine.join("mods")).unwrap();
         fs::create_dir_all(racine.join("saves/monde")).unwrap();
         fs::write(racine.join("mods/sodium.jar"), b"sodium").unwrap();
-        fs::write(racine.join("mods/misty-client.jar"), client::jar_a_exporter(&mc).unwrap().1).unwrap();
+        fs::write(racine.join("mods/misty-client.jar"), jar).unwrap();
         fs::write(racine.join("saves/monde/level.dat"), b"monde").unwrap();
         fs::write(racine.join("options.txt"), b"fov:70").unwrap();
 

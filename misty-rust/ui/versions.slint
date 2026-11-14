@@ -501,7 +501,8 @@ component PanneauMisty inherits VerticalLayout {
     }
 }
 
-/// Un build d'Horizon, en puce comme les versions : un clic le télécharge, puis le choisit.
+/// Un build d'Horizon, en puce comme les versions : un clic le choisit. Il est téléchargé au
+/// lancement (Jouer), pas avant.
 component PuceBuild inherits Rectangle {
     in property <HorizonBuild> b;
     in property <bool> checked;
@@ -553,15 +554,9 @@ component PuceBuild inherits Rectangle {
         }
     }
     zone := TouchArea {
-        enabled: !HomeState.horizon-busy || root.b.installed;
+        enabled: !HomeState.horizon-busy;
         mouse-cursor: pointer;
-        clicked => {
-            if (root.b.installed) {
-                HomeState.horizon-select(root.b.tag);
-            } else {
-                HomeState.horizon-install(root.b.tag);
-            }
-        }
+        clicked => { HomeState.horizon-select(root.b.tag); }
     }
 }
 
@@ -674,7 +669,7 @@ component PanneauHorizon inherits VerticalLayout {
                 color: #F0795A;
             }
         }
-        if HomeState.horizon-build != "": VerticalLayout {
+        if HomeState.horizon-build != "" && HomeState.horizon-build-installed: VerticalLayout {
             alignment: center;
             IconButton {
                 width: 36px;

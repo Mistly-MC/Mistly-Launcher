@@ -178,6 +178,42 @@ pub async fn connecter() -> anyhow::Result<Session> {
     Ok(session)
 }
 
+/// Avant de lancer le jeu : la session Microsoft, avec un jeton qui tiendra toute la partie.
+///
+/// Le jeton de Minecraft dure 24 h et le jeu le garde jusqu'à sa fermeture. Celui de la session
+/// date de l'ouverture du launcher : si le launcher est resté ouvert longtemps, le jeu partait avec
+/// un jeton près d'expirer (ou expiré), et rejoindre un serveur affichait « Invalid session ».
+/// Il est donc renouvelé s'il lui reste moins de 12 h. Si le renouvellement échoue (hors ligne),
+/// la session actuelle est gardée.
+pub async fn session_pour_jouer() -> Option<Session> {
+    const MARGE: i64 = 12 * 3600;
+    let session = session()?;
+    let maintenant = chrono::Utc::now().timestamp();
+    let f = lire_fichier();
+    let Some(cache) = f.comptes.iter().find(|c| c.uuid == session.uuid).cloned() else { return Some(session) };
+    // le jeton du cache (le même, ou un plus récent renouvelé entre-temps) tient encore assez
+    if cache.mc_expire > maintenant + MARGE && !cache.mc_token.is_empty() {
+        let s = Session { pseudo: cache.pseudo, uuid: cache.uuid, jeton: cache.mc_token, xuid: cache.xuid };
+        *SESSION.write().unwrap() = Some(s.clone());
+        return Some(s);
+    }
+    if cache.refresh_token.is_empty() {
+        return Some(session);
+    }
+    match renouveler(&cache.refresh_token).await {
+        Ok(s) if s.uuid == session.uuid => {
+            super::journal::info("Jeton Minecraft renouvelé avant le lancement");
+            *SESSION.write().unwrap() = Some(s.clone());
+            Some(s)
+        }
+        Ok(_) => Some(session),
+        Err(e) => {
+            super::journal::info(&format!("Jeton Minecraft non renouvelé ({e}) : la session actuelle est gardée"));
+            Some(session)
+        }
+    }
+}
+
 /// Déconnexion rapide : le compte reste en cache pour la prochaine connexion.
 pub fn deconnecter() {
     *SESSION.write().unwrap() = None;

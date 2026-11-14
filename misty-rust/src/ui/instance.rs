@@ -766,6 +766,11 @@ async fn exporter(app: &Rc<App>) {
     };
     let avec_misty = client::voulu(&i);
     s(app).set_status(loc::t("Export_EnCours").into());
+    // le jar de Mistly Client part avec le pack : téléchargé s'il ne l'est pas encore
+    if avec_misty && client::compatible(&i.version_mc, &i.loader) {
+        let mc = i.version_mc.clone();
+        let _ = app.bg(async move { client::telecharger(&mc).await }).await;
+    }
     let (inst, chemin) = (i.clone(), destination.clone());
     let resultat = app.bloquant(move || export::exporter(&inst, &chemin, avec_misty)).await;
     s(app).set_status("".into());

@@ -71,14 +71,14 @@ cargo build --release  # final exe: target\release\Misty.exe
 cargo test -- --ignored --nocapture   # uses the Internet and your Misty folder, never launches the game
 ```
 
-**Mistly Client** (the in-game mod, git submodule of [Misty-MC/Misty-Client](https://github.com/Misty-MC/Misty-Client), clone with `git clone --recursive` or run `git submodule update --init`): build it first with `gradlew build` in `misty-client` (JDK 25) and the launcher embeds it. Without it, the launcher still builds, just without the in-game features.
+**Mistly Client** (the in-game mod, [Misty-MC/Misty-Client](https://github.com/Misty-MC/Misty-Client)) is not in the exe: the launcher downloads it from the latest Misty-Client release on GitHub, the first time a game needs it. To try a mod built locally, start the launcher with `MISTY_CLIENT_DIR=<mod folder>`. The `misty-client` submodule (`git clone --recursive` or `git submodule update --init`) is only used by the tests.
 
 **CurseForge API key**: CurseForge requires a personal (free) key from [console.curseforge.com](https://console.curseforge.com). Put it in `misty-rust/curseforge.key` (git-ignored) or in the `MISTY_CURSEFORGE_KEY` environment variable; it is embedded in the exe at build time. Without it, Modrinth still works.
 
 ## 🚀 Publishing a release
 
 1. Bump `VERSION` in [misty-rust/src/services/app_info.rs](misty-rust/src/services/app_info.rs) and `version` in [misty-rust/Cargo.toml](misty-rust/Cargo.toml), then add the entry to [CHANGELOG.md](CHANGELOG.md) (embedded in the exe, shown in "Patch notes").
-2. Run the release script (needs a JDK 25 for Mistly Client and [Inno Setup 6](https://jrsoftware.org/isdl.php): `winget install JRSoftware.InnoSetup`):
+2. Publish the matching Misty-Client release first if the mod changed (the launcher downloads it from there), then run the release script (needs [Inno Setup 6](https://jrsoftware.org/isdl.php): `winget install JRSoftware.InnoSetup`):
 
    ```powershell
    powershell -ExecutionPolicy Bypass -File installer\build.ps1
@@ -95,9 +95,9 @@ cargo test -- --ignored --nocapture   # uses the Internet and your Misty folder,
 ```
 CHANGELOG.md           patch notes (embedded in the exe)
 installer/             release script (build.ps1) + Inno Setup installer (Misty.iss)
-misty-client/          Mistly Client (submodule → Misty-MC/Misty-Client): the in-game Fabric mod, embedded in the exe
+misty-client/          Mistly Client (submodule → Misty-MC/Misty-Client): the in-game Fabric mod, used by the tests
 misty-rust/
-├── build.rs           embeds the icon, CurseForge key, changelog and Mistly Client
+├── build.rs           embeds the icon, CurseForge key and changelog
 ├── misty-ui/          crate that compiles the Slint interface (kept apart so Rust edits rebuild fast)
 ├── assets/            icon, Silkscreen pixel font (OFL), flags
 ├── lang/              translations (en, fr, es, it, ru), embedded in the exe

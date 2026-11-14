@@ -1,7 +1,7 @@
 # Misty Launcher
 
 Launcher Minecraft pour Windows, écrit en Rust avec une interface Slint. Repo : Misty-MC/Misty-Launcher.
-Le mod en jeu (Misty Client) est le sous-module `misty-client/` → Misty-MC/Misty-Client (il a son propre `CLAUDE.md`).
+Le mod en jeu (Mistly Client) vient du repo Misty-MC/Misty-Client (il a son propre `CLAUDE.md`). Le launcher le télécharge depuis les releases GitHub de ce repo (`src/services/client.rs`) ; le sous-module `misty-client/` ne sert plus qu'aux tests (textures de cape partagées).
 
 ## Cloner et compiler
 
@@ -14,7 +14,7 @@ cargo test -- --ignored --nocapture   # tests qui utilisent Internet et le dossi
 cargo run                   # lancer le launcher
 ```
 
-- Le mod doit être compilé d'abord (`gradlew build` dans `misty-client/`, JDK 25) pour être intégré à l'exe. Sans lui, le build passe avec l'avertissement « Misty Client n'est pas compilé ».
+- Le mod n'est pas dans l'exe. Pour essayer un mod compilé en local : `MISTY_CLIENT_DIR=<dossier du mod>` au lancement (c'est ce que fait « Lancer Misty.cmd » à la racine de l'espace de travail), sinon le launcher prend la dernière release de Misty-Client.
 - Windows uniquement : WebView2, registre, raccourcis. La fenêtre de connexion Microsoft (`src/ms_login.rs`, winit + wry) n'existe que sous `cfg(windows)`.
 - Release : `installer\build.ps1` (voir le README, section « Publishing a release »).
 
@@ -32,7 +32,7 @@ cargo run                   # lancer le launcher
 - Branches : `main` (publiée), `EnderMythex` et `xtheox` (branches perso). Travailler sur sa branche, PR vers `main`. Demander avant tout push ou merge sur `main`.
 - Message : sujet en anglais à l'impératif, sans point final (`Add …`, `Fix …`, `Keep …`), corps optionnel qui explique pourquoi. Terminer par `Co-Authored-By: Claude <noreply@anthropic.com>` quand Claude a écrit le changement.
 - Tout changement visible par l'utilisateur va dans `CHANGELOG.md`, en anglais, sous la version en cours (`## <version>` puis `### Launcher` ou `### Mistly Client (in game)`). Ce fichier est intégré dans l'exe et affiché dans « Patch notes ».
-- Mise à jour du mod : `git submodule update --remote misty-client`, puis `git add misty-client` et un commit dédié.
+- Mise à jour du mod pour les joueurs : publier une release de Misty-Client (son workflow y attache les jars et `misty-client.json`). Le sous-module se met à jour à part (`git submodule update --remote misty-client`), seulement pour les tests.
 - Version : `VERSION` dans `app_info.rs`, `version` dans `Cargo.toml` et le tag GitHub (sans `v`) doivent être identiques, sinon le launcher propose la mise à jour en boucle.
 
 ## Dépendances

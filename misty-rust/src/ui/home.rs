@@ -219,12 +219,7 @@ pub fn installer(app: &Rc<App>) {
         maj_mode_profil(&a);
     });
     // Section Misty Client : Fabric + Misty Client, sur une des versions de Minecraft du mod
-    s.set_misty_available(client::disponible());
-    let versions: Vec<String> = client::versions().iter().rev().map(|v| v.to_string()).collect();
-    s.set_misty_versions(modele_textes(&versions));
-    let misty = version_misty();
-    s.set_misty_mc(misty.as_str().into());
-    s.set_misty_art(super::picker::illustration(&super::picker::cle_groupe(&misty, 0)));
+    maj_misty_client(app);
     let a = app.clone();
     s.on_misty_select(move |v| misty_choisir(&a, v.to_string()));
     let a = app.clone();
@@ -246,11 +241,6 @@ pub fn installer(app: &Rc<App>) {
     let a = app.clone();
     s.on_horizon_filter_changed(move || horizon_afficher(&a));
     let a = app.clone();
-    s.on_horizon_install(move |tag| {
-        let a = a.clone();
-        lancer(async move { horizon_installer(&a, tag.to_string()).await });
-    });
-    let a = app.clone();
     s.on_horizon_remove(move |tag| {
         let a = a.clone();
         lancer(async move { horizon_supprimer(&a, tag.to_string()).await });
@@ -260,6 +250,7 @@ pub fn installer(app: &Rc<App>) {
         settings::set(settings::HORIZON_BUILD, &tag);
         h(&a).set_horizon_build(tag);
         horizon_choisir(&a);
+        horizon_afficher(&a);
     });
     let a = app.clone();
     s.on_horizon_play(move || {
@@ -372,8 +363,17 @@ pub async fn initialiser(app: &Rc<App>) {
         lancer(async move { se_connecter(&a).await });
     }
 
+    // Mistly Client : la liste des jars de sa dernière release GitHub, lue pendant le chargement
+    // des versions (au plus 10 s : sans Internet, la liste gardée sert)
+    let maj_client = app.rt.spawn(async { tokio::time::timeout(std::time::Duration::from_secs(10), client::actualiser()).await });
+
     statut(app, &loc::t("Home_ChargementVersions"));
     charger_versions(app).await;
+    match maj_client.await {
+        Ok(Ok(Ok(true))) => maj_misty_client(app),
+        Ok(Ok(Err(e))) => journal::info(&format!("Mistly Client : liste des jars non lue ({e:#})")),
+        _ => {}
+    }
     // tout premier démarrage (rien de choisi avant) : Misty Client, sur sa version la plus récente
     let premier = settings::get(settings::LAST_VERSION).is_empty() && settings::get(settings::MISTY_CHOISI).is_empty();
     if (premier || settings::get_bool(settings::MISTY_CHOISI, false)) && client::disponible() && app.home.borrow().profil.is_none() {
@@ -947,10 +947,14 @@ async fn jouer(app: &Rc<App>) {
         return;
     }
 
-    let joueur = joueur_actuel(app);
     app.home.borrow_mut().installation_en_cours = true;
     h(app).set_play_enabled(false);
     h(app).set_selectors_enabled(false);
+    // un jeton qui tiendra toute la partie (sinon « Invalid session » en rejoignant un serveur)
+    if account::session().is_some() {
+        app.bg(account::session_pour_jouer()).await;
+    }
+    let joueur = joueur_actuel(app);
     let nom = match &instance {
         Some(i) => i.nom.clone(),
         None if misty => format!("Mistly {version}"),
@@ -1024,7 +1028,21 @@ async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install
     // Misty Client : posé dans les mods du profil s'il le supporte, retiré sinon (toujours posé
     // quand on lance la version Misty)
     let voulu = misty || instance.as_ref().map(client::voulu).unwrap_or_else(client::active);
-    client::preparer(&options.dossier_jeu, version, mode, voulu);
+    // le jar de cette version, téléchargé depuis GitHub la première fois
+    let jar = if voulu && client::compatible(version, mode) {
+        statut(app, &loc::t("Home_TelechargementClient"));
+        let v = version.to_string();
+        match app.bg(async move { client::telecharger(&v).await }).await.and_then(|chemin| Ok(std::fs::read(chemin)?)) {
+            Ok(octets) => Some(octets),
+            Err(e) => {
+                journal::info(&format!("Mistly Client non téléchargé ({e:#}) : la partie démarre sans le mettre à jour"));
+                None
+            }
+        }
+    } else {
+        None
+    };
+    client::preparer(&options.dossier_jeu, version, mode, voulu, jar.as_deref());
     client::ecrire_lien();
     // serveurs et barres d'objets : les mêmes dans toutes les versions et tous les profils
     crate::services::partage::avant_partie(&options.dossier_jeu);
@@ -1175,13 +1193,16 @@ fn horizon_afficher(app: &App) {
         }
     }
     let s = h(app);
-    // build choisi : toujours un build installé
+    // build choisi : installé, ou dans la liste de GitHub (il sera téléchargé au lancement) ; la
+    // liste n'est pas encore chargée : on le garde
     let choisi = s.get_horizon_build().to_string();
-    if !installes.contains(&choisi) {
+    let charge = !app.home.borrow().horizon_builds.is_empty();
+    if choisi.is_empty() || (charge && !lignes.iter().any(|l| l.tag == choisi.as_str())) {
         let nouveau = installes.first().cloned().unwrap_or_default();
         settings::set(settings::HORIZON_BUILD, &nouveau);
         s.set_horizon_build(nouveau.into());
     }
+    s.set_horizon_build_installed(installes.contains(&s.get_horizon_build().to_string()));
     // place de chaque build dans la grille selon le filtre (Tous, Nightly, Stables)
     let filtre = s.get_horizon_filter();
     let mut n = 0;
@@ -1216,22 +1237,37 @@ async fn horizon_rafraichir(app: &Rc<App>) {
     horizon_afficher(app);
 }
 
-/// Télécharge un build depuis GitHub (barre d'avancement sur sa ligne).
-async fn horizon_installer(app: &Rc<App>, tag: String) {
-    let Some(build) = app.home.borrow().horizon_builds.iter().find(|b| b.tag == tag).cloned() else { return };
+/// Télécharge le build choisi s'il n'est pas encore là (au lancement, comme une version de
+/// Minecraft : choisir un build ne télécharge rien). L'avancement s'affiche dans la barre du bas et
+/// sur la puce du build. Renvoie son dossier.
+async fn horizon_telecharger(app: &Rc<App>, an: &Annulation, tag: &str) -> anyhow::Result<std::path::PathBuf> {
+    if let Some(dossier) = horizon::dossier_build(tag) {
+        return Ok(dossier);
+    }
+    // la liste des builds n'est pas encore chargée (build choisi lors d'un lancement précédent)
+    if !app.home.borrow().horizon_builds.iter().any(|b| b.tag == tag) {
+        horizon_rafraichir(app).await;
+    }
+    let build = app.home.borrow().horizon_builds.iter().find(|b| b.tag == tag).cloned();
+    let build = build.ok_or_else(|| anyhow::anyhow!(loc::tf("Hz_BuildIntrouvable", &[&tag])))?;
     let s = h(app);
     s.set_horizon_busy(true);
-    s.set_horizon_busy_tag(tag.clone().into());
+    s.set_horizon_busy_tag(tag.into());
     s.set_horizon_progress(0.0);
-    s.set_horizon_message(loc::tf("Hz_TelechargementBuild", &[&tag]).into());
+    afficher_progression(app, 0.0, &loc::tf("Hz_TelechargementBuild", &[&tag]));
     let fenetre = app.ui.as_weak();
     let dernier = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
-    let resultat = app
-        .bg(async move {
+    let resultat = an
+        .tache(app, async move {
             horizon::installer_build(&build, move |f| {
                 let pourcent = (f * 100.0) as u32;
                 if dernier.swap(pourcent, std::sync::atomic::Ordering::SeqCst) != pourcent {
-                    let _ = fenetre.upgrade_in_event_loop(move |ui| ui.global::<HomeState>().set_horizon_progress(f));
+                    let _ = fenetre.upgrade_in_event_loop(move |ui| {
+                        let s = ui.global::<HomeState>();
+                        s.set_horizon_progress(f);
+                        s.set_progress(f);
+                        s.set_percent_text(format!("{pourcent}%").into());
+                    });
                 }
             })
             .await
@@ -1239,17 +1275,9 @@ async fn horizon_installer(app: &Rc<App>, tag: String) {
         .await;
     s.set_horizon_busy(false);
     s.set_horizon_busy_tag("".into());
-    match resultat {
-        Ok(()) => {
-            s.set_horizon_message("".into());
-            if s.get_horizon_build().is_empty() {
-                settings::set(settings::HORIZON_BUILD, &tag);
-                s.set_horizon_build(tag.into());
-            }
-        }
-        Err(e) => s.set_horizon_message(e.to_string().into()),
-    }
     horizon_afficher(app);
+    resultat?;
+    horizon::dossier_build(tag).ok_or_else(|| anyhow::anyhow!(loc::tf("Hz_BuildIntrouvable", &[&tag])))
 }
 
 async fn horizon_supprimer(app: &Rc<App>, tag: String) {
@@ -1263,13 +1291,31 @@ async fn horizon_supprimer(app: &Rc<App>, tag: String) {
     horizon_afficher(app);
 }
 
+/// La liste des jars de Mistly Client (sa release GitHub) est connue ou a changé : le choix de
+/// version, les options et l'onglet Skin suivent.
+fn maj_misty_client(app: &App) {
+    let s = h(app);
+    s.set_misty_available(client::disponible());
+    let versions: Vec<String> = client::versions().into_iter().rev().collect();
+    s.set_misty_versions(modele_textes(&versions));
+    let misty = version_misty();
+    s.set_misty_mc(misty.as_str().into());
+    s.set_misty_art(super::picker::illustration(&super::picker::cle_groupe(&misty, 0)));
+    let reglages = app.ui.global::<crate::SettingsState>();
+    reglages.set_misty_client_available(client::disponible());
+    reglages.set_misty_client_mc(client::versions_texte().into());
+    let skin = app.ui.global::<crate::SkinState>();
+    skin.set_misty_in_game(client::disponible());
+    skin.set_misty_mc(client::versions_texte().into());
+}
+
 /// La version Misty choisie avant (gardée dans les réglages), sinon la plus récente.
 fn version_misty() -> String {
     let choisie = settings::get(settings::MISTY_VERSION);
     if client::existe(&choisie) {
         choisie
     } else {
-        client::derniere().to_string()
+        client::derniere()
     }
 }
 
@@ -1331,19 +1377,21 @@ fn horizon_ouvrir_panneau(app: &App) {
 /// Lance le build choisi. La première fois : Minecraft (la version qu'Horizon prépare) et son Java
 /// sont installés par Misty, le server.jar est téléchargé, puis horizon-prepare prépare le build.
 async fn horizon_jouer(app: &Rc<App>) {
-    // compte Microsoft : session en ligne ; sinon hors ligne, sous le pseudo choisi
-    let compte = account::session();
+    // compte Microsoft : session en ligne (avec un jeton qui tiendra la partie) ; sinon hors ligne,
+    // sous le pseudo choisi
+    let compte = if account::session().is_some() { app.bg(account::session_pour_jouer()).await } else { None };
     let pseudo = compte.as_ref().map(|c| c.pseudo.clone()).unwrap_or_else(|| pseudo_actuel(app));
     let tag = h(app).get_horizon_build().to_string();
-    let Some(build) = horizon::dossier_build(&tag) else {
+    if tag.is_empty() {
         horizon_ouvrir_panneau(app);
         return;
-    };
+    }
     let s = h(app);
     s.set_play_enabled(false);
     s.set_selectors_enabled(false);
     let an = debut_annulable(app);
     let resultat: anyhow::Result<()> = async {
+        let build = horizon_telecharger(app, &an, &tag).await?;
         let b = build.clone();
         let exigences = app.bloquant(move || horizon::exigences(&b)).await?;
         // Minecraft et son Java, installés comme pour n'importe quelle version
