@@ -603,6 +603,8 @@ component OngletReglage inherits Rectangle {
     animate background { duration: Theme.fast; }
     contenu := HorizontalLayout {
         x: 10px;
+        width: self.preferred-width;
+        height: parent.height;
         spacing: 8px;
         Icon {
             text: root.icon;
@@ -617,10 +619,11 @@ component OngletReglage inherits Rectangle {
             vertical-alignment: center;
         }
     }
+    // trait centré sous l'icône et le nom, qui s'ouvre depuis le milieu
     Rectangle {
-        x: 10px;
+        x: (parent.width - self.width) / 2;
         y: parent.height - 3px;
-        width: root.actif ? parent.width - 20px : 0px;
+        width: root.actif ? contenu.width : 0px;
         height: 3px;
         border-radius: 1.5px;
         background: Theme.accent;
@@ -1039,17 +1042,10 @@ export component SettingsModal inherits Rectangle {
                     if SettingsState.search == "" && root.cat == 4: Volet {
                         spacing: 12px;
                         Carte {
-                            HorizontalLayout {
-                                spacing: 16px;
-                                Entete {
-                                    horizontal-stretch: 1;
-                                    titre: Tr.t("Param_Memoire_Titre");
-                                    texte: SettingsState.ram-total-text;
-                                }
-                                VerticalLayout {
-                                    alignment: start;
-                                    Valeur { text: SettingsState.ram-text; }
-                                }
+                            // la valeur est à droite du curseur, pas besoin de la répéter ici
+                            Entete {
+                                titre: Tr.t("Param_Memoire_Titre");
+                                texte: SettingsState.ram-total-text;
                             }
                             CurseurBorne {
                                 minimum: 1024;
