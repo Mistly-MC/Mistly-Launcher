@@ -85,25 +85,31 @@ export component HomePage inherits Rectangle {
         border-radius: 8px;
         border-width: 2px;
         border-color: Theme.glass-border;
-        clip: true;
         // voile léger en bas : la pastille et le logo restent lisibles sur le paysage
         Rectangle {
+            border-radius: 8px;
             background: @linear-gradient(180deg, #00000000 0%, #00000000 55%, (Theme.dark ? #05080F80 : #14203A40) 100%);
         }
-        // brume à peine visible qui passe lentement dans le cadre
-        for n in [
-            { y: 0.18, s: 560, p: 140000, o: 0.10 },
-            { y: 0.52, s: 720, p: 180000, o: 0.60 },
-            { y: 0.78, s: 620, p: 160000, o: 0.35 },
-        ]: Rectangle {
-            property <float> t: Math.mod(animation-tick() / (n.p * 1ms) + n.o, 1);
-            x: -n.s * 1px + (parent.width + n.s * 2px) * self.t;
-            // carrée, le dégradé s'éteint avant les bords, puis aplatie
-            y: parent.height * n.y - n.s * 0.5px;
-            width: n.s * 1px;
-            height: n.s * 1px;
-            transform-scale-y: 0.4;
-            background: @radial-gradient(circle, #FFFFFF14 0%, #FFFFFF00 65%);
+        // brume à peine visible qui passe lentement dans le cadre. Découpée à part : dans la même
+        // découpe que le logo et la pastille, elle les faisait trembler (la découpe se décalait
+        // d'une fraction de pixel avec elle)
+        Rectangle {
+            border-radius: 8px;
+            clip: true;
+            for n in [
+                { y: 0.18, s: 560, p: 140000, o: 0.10 },
+                { y: 0.52, s: 720, p: 180000, o: 0.60 },
+                { y: 0.78, s: 620, p: 160000, o: 0.35 },
+            ]: Rectangle {
+                property <float> t: Math.mod(animation-tick() / (n.p * 1ms) + n.o, 1);
+                x: -n.s * 1px + (parent.width + n.s * 2px) * self.t;
+                // carrée, le dégradé s'éteint avant les bords, puis aplatie
+                y: parent.height * n.y - n.s * 0.5px;
+                width: n.s * 1px;
+                height: n.s * 1px;
+                transform-scale-y: 0.4;
+                background: @radial-gradient(circle, #FFFFFF14 0%, #FFFFFF00 65%);
+            }
         }
         // le logo, comme celui de Minecraft sur la maquette
         VerticalLayout {

@@ -103,6 +103,8 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
         let _ = rx.await;
     }
     let photo = |app: &ui::App, nom: &str, dossier: &std::path::Path| {
+        // Windows réduit parfois la fenêtre posée hors de l'écran : la photo ferait 160 × 28
+        app.ui.window().with_winit_window(|w| w.set_minimized(false));
         if let Ok(b) = app.ui.window().take_snapshot() {
             if let Some(img) = image::RgbaImage::from_raw(b.width(), b.height(), b.as_bytes().to_vec()) {
                 let _ = img.save(dossier.join(format!("{nom}.png")));
@@ -119,6 +121,22 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
         photo(&app, "00-chargement-2", &dossier);
         attendre(5300).await;
         photo(&app, "0-accueil", &dossier);
+        // MISTY_CAPTURE_ACCUEIL : l'accueil, plusieurs images à la suite (pour voir ce qui bouge)
+        if std::env::var("MISTY_CAPTURE_ACCUEIL").is_ok() {
+            if app.ui.global::<DialogState>().get_visible() {
+                app.ui.global::<DialogState>().invoke_cancel();
+            }
+            for (l, h) in [(1180.0, 720.0), (1536.0, 801.0), (1920.0, 1017.0)] {
+                app.ui.window().set_size(slint::LogicalSize::new(l, h));
+                attendre(1500).await;
+                for i in 0..8 {
+                    photo(&app, &format!("accueil-{l}-{i:02}"), &dossier);
+                    attendre(70).await;
+                }
+            }
+            let _ = slint::quit_event_loop();
+            return;
+        }
         // MISTY_CAPTURE_OPTIONS : seulement la fenêtre des options, en clair, en sombre et en fenêtre minimale
         if std::env::var("MISTY_CAPTURE_OPTIONS").is_ok() {
             if app.ui.global::<DialogState>().get_visible() {
@@ -265,6 +283,20 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
                 attendre(1200).await;
                 if mode == 0 && taille.is_none() {
                     photo(&app, "packs-apres-import", &dossier);
+                    // le pack importé (le dernier de la liste) est supprimé : l'explorateur ne doit
+                    // plus le dire « Importé »
+                    let n = slint::Model::row_count(&app.ui.global::<PacksState>().get_list());
+                    if n > 0 {
+                        app.ui.global::<PacksState>().invoke_delete(n as i32 - 1);
+                        attendre(800).await;
+                        app.ui.global::<DialogState>().invoke_ok();
+                        attendre(800).await;
+                        app.ui.global::<PacksState>().invoke_browse();
+                        attendre(2000).await;
+                        photo(&app, "packs-parcourir-apres-suppression", &dossier);
+                        app.ui.global::<PacksState>().invoke_back();
+                        attendre(1200).await;
+                    }
                 }
                 app.ui.global::<AppState>().invoke_nav_clicked(8);
                 attendre(6000).await;
