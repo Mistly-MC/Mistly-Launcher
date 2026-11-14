@@ -14,8 +14,8 @@ use std::rc::Rc;
 pub struct Etat {
     liste: Vec<PackInfo>,
     versions: Vec<String>,
-    /// projets déjà importés depuis l'explorateur (source:id), pendant ce lancement
-    importes: std::collections::HashSet<String>,
+    /// projets importés depuis l'explorateur pendant ce lancement : source:id → nom du pack créé
+    importes: std::collections::HashMap<String, String>,
 }
 
 fn s(app: &App) -> PacksState<'_> {
@@ -156,16 +156,17 @@ fn cle(p: &ProjetDistant) -> String {
     format!("{}:{}", p.source, p.id)
 }
 
+/// Vrai si le pack importé existe encore (il a pu être supprimé depuis la galerie).
 pub fn deja_importe(app: &App, p: &ProjetDistant) -> bool {
-    app.packs.borrow().importes.contains(&cle(p))
+    app.packs.borrow().importes.get(&cle(p)).is_some_and(|nom| packs::dossier_packs().join(nom).is_dir())
 }
 
 /// Télécharge le pack choisi dans l'explorateur et l'ajoute aux packs, prêt à être modifié.
 pub async fn importer_distant(app: &Rc<App>, projet: ProjetDistant) {
     let (source, id, titre) = (projet.source.clone(), projet.id.clone(), projet.titre.clone());
     match app.bg(async move { packs::importer_distant(&source, &id, &titre).await }).await {
-        Ok(_) => {
-            app.packs.borrow_mut().importes.insert(cle(&projet));
+        Ok(nom) => {
+            app.packs.borrow_mut().importes.insert(cle(&projet), nom);
             rafraichir(app);
         }
         Err(e) => dialogs::erreur(app, &loc::t("Pack_ImportImpossible"), &format!("{e:#}")).await,

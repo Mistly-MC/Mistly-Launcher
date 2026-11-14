@@ -8,8 +8,8 @@ import { ContentBrowser } from "browser.slint";
 import { ScrollView } from "std-widgets.slint";
 
 /// Carte d'un pack : un bandeau sombre avec ses textures modifiées en pixel art, puis le nom, la
-/// description, la version et le nombre de textures. Un clic l'ouvre dans l'éditeur ; au survol :
-/// exporter, dossier, supprimer.
+/// description, la version et le nombre de textures. Un clic l'ouvre dans l'éditeur ; en bas :
+/// éditer, exporter, dossier, supprimer.
 component PackCardView inherits Rectangle {
     in property <PackCard> pack;
     callback edit();
@@ -34,7 +34,7 @@ component PackCardView inherits Rectangle {
     // bandeau : les textures, ou l'icône du pack
     Rectangle {
         y: 0;
-        height: 84px;
+        height: 64px;
         background: #1C2335;
         if root.pack.previews.length > 0: HorizontalLayout {
             x: 14px;
@@ -79,45 +79,12 @@ component PackCardView inherits Rectangle {
                 vertical-alignment: center;
             }
         }
-        // actions au survol
-        HorizontalLayout {
-            x: parent.width - self.preferred-width - 8px;
-            y: 8px;
-            height: 32px;
-            spacing: 5px;
-            opacity: root.survol ? 1 : 0;
-            animate opacity { duration: Theme.normal; }
-            IconButton {
-                width: 32px;
-                height: 32px;
-                icon: "\u{E896}";
-                tooltip: Tr.t("Pack_Exporter");
-                clicked => { root.export(); }
-            }
-            IconButton {
-                width: 32px;
-                height: 32px;
-                icon: "\u{E8B7}";
-                tooltip: Tr.t("Pack_Dossier");
-                clicked => { root.folder(); }
-            }
-            IconButton {
-                width: 32px;
-                height: 32px;
-                icon: "\u{E74D}";
-                fond: Theme.danger;
-                encre: white;
-                bord: #FFFFFF66;
-                tooltip: Tr.t("Pack_Supprimer");
-                clicked => { root.delete(); }
-            }
-        }
     }
     VerticalLayout {
-        y: 84px;
-        height: parent.height - 84px;
-        padding: 14px;
-        padding-top: 12px;
+        y: 64px;
+        height: parent.height - 64px;
+        padding: 12px;
+        padding-top: 10px;
         spacing: 4px;
         Text {
             text: root.pack.name;
@@ -132,40 +99,67 @@ component PackCardView inherits Rectangle {
             color: Theme.text-muted;
             overflow: elide;
         }
-        Rectangle { vertical-stretch: 1; }
         HorizontalLayout {
             spacing: 6px;
-            if root.pack.version != "": VerticalLayout {
-                alignment: center;
-                Etiquette { text: root.pack.version; }
-            }
-            VerticalLayout {
-                alignment: center;
-                Etiquette { text: root.pack.count; couleur: Theme.toggle-on; }
-            }
-            Rectangle { horizontal-stretch: 1; }
+            alignment: start;
+            if root.pack.version != "": Etiquette { text: root.pack.version; }
+            Etiquette { text: root.pack.count; couleur: Theme.toggle-on; }
+        }
+        Rectangle { vertical-stretch: 1; }
+        // Éditer, puis exporter, dossier et supprimer : toujours visibles (au survol, ils
+        // disparaissaient dès que la souris passait dessus)
+        HorizontalLayout {
+            height: 30px;
+            spacing: 5px;
             Rectangle {
-                height: 30px;
-                width: editer.preferred-width + 24px;
+                horizontal-stretch: 1;
                 border-radius: 6px;
-                background: root.survol ? Theme.fill : Theme.glass-strong;
+                background: editer-zone.pressed ? Theme.fill.darker(0.1) : root.survol || editer-zone.has-hover ? Theme.fill : Theme.glass-strong;
                 animate background { duration: Theme.normal; }
-                editer := HorizontalLayout {
+                HorizontalLayout {
                     alignment: center;
                     spacing: 6px;
                     Icon {
                         text: "\u{E70F}";
                         font-size: 11px;
-                        color: root.survol ? Theme.on-fill : Theme.navy;
+                        color: root.survol || editer-zone.has-hover ? Theme.on-fill : Theme.navy;
                     }
                     Text {
                         text: Tr.t("Pack_Editer");
                         font-size: 12.5px;
                         font-weight: 600;
-                        color: root.survol ? Theme.on-fill : Theme.navy;
+                        color: root.survol || editer-zone.has-hover ? Theme.on-fill : Theme.navy;
                         vertical-alignment: center;
                     }
                 }
+                editer-zone := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.edit(); }
+                }
+            }
+            IconButton {
+                width: 30px;
+                height: 30px;
+                icon-size: 12px;
+                icon: "\u{E896}";
+                tooltip: Tr.t("Pack_Exporter");
+                clicked => { root.export(); }
+            }
+            IconButton {
+                width: 30px;
+                height: 30px;
+                icon-size: 12px;
+                icon: "\u{E8B7}";
+                tooltip: Tr.t("Pack_Dossier");
+                clicked => { root.folder(); }
+            }
+            IconButton {
+                width: 30px;
+                height: 30px;
+                icon-size: 12px;
+                icon: "\u{E74D}";
+                tooltip: Tr.t("Pack_Supprimer");
+                clicked => { root.delete(); }
             }
         }
     }
