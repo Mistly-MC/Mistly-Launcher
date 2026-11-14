@@ -48,6 +48,17 @@ pub fn installer(app: &Rc<App>) {
         rafraichir(&a);
     });
     c(app).on_copy(|id| copier(&journal::texte(id as u64)));
+    // les lignes sélectionnées : celles affichées (filtre et recherche compris)
+    let a = app.clone();
+    c(app).on_copy_lines(move |id, premiere, derniere| {
+        let panneaux = c(&a).get_panes();
+        let Some(panneau) = panneaux.iter().find(|p| p.id == id) else { return };
+        let fin = (derniere.max(0) as usize).min(panneau.lines.row_count().saturating_sub(1));
+        let texte: Vec<String> = (premiere.max(0) as usize..=fin).filter_map(|i| panneau.lines.row_data(i)).map(|l| l.text.to_string()).collect();
+        if !texte.is_empty() {
+            copier(&texte.join("\r\n"));
+        }
+    });
     c(app).on_open_folder(|| {
         let d = journal::dossier();
         let _ = std::fs::create_dir_all(&d);

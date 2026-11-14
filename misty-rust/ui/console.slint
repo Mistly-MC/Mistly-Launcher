@@ -46,6 +46,8 @@ export global ConsoleState {
     callback filter-changed();
     callback open-folder();
     callback copy(int);
+    /// Copier les lignes affichées de first à last (comprises) d'un panneau
+    callback copy-lines(int, int, int);
     callback send-report(int);
     callback kill(int);
     callback close-pane(int);
@@ -82,6 +84,8 @@ global CC {
     out property <color> misty: d ? #7FB2FF : #2F6FD6;
     out property <color> succes: d ? #9FE8B8 : #13883D;
     out property <color> bleu: d ? #8FB8FF : #2F6FD6;
+    /// lignes sélectionnées
+    out property <color> selection: d ? #3B82F633 : #2F6FD622;
 }
 
 /// Bouton de la console (texte et/ou icône).
@@ -181,8 +185,31 @@ component PanneauLogs inherits Rectangle {
     property <bool> agrandi: ConsoleState.focused == root.index;
     /// panneau étroit (4 ou 6 parties) : boutons sans texte
     property <bool> compact: root.width < 620px;
+    /// lignes sélectionnées (ancre : là où le clic a commencé), -1 : aucune
+    property <int> ancre: -1;
+    property <int> fin: -1;
+    property <int> sel-debut: min(root.ancre, root.fin);
+    property <int> sel-fin: max(root.ancre, root.fin);
+    property <bool> a-selection: root.ancre >= 0 && root.fin >= 0;
+    // filtre ou recherche changés : les numéros de ligne aussi, la sélection s'en va
+    property <int> filtre: ConsoleState.filter;
+    property <string> recherche: ConsoleState.search;
+    changed filtre => { root.deselectionner(); }
+    changed recherche => { root.deselectionner(); }
+    function deselectionner() {
+        root.ancre = -1;
+        root.fin = -1;
+    }
+    /// Copier : la sélection, sinon tout le journal
+    function copier() {
+        if (root.a-selection) {
+            ConsoleState.copy-lines(root.p.id, root.sel-debut, root.sel-fin);
+        } else {
+            ConsoleState.copy(root.p.id);
+        }
+    }
 
-    border-radius: 14px;
+    border-radius: 8px;
     background: CC.zone;
     border-width: 1px;
     border-color: root.p.crashed ? #FF5A6E66 : CC.bord;
@@ -269,7 +296,8 @@ component PanneauLogs inherits Rectangle {
                         BoutonConsole {
                             taille: 30px;
                             icon: "\u{E8C8}";
-                            clicked => { ConsoleState.copy(root.p.id); }
+                            text: root.a-selection && !root.compact ? Tr.t("Console_CopierSelection") : "";
+                            clicked => { root.copier(); }
                         }
                     }
                     VerticalLayout {
@@ -320,13 +348,54 @@ component PanneauLogs inherits Rectangle {
         // ── lignes ──
         Rectangle {
             vertical-stretch: 1;
+            clavier := FocusScope {
+                key-pressed(e) => {
+                    if (e.modifiers.control && (e.text == "c" || e.text == "C")) {
+                        root.copier();
+                        return accept;
+                    }
+                    if (e.modifiers.control && (e.text == "a" || e.text == "A") && root.p.lines.length > 0) {
+                        root.ancre = 0;
+                        root.fin = root.p.lines.length - 1;
+                        return accept;
+                    }
+                    if (e.text == Key.Escape && root.a-selection) {
+                        root.deselectionner();
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
             liste := ListView {
                 x: 6px;
                 y: 4px;
                 width: parent.width - 10px;
                 height: parent.height - 8px;
-                for l in root.p.lines: Rectangle {
+                // clic : une ligne ; glisser ou Maj+clic : plusieurs ; Ctrl+C copie, Ctrl+A tout
+                for l[i] in root.p.lines: Rectangle {
                     height: root.pas;
+                    border-radius: 3px;
+                    background: root.a-selection && i >= root.sel-debut && i <= root.sel-fin ? CC.selection : transparent;
+                    TouchArea {
+                        mouse-cursor: text;
+                        pointer-event(e) => {
+                            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                                if (e.modifiers.shift && root.ancre >= 0) {
+                                    root.fin = i;
+                                } else {
+                                    root.ancre = i;
+                                    root.fin = i;
+                                }
+                                clavier.focus();
+                            }
+                        }
+                        // le glisser reste à la ligne où il a commencé : la ligne visée se déduit de la hauteur
+                        moved => {
+                            if (self.pressed) {
+                                root.fin = clamp(i + floor(self.mouse-y / root.pas), 0, root.p.lines.length - 1);
+                            }
+                        }
+                    }
                     Text {
                         x: 8px;
                         width: parent.width - 16px;
