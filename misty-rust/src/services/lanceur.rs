@@ -163,7 +163,7 @@ pub fn marquer_fenetre(hwnd: isize) {
         // l'identifiant d'abord : sans lui, Windows ignore les propriétés de relance
         let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_ID, AUMID);
         let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_RelaunchCommand, &format!("\"{lanceur}\""));
-        let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_RelaunchDisplayNameResource, "Misty");
+        let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_RelaunchDisplayNameResource, "Mistly");
         let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_RelaunchIconResource, &format!("{lanceur},0"));
     }
 }

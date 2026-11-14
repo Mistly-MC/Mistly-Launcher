@@ -517,7 +517,7 @@ pub fn pseudo_actuel(app: &App) -> String {
         .get(i.max(0) as usize)
         .filter(|p| !p.is_empty())
         .cloned()
-        .unwrap_or_else(|| "Misty".into())
+        .unwrap_or_else(|| "Mistly".into())
 }
 
 /// Tête du skin (mc-heads.net). Si le téléchargement échoue, le bloc d'herbe reste visible.
@@ -953,7 +953,7 @@ async fn jouer(app: &Rc<App>) {
     h(app).set_selectors_enabled(false);
     let nom = match &instance {
         Some(i) => i.nom.clone(),
-        None if misty => format!("Misty {version}"),
+        None if misty => format!("Mistly {version}"),
         None => format!("{version} {mode}"),
     };
     afficher_progression(app, 0.0, &loc::tf("Home_Preparation", &[&nom]));
@@ -1018,7 +1018,7 @@ async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install
 
     let titre = match &instance {
         Some(i) => format!("{} · {version} {mode}", i.nom),
-        None if misty => format!("Misty {version} · Misty Client"),
+        None if misty => format!("Mistly {version} · Mistly Client"),
         None => format!("Minecraft {version} · {mode}"),
     };
     // Misty Client : posé dans les mods du profil s'il le supporte, retiré sinon (toujours posé

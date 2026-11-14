@@ -395,7 +395,7 @@ fn calculer_depannage(app: &Rc<App>) {
 fn infos_debug() -> String {
     let theme = ["brume", "nuit", "systeme"].get(settings::theme() as usize).copied().unwrap_or("?");
     [
-        format!("Misty {}", app_info::VERSION),
+        format!("Mistly {}", app_info::VERSION),
         system_info::version_windows(),
         format!("RAM : {} Mo (allouee au jeu : {} Mo)", system_info::ram_totale_mo(), settings::ram_mo()),
         format!("Langue : {}", loc::code()),

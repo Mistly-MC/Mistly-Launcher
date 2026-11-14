@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="https://misty-launcher.online/assets/icone.png" alt="Misty" width="110" />
+<img src="https://misty-launcher.online/assets/icone.png" alt="Mistly" width="110" />
 
-# Misty Launcher
+# Mistly Launcher
 
 **The Minecraft launcher, light as the mist.**
 
@@ -18,7 +18,7 @@ Written in Rust with a [Slint](https://slint.dev) interface: a single `Misty.exe
 
 [**Download**](https://misty-launcher.online/) · [**Docs**](https://misty-launcher.online/docs) · [**Patch notes**](https://misty-launcher.online/patch-notes) · [**Releases**](https://github.com/Misty-MC/Misty-Launcher/releases) · [**Website source**](https://github.com/Misty-MC/Misty-Web)
 
-<img src="https://raw.githubusercontent.com/Misty-MC/Misty-Web/main/public/assets/screens/en/home.png" alt="Misty home screen" width="800" />
+<img src="https://raw.githubusercontent.com/Misty-MC/Misty-Web/main/public/assets/screens/en/home.png" alt="Mistly home screen" width="800" />
 
 <table>
   <tr>
@@ -42,7 +42,7 @@ Written in Rust with a [Slint](https://slint.dev) interface: a single `Misty.exe
 - **Modrinth and CurseForge content**: search and install mods, resource packs, datapacks and shaders filtered by the profile's version and loader, with required dependencies. Files added by hand are identified by hash (Modrinth) or fingerprint (CurseForge)
 - **Modpacks** (`.mrpack` and CurseForge): one click creates a ready-to-play profile
 - **Mod loaders**: Forge, NeoForge, Fabric, Quilt, OptiFine and LiteLoader
-- **Misty Client in game** (Fabric 26.3 profiles): Misty main menu, HUD you can arrange (FPS, CPS, keystrokes, coordinates…), the Misty cloud next to Misty players in the player list and the chat, Misty cape and elytra
+- **Mistly Client in game** (Fabric 26.3 profiles): Mistly main menu, HUD you can arrange (FPS, CPS, keystrokes, coordinates…), the Mistly cloud next to Mistly players in the player list and the chat, Mistly cape and elytra
 - **Skins and capes**: 3D preview (walk, elytra, front / side / back), cape switching, local cache that survives Mojang's rate limit
 - **Texture pack editor** (experimental): drawing tools, recent colors, pack icon, export, live reload from an external editor
 - **Accounts**: several Microsoft accounts and offline accounts
@@ -54,7 +54,7 @@ Written in Rust with a [Slint](https://slint.dev) interface: a single `Misty.exe
 
 Download `Misty-Setup-<version>.exe` from the [latest release](https://github.com/Misty-MC/Misty-Launcher/releases/latest) and run it.
 
-- No admin rights needed: Misty installs into `%LOCALAPPDATA%\Programs\Misty`.
+- No admin rights needed: Mistly installs into `%LOCALAPPDATA%\Programs\Misty`.
 - Nothing else to install: Java is downloaded automatically when the game needs it.
 - **Portable version**: download the zip, extract it and run `Misty-<version>/Misty.exe`.
 
@@ -71,14 +71,14 @@ cargo build --release  # final exe: target\release\Misty.exe
 cargo test -- --ignored --nocapture   # uses the Internet and your Misty folder, never launches the game
 ```
 
-**Misty Client** (the in-game mod, git submodule of [Misty-MC/Misty-Client](https://github.com/Misty-MC/Misty-Client), clone with `git clone --recursive` or run `git submodule update --init`): build it first with `gradlew build` in `misty-client` (JDK 25) and the launcher embeds it. Without it, the launcher still builds, just without the in-game features.
+**Mistly Client** (the in-game mod, git submodule of [Misty-MC/Misty-Client](https://github.com/Misty-MC/Misty-Client), clone with `git clone --recursive` or run `git submodule update --init`): build it first with `gradlew build` in `misty-client` (JDK 25) and the launcher embeds it. Without it, the launcher still builds, just without the in-game features.
 
 **CurseForge API key**: CurseForge requires a personal (free) key from [console.curseforge.com](https://console.curseforge.com). Put it in `misty-rust/curseforge.key` (git-ignored) or in the `MISTY_CURSEFORGE_KEY` environment variable; it is embedded in the exe at build time. Without it, Modrinth still works.
 
 ## 🚀 Publishing a release
 
 1. Bump `VERSION` in [misty-rust/src/services/app_info.rs](misty-rust/src/services/app_info.rs) and `version` in [misty-rust/Cargo.toml](misty-rust/Cargo.toml), then add the entry to [CHANGELOG.md](CHANGELOG.md) (embedded in the exe, shown in "Patch notes").
-2. Run the release script (needs a JDK 25 for Misty Client and [Inno Setup 6](https://jrsoftware.org/isdl.php): `winget install JRSoftware.InnoSetup`):
+2. Run the release script (needs a JDK 25 for Mistly Client and [Inno Setup 6](https://jrsoftware.org/isdl.php): `winget install JRSoftware.InnoSetup`):
 
    ```powershell
    powershell -ExecutionPolicy Bypass -File installer\build.ps1
@@ -95,9 +95,9 @@ cargo test -- --ignored --nocapture   # uses the Internet and your Misty folder,
 ```
 CHANGELOG.md           patch notes (embedded in the exe)
 installer/             release script (build.ps1) + Inno Setup installer (Misty.iss)
-misty-client/          Misty Client (submodule → Misty-MC/Misty-Client): the in-game Fabric mod, embedded in the exe
+misty-client/          Mistly Client (submodule → Misty-MC/Misty-Client): the in-game Fabric mod, embedded in the exe
 misty-rust/
-├── build.rs           embeds the icon, CurseForge key, changelog and Misty Client
+├── build.rs           embeds the icon, CurseForge key, changelog and Mistly Client
 ├── misty-ui/          crate that compiles the Slint interface (kept apart so Rust edits rebuild fast)
 ├── assets/            icon, Silkscreen pixel font (OFL), flags
 ├── lang/              translations (en, fr, es, it, ru), embedded in the exe
@@ -122,7 +122,7 @@ The Silkscreen font is distributed under the SIL Open Font License.
 
 <div align="center">
 <sub>
-Misty is an independent launcher and is not affiliated with Mojang Studios or Microsoft.<br/>
+Mistly is an independent launcher and is not affiliated with Mojang Studios or Microsoft.<br/>
 No Minecraft files are shipped: the game is downloaded from Mojang's official servers on first launch.
 </sub>
 </div>

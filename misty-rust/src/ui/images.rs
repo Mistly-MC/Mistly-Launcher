@@ -29,7 +29,7 @@ pub fn decoder(octets: &[u8], max: u32) -> Option<SharedPixelBuffer<Rgba8Pixel>>
 }
 
 /// Logo de l'écran de chargement, comme celui de Misty Client (MistyLoading.java) : le nuage en
-/// pixel art (20 × 13, chaque pixel en fait 2) puis « MISTY » dans une police 5 × 7 avec son
+/// pixel art (20 × 13, chaque pixel en fait 2) puis « MISTLY » dans une police 5 × 7 avec son
 /// ombre. Une unité = un pixel du logo : 40 × 40, affiché agrandi sans lissage.
 pub fn logo_chargement() -> Image {
     const NUAGE: [&str; 13] = [
@@ -47,11 +47,13 @@ pub fn logo_chargement() -> Image {
         "..########..######..",
         "....................",
     ];
-    const LETTRES: [&str; 5] = [
+    // M I S T L Y
+    const LETTRES: [&str; 6] = [
         "10001110111010110001100011000110001",
         "11111001000010000100001000010011111",
         "01111100001000001110000010000111110",
         "11111001000010000100001000010000100",
+        "10000100001000010000100001000011111",
         "10001100010101000100001000010000100",
     ];
     let (blanc, ligne, ardoise) = (image::Rgba([255, 255, 255, 255]), image::Rgba([0xDC, 0xE6, 0xFF, 255]), image::Rgba([0x3C, 0x54, 0x86, 255]));
@@ -66,13 +68,13 @@ pub fn logo_chargement() -> Image {
             }
         }
     }
-    // nom centré sous le nuage (33 unités de large), 6 unités plus bas ; ombre puis pixel, dans
-    // le même ordre que le client
-    let (x0, y0) = (3u32, 26 + 6);
+    // nom centré sous le nuage : 6 lettres de 5 unités, 1 d'écart (35 de large, plus l'ombre),
+    // 6 unités plus bas ; ombre puis pixel, dans le même ordre que le client
+    let (x0, y0) = (2u32, 26 + 6);
     for (l, lettre) in LETTRES.iter().enumerate() {
         for (i, c) in lettre.chars().enumerate() {
             if c == '1' {
-                let (x, y) = (x0 + l as u32 * 7 + i as u32 % 5, y0 + i as u32 / 5);
+                let (x, y) = (x0 + l as u32 * 6 + i as u32 % 5, y0 + i as u32 / 5);
                 img.put_pixel(x + 1, y + 1, ardoise);
                 img.put_pixel(x, y, blanc);
             }

@@ -154,7 +154,7 @@ pub fn nouvelle_partie(titre: &str) -> u64 {
         id
     };
     info(&format!("Lancement : {titre}"));
-    ajouter(id, &format!("[{}] [Misty] {}", heure(), super::loc::tf("Console_Lancement", &[&titre])), MISTY);
+    ajouter(id, &format!("[{}] [Mistly] {}", heure(), super::loc::tf("Console_Lancement", &[&titre])), MISTY);
     id
 }
 
@@ -257,7 +257,7 @@ pub fn fin(id: u64, code: Option<i32>) {
         Some(0) | None => super::loc::t("Console_Ferme"),
         Some(n) => super::loc::tf("Console_Plantage", &[&n.to_string()]),
     };
-    ajouter(id, &format!("[{}] [Misty] {texte}", heure()), if matches!(code, Some(n) if n != 0) { ERREUR } else { MISTY });
+    ajouter(id, &format!("[{}] [Mistly] {texte}", heure()), if matches!(code, Some(n) if n != 0) { ERREUR } else { MISTY });
     avec(id, |p| p.fichier = None);
     info(&format!("Fin : {titre} (code {})", code.map(|n| n.to_string()).unwrap_or_else(|| "?".into())));
 }

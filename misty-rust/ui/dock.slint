@@ -103,7 +103,7 @@ component TuileChoix inherits Rectangle {
             spacing: 2px;
             Text {
                 text: HomeState.horizon-selected ? "Horizon " + HomeState.horizon-build
-                    : HomeState.misty-selected && HomeState.quick ? "Misty Client " + HomeState.misty-mc
+                    : HomeState.misty-selected && HomeState.quick ? "Mistly Client " + HomeState.misty-mc
                     : HomeState.quick ? "Minecraft " + HomeState.card-version
                     : (HomeState.profile-index >= 0 && HomeState.profile-index < HomeState.profiles.length ? HomeState.profiles[HomeState.profile-index] : HomeState.card-version);
                 font-size: 15px;

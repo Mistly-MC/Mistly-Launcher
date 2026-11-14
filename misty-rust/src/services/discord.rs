@@ -156,7 +156,7 @@ fn boucle(rx: mpsc::Receiver<Message>) {
                     (Statut::Launcher(_), j) => j.clone(),
                 };
                 let petite = compte.as_ref().map(|(pseudo, uuid)| (tete(uuid.as_deref().unwrap_or(pseudo)), pseudo.clone()));
-                let texte_logo = format!("Misty {}", app_info::VERSION);
+                let texte_logo = format!("Mistly {}", app_info::VERSION);
                 let bouton = loc::t("Discord_Bouton");
                 let mut images = activity::Assets::new().large_image(LOGO).large_text(&texte_logo);
                 if let Some((url, pseudo)) = &petite {

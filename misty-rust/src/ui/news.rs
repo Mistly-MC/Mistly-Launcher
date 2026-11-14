@@ -117,7 +117,7 @@ fn depuis_release(doc: &serde_json::Value) -> Option<News> {
     let nom = doc["name"].as_str().map(str::trim).filter(|n| !n.is_empty() && *n != tag);
     let titre = match nom {
         Some(n) => n.to_string(),
-        None => format!("Misty {tag}"),
+        None => format!("Mistly {tag}"),
     };
     let date = doc["published_at"]
         .as_str()
@@ -144,7 +144,7 @@ fn depuis_notes_integrees() -> News {
             if !titre.is_empty() {
                 break;
             }
-            titre = format!("Misty {}", t.trim());
+            titre = format!("Mistly {}", t.trim());
         } else if texte.is_empty() && !titre.is_empty() {
             texte = premiere_ligne(ligne);
         }

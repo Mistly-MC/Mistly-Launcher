@@ -71,7 +71,7 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         ("user_properties", "{}".into()),
         ("version_type", v.json.get("type").and_then(Value::as_str).unwrap_or("release").to_string()),
         ("natives_directory", natives.to_string_lossy().to_string()),
-        ("launcher_name", "Misty".into()),
+        ("launcher_name", "Mistly".into()),
         ("launcher_version", app_info::VERSION.into()),
         ("classpath", classpath.join(";")),
         ("classpath_separator", ";".into()),

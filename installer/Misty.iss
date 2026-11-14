@@ -29,9 +29,9 @@
 [Setup]
 ; Ne jamais changer cet ID : c'est lui qui relie les versions entre elles (et update.rs : CLE_DESINSTALLATION)
 AppId={{8F4C2A61-3B7E-4D19-9A55-6C1E0F2B7D43}
-AppName=Misty Launcher
+AppName=Mistly Launcher
 AppVersion={#Version}
-AppVerName=Misty Launcher {#Version}
+AppVerName=Mistly Launcher {#Version}
 AppPublisher=xTheoxreborn
 AppPublisherURL=https://github.com/Misty-MC/Misty-Launcher
 AppSupportURL=https://github.com/Misty-MC/Misty-Launcher/issues
@@ -48,7 +48,7 @@ OutputDir={#Sortie}
 OutputBaseFilename=Misty-Setup-{#Version}
 SetupIconFile=..\misty-rust\assets\icone.ico
 UninstallDisplayIcon={app}\{#Dossier}\Misty.exe
-UninstallDisplayName=Misty
+UninstallDisplayName=Mistly
 UninstallFilesDir={app}\uninstall
 LicenseFile=..\LICENSE.txt
 Compression=lzma2/ultra64
@@ -62,10 +62,10 @@ Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 Name: "en"; MessagesFile: "compiler:Default.isl"
 
 [CustomMessages]
-fr.SupprimerDonnees=Supprimer aussi les données de Misty (versions de Minecraft, profils, mondes, packs de textures) ?%n%nChoisis « Non » pour les garder en cas de réinstallation.
-fr.Lancer=Lancer Misty
-en.SupprimerDonnees=Also delete Misty's data (Minecraft versions, profiles, worlds, texture packs)?%n%nChoose "No" to keep them for a later reinstall.
-en.Lancer=Launch Misty
+fr.SupprimerDonnees=Supprimer aussi les données de Mistly (versions de Minecraft, profils, mondes, packs de textures) ?%n%nChoisis « Non » pour les garder en cas de réinstallation.
+fr.Lancer=Lancer Mistly
+en.SupprimerDonnees=Also delete Mistly's data (Minecraft versions, profiles, worlds, texture packs)?%n%nChoose "No" to keep them for a later reinstall.
+en.Lancer=Launch Mistly
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"

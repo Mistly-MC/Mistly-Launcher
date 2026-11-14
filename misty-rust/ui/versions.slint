@@ -356,7 +356,7 @@ component PuceMisty inherits Rectangle {
             vertical-alignment: center;
         }
         Text {
-            text: "MISTY " + root.version;
+            text: "MISTLY " + root.version;
             font-family: Theme.ui-font;
             font-size: 12px;
             color: root.checked ? white : Theme.navy;
@@ -412,7 +412,7 @@ component PanneauMisty inherits VerticalLayout {
             HorizontalLayout {
                 alignment: start;
                 OutlinedText {
-                    text: "MISTY";
+                    text: "MISTLY";
                     font-size: 44px;
                     thickness: 4px;
                     depth: 5px;
@@ -427,7 +427,7 @@ component PanneauMisty inherits VerticalLayout {
                 color: white;
             }
             Text {
-                text: "Minecraft " + HomeState.misty-mc + " · Fabric · Misty Client";
+                text: "Minecraft " + HomeState.misty-mc + " · Fabric · Mistly Client";
                 font-size: 13px;
                 color: #CFDAF0;
             }
@@ -828,7 +828,7 @@ export component VersionPicker inherits Rectangle {
                     }
                 }
                 if HomeState.misty-available: Puce {
-                    text: "Misty Client";
+                    text: "Mistly Client";
                     point: #9CC0FF;
                     checked: HomeState.picker-misty;
                     clicked => {

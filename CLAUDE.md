@@ -24,14 +24,14 @@ cargo run                   # lancer le launcher
 - Textes de l'interface : jamais en dur. Ajouter la clé dans **les 6 fichiers** `misty-rust/lang/*.json` (en, fr, es, it, pt, ru), puis l'utiliser avec `loc::t("Cle")`.
 - Nouvelle clé dans `data.txt` (réglages) : incrémenter `DATA_VERSION` dans `src/services/app_info.rs` et l'ajouter dans `src/services/settings.rs`.
 - Ne pas modifier `GITHUB_REPO` (`app_info.rs`) ni l'`AppId` de `installer/Misty.iss` : les mises à jour automatiques et l'installateur en dépendent.
-- Le nom affiché est « Misty Launcher », mais l'exe (`Misty.exe`) et les dossiers de données (`%LOCALAPPDATA%\Misty`, `%LOCALAPPDATA%\Programs\Misty`) gardent le nom « Misty » : les renommer casserait les installations existantes.
+- Le nom affiché est « Mistly Launcher » (et « Mistly Client » pour le mod ; l'app s'appelait Misty), mais l'exe (`Misty.exe`) et les dossiers de données (`%LOCALAPPDATA%\Misty`, `%LOCALAPPDATA%\Programs\Misty`) gardent le nom « Misty » : les renommer casserait les installations existantes. Il en va de même pour l'`AppId`, l'AUMID, les noms des raccourcis, le domaine `misty-launcher.online`, les repos `Misty-MC/*` et le nom de la licence (« Misty License 1.0 »).
 - `misty-rust/curseforge.key` est privé et ignoré par git : ne jamais le commiter.
 
 ## Commits et branches
 
 - Branches : `main` (publiée), `EnderMythex` et `xtheox` (branches perso). Travailler sur sa branche, PR vers `main`. Demander avant tout push ou merge sur `main`.
 - Message : sujet en anglais à l'impératif, sans point final (`Add …`, `Fix …`, `Keep …`), corps optionnel qui explique pourquoi. Terminer par `Co-Authored-By: Claude <noreply@anthropic.com>` quand Claude a écrit le changement.
-- Tout changement visible par l'utilisateur va dans `CHANGELOG.md`, en anglais, sous la version en cours (`## <version>` puis `### Launcher` ou `### Misty Client (in game)`). Ce fichier est intégré dans l'exe et affiché dans « Patch notes ».
+- Tout changement visible par l'utilisateur va dans `CHANGELOG.md`, en anglais, sous la version en cours (`## <version>` puis `### Launcher` ou `### Mistly Client (in game)`). Ce fichier est intégré dans l'exe et affiché dans « Patch notes ».
 - Mise à jour du mod : `git submodule update --remote misty-client`, puis `git add misty-client` et un commit dédié.
 - Version : `VERSION` dans `app_info.rs`, `version` dans `Cargo.toml` et le tag GitHub (sans `v`) doivent être identiques, sinon le launcher propose la mise à jour en boucle.
 

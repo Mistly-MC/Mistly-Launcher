@@ -1,6 +1,9 @@
 # Changelog
 ## 0.3.8-beta.3
 ### Launcher
+- Misty is now called Mistly: the new name shows everywhere in the launcher (title, logo, loading screen, texts in every language) and in the installer. Your data, profiles and shortcuts stay where they were, and updates keep working
+- New: select log lines in the console and copy them. Click a line, drag or Shift+click to select several, then press Ctrl+C or the copy button; Ctrl+A selects everything
+- Fixed: on some setups the bottom bar (profile, Play, account) was cut off at the bottom of the window
 - New layout in tiles, all aligned on one grid with the same gap everywhere: the Misty logo, a top bar with the tabs (Play, Skin, Profiles, Release notes, Texture packs, Friends), a column with Quick play and each of your profiles (one click picks it), the page in the middle (on Play, the Misty landscape in a large frame with the MISTY logo, and the latest news in a small pill). A barely visible mist drifts over the landscape, and a launch bar at the bottom with Settings, the version or profile, a Play tile in Misty blue, your account with a white cloud when online or a grey one when offline, and your avatar. The console has its own tile at the top right
 - First launch: the screen is split in two to choose how you play, Premium (sign in with Microsoft) or Offline (just a username)
 - The version picker and the settings open in the middle of the window instead of over it: the page clears and the version posters fall in one after another. Clicking the version tile again closes the picker
@@ -41,7 +44,8 @@
 - New language: Portuguese (Portugal), with its flag in the language selector
 - Fixed: Misty pinned to the taskbar (or its Start menu and desktop shortcuts) no longer stops working after an update. Shortcuts now point to a launcher whose path never changes (`Misty.exe` next to the version folders), which starts the newest version. Existing shortcuts and pins are redirected to it automatically, and the Misty window and its pin share one taskbar button
 
-### Misty Client (in game)
+### Mistly Client (in game)
+- Misty Client is now called Mistly Client: the main menu, loading screen, settings, HUD editor and every text in game show the new name. Your settings and cosmetics are kept
 - New Reach module: the distance of the last player you hit, in blocks (from your eyes to their hitbox). The farther the hit, the redder (green up to 2 blocks, yellow around 2.6, red at 3); the colour can be turned off in the module settings
 - The ping module changes colour with your ping: green under 80 ms, yellow under 150 ms, orange under 250 ms, red above. The colour can be turned off
 - The ping module shows your ping right away when you join a server and refreshes it every second: Misty now measures it itself instead of waiting for the player list, which the server only updates every few seconds
