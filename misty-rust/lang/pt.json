@@ -817,5 +817,6 @@
   "Pack_DistantAucunFichier": "Este pack não tem nenhum ficheiro para transferir.",
   "Console_CopierSelection": "Copiar seleção",
   "Hz_BuildIntrouvable": "A build {0} não foi encontrada no GitHub",
-  "Home_TelechargementClient": "A transferir o Mistly Client…"
+  "Home_TelechargementClient": "A transferir o Mistly Client…",
+  "Console_Arretee": "O jogo foi parado."
 }

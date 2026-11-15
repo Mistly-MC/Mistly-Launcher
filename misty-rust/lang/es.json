@@ -817,5 +817,6 @@
   "Pack_DistantAucunFichier": "Este pack no tiene ningún archivo para descargar.",
   "Console_CopierSelection": "Copiar selección",
   "Hz_BuildIntrouvable": "No se encontró la build {0} en GitHub",
-  "Home_TelechargementClient": "Descargando Mistly Client…"
+  "Home_TelechargementClient": "Descargando Mistly Client…",
+  "Console_Arretee": "El juego se ha detenido."
 }

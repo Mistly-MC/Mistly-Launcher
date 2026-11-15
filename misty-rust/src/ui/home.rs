@@ -1089,7 +1089,8 @@ async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install
         journal::fin(partie, code);
         crate::services::partage::apres_partie(&dossier_partie);
         let etat = journal::etat(partie).unwrap_or_default();
-        let plante = matches!(code, Some(n) if n != 0);
+        // Stop de la console, Alt+F4 : pas un plantage
+        let plante = etat.plantee();
         telemetry::evenement(
             "game_end",
             serde_json::json!({ "minecraft": v_tel, "loader": m_tel, "code": code, "seconds": etat.duree.as_secs(), "crashed": plante, "errors": etat.erreurs }),
@@ -1447,7 +1448,7 @@ async fn horizon_jouer(app: &Rc<App>) {
         s.set_selectors_enabled(true);
         let fin = app.bloquant(move || horizon::jouer(partie, &b, &ex, session.as_ref(), &p)).await;
         let etat = journal::etat(partie).unwrap_or_default();
-        let plante = matches!(etat.code, Some(n) if n != 0);
+        let plante = etat.plantee();
         telemetry::evenement(
             "game_end",
             serde_json::json!({ "minecraft": exigences.minecraft, "loader": "horizon", "build": tag, "code": etat.code, "seconds": etat.duree.as_secs(), "crashed": plante, "errors": etat.erreurs }),

@@ -817,5 +817,6 @@
   "Pack_DistantAucunFichier": "У этого пака нет файла для загрузки.",
   "Console_CopierSelection": "Копировать выделенное",
   "Hz_BuildIntrouvable": "Сборка {0} не найдена на GitHub",
-  "Home_TelechargementClient": "Загрузка Mistly Client…"
+  "Home_TelechargementClient": "Загрузка Mistly Client…",
+  "Console_Arretee": "Игра остановлена."
 }

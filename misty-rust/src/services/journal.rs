@@ -48,6 +48,21 @@ pub struct Etat {
     pub duree: Duration,
     pub avertissements: u64,
     pub erreurs: u64,
+    /// Arrêtée par le joueur (bouton Stop de la console) : le processus est tué, son code de
+    /// sortie n'est pas un plantage
+    pub arretee: bool,
+    /// Le jeu avait commencé à se fermer normalement (« Stopping! » : bouton Quitter, croix de la
+    /// fenêtre, Alt+F4). Un code de sortie non nul ensuite vient de la fermeture, pas d'un plantage.
+    pub fermee: bool,
+}
+
+impl Etat {
+    /// La partie a-t-elle vraiment planté ? Un code de sortie non nul, sauf si le joueur l'a
+    /// arrêtée (Stop) ou fermée lui-même (Alt+F4, la croix) : ces fins-là ne sont pas des
+    /// plantages et ne partent pas dans les rapports.
+    pub fn plantee(&self) -> bool {
+        matches!(self.code, Some(n) if n != 0) && !self.arretee && !self.fermee
+    }
 }
 
 struct Partie {
@@ -180,6 +195,10 @@ pub fn ajouter(id: u64, texte: &str, niveau: i32) {
             let _ = writeln!(f, "{texte}");
         }
         p.etat.total += 1;
+        // Minecraft écrit « Stopping! » quand il commence à se fermer normalement
+        if !p.etat.fermee && niveau != MISTY && texte.ends_with("Stopping!") {
+            p.etat.fermee = true;
+        }
         match niveau {
             AVERT => p.etat.avertissements += 1,
             ERREUR => p.etat.erreurs += 1,
@@ -253,11 +272,15 @@ pub fn fin(id: u64, code: Option<i32>) {
         p.etat.titre.clone()
     })
     .unwrap_or_default();
-    let texte = match code {
-        Some(0) | None => super::loc::t("Console_Ferme"),
-        Some(n) => super::loc::tf("Console_Plantage", &[&n.to_string()]),
+    let etat = etat(id).unwrap_or_default();
+    let texte = if etat.arretee {
+        super::loc::t("Console_Arretee")
+    } else if etat.plantee() {
+        super::loc::tf("Console_Plantage", &[&code.unwrap_or(0).to_string()])
+    } else {
+        super::loc::t("Console_Ferme")
     };
-    ajouter(id, &format!("[{}] [Mistly] {texte}", heure()), if matches!(code, Some(n) if n != 0) { ERREUR } else { MISTY });
+    ajouter(id, &format!("[{}] [Mistly] {texte}", heure()), if etat.plantee() { ERREUR } else { MISTY });
     avec(id, |p| p.fichier = None);
     info(&format!("Fin : {titre} (code {})", code.map(|n| n.to_string()).unwrap_or_else(|| "?".into())));
 }
@@ -311,6 +334,7 @@ pub fn fermer(id: u64) {
 /// Arrête une partie de force (et ses sous-processus).
 pub fn arreter(id: u64) {
     let Some(Some(pid)) = avec(id, |p| p.pid) else { return };
+    avec(id, |p| p.etat.arretee = true);
     avert(&format!("Arrêt forcé du jeu (PID {pid})"));
     #[cfg(windows)]
     {
@@ -442,6 +466,30 @@ fn niveau_texte(ligne: &str, erreurs: bool, precedent: i32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Stop de la console et fermeture normale (Alt+F4, la croix) ne sont pas des plantages.
+    #[test]
+    fn fins_qui_ne_sont_pas_des_plantages() {
+        // une partie en mémoire, sans fichier
+        let id = {
+            let mut c = CONSOLE.lock().unwrap();
+            let id = 1_000_000 + c.prochain;
+            c.parties.push(Partie { etat: Etat { id, en_cours: true, ..Default::default() }, lignes: VecDeque::new(), debut: Instant::now(), fichier: None, pid: None });
+            id
+        };
+        ajouter(id, "[16:25:20] [Render thread/INFO]: Loaded 7 recipes", INFO);
+        assert!(!etat(id).unwrap().fermee);
+        ajouter(id, "[16:25:25] [Render thread/INFO] [net.minecraft.client.Minecraft/]: Stopping!", INFO);
+        fin(id, Some(-1));
+        let e = etat(id).unwrap();
+        assert!(e.fermee && !e.plantee(), "fermée par le joueur, code -1 : pas un plantage");
+
+        let plante = Etat { code: Some(1), ..Default::default() };
+        assert!(plante.plantee());
+        assert!(!Etat { arretee: true, ..plante.clone() }.plantee(), "Stop de la console");
+        assert!(!Etat { code: Some(0), ..Default::default() }.plantee());
+        CONSOLE.lock().unwrap().parties.retain(|p| p.etat.id != id);
+    }
 
     #[test]
     fn evenements_log4j() {
