@@ -4,7 +4,7 @@
 - Mistly Client is no longer built into the launcher: it is downloaded from GitHub (the Misty-Client releases) the first time a game needs it, and each new Mistly Client release reaches you without a launcher update
 - Fixed: joining a server could fail with "Invalid session" when the launcher had stayed open for a long time. The Microsoft session is now renewed before a game starts if it would expire during the game
 - Stopping a game with the console's Stop button, or closing it yourself (Quit, the window's X, Alt+F4), no longer counts as a crash: no crash report is sent and the console says the game was stopped or closed
-- Horizon works like the Minecraft versions: clicking a build selects it and closes the picker, and it is downloaded when you press PLAY, with the progress shown in the PLAY tile (the Done and Play buttons of the Horizon panel are gone)
+- Mistly Client and Horizon work like the Minecraft versions: clicking a version or a build only selects it, and a "Choose …" button at the bottom confirms it. A Horizon build is downloaded when you press PLAY, with the progress shown in the PLAY tile
 - The PLAY tile no longer shifts when the Cancel tile replaces your account during a download
 - The Mistly Client panel of the version picker drops its feature cards, so its buttons stay in view
 - Misty is now called Mistly: the new name shows everywhere in the launcher (title, logo, loading screen, texts in every language) and in the installer. Your data, profiles and shortcuts stay where they were, and updates keep working

@@ -325,9 +325,15 @@ component PuceMisty inherits Rectangle {
 /// Panneau Misty : ce qu'apporte Misty Client, ses versions, et Jouer.
 component PanneauMisty inherits VerticalLayout {
     spacing: 14px;
+    // le bouton du bas ne touche pas le bord (ses coins arrondis restent visibles)
+    padding-bottom: 6px;
     // bannière
     Rectangle {
-        height: 200px;
+        // 200 px, moins si la fenêtre est basse : le bouton Choisir reste visible
+        preferred-height: 200px;
+        min-height: 150px;
+        max-height: 200px;
+        vertical-stretch: 1;
         border-radius: 20px;
         clip: true;
         border-width: 1px;
@@ -407,42 +413,21 @@ component PanneauMisty inherits VerticalLayout {
     }
     Rectangle { vertical-stretch: 1; }
 
-    // bas : info, Jouer
-    HorizontalLayout {
-        spacing: 10px;
-        Text {
-            horizontal-stretch: 1;
-            text: Tr.t("Misty_Info");
-            font-size: 12.5px;
-            color: Theme.text-muted;
-            vertical-alignment: center;
-            wrap: word-wrap;
-        }
-        VerticalLayout {
-            alignment: center;
-            MButton {
-                icon: "\u{E73E}";
-                text: Tr.t("Ver_Valider");
-                clicked => {
-                    HomeState.misty-select(HomeState.misty-mc);
-                    HomeState.picker-open = false;
-                }
-            }
-        }
-        VerticalLayout {
-            alignment: center;
-            MButton {
-                kind: 3;
-                icon: "\u{E768}";
-                text: Tr.t("Misty_Jouer");
-                clicked => { HomeState.misty-play(); }
-            }
+    // bas : Choisir, comme pour les versions (un clic sur une puce la sélectionne seulement)
+    MButton {
+        kind: 1;
+        icon: "\u{E73E}";
+        enabled: HomeState.misty-mc != "";
+        text: Tr.t("Ver_Choisir") + " Mistly " + HomeState.misty-mc;
+        clicked => {
+            HomeState.misty-select(HomeState.misty-mc);
+            HomeState.picker-open = false;
         }
     }
 }
 
-/// Un build d'Horizon, en puce comme les versions : un clic le choisit et ferme le choix. Il est
-/// téléchargé au lancement (JOUER), pas avant.
+/// Un build d'Horizon, en puce comme les versions : un clic le sélectionne (« Choisir » en bas
+/// ferme le choix). Il est téléchargé au lancement (JOUER), pas avant.
 component PuceBuild inherits Rectangle {
     in property <HorizonBuild> b;
     in property <bool> checked;
@@ -496,16 +481,14 @@ component PuceBuild inherits Rectangle {
     zone := TouchArea {
         enabled: !HomeState.horizon-busy;
         mouse-cursor: pointer;
-        clicked => {
-            HomeState.horizon-select(root.b.tag);
-            HomeState.picker-open = false;
-        }
+        clicked => { HomeState.horizon-select(root.b.tag); }
     }
 }
 
 /// Horizon, présenté comme une mise à jour : bannière, builds en puces, puis compte et actions.
 component PanneauHorizon inherits VerticalLayout {
     spacing: 14px;
+    padding-bottom: 6px;
     // bannière (même format que les mises à jour)
     Rectangle {
         height: 200px;
@@ -601,17 +584,9 @@ component PanneauHorizon inherits VerticalLayout {
         wrap: word-wrap;
     }
 
-    // en bas : compte requis, build choisi, actions (comme la ligne des mod loaders)
+    // en bas : supprimer le build (s'il est installé), puis Choisir, comme pour les versions
     HorizontalLayout {
         spacing: 10px;
-        if HomeState.horizon-build != "": VerticalLayout {
-            alignment: center;
-            PixelLabel {
-                text: HomeState.horizon-build;
-                font-size: 11px;
-                color: #F0795A;
-            }
-        }
         if HomeState.horizon-build != "" && HomeState.horizon-build-installed: VerticalLayout {
             alignment: center;
             IconButton {
@@ -624,7 +599,17 @@ component PanneauHorizon inherits VerticalLayout {
                 clicked => { HomeState.horizon-remove(HomeState.horizon-build); }
             }
         }
-        Rectangle { horizontal-stretch: 1; }
+        MButton {
+            horizontal-stretch: 1;
+            kind: 1;
+            icon: "\u{E73E}";
+            enabled: HomeState.horizon-build != "";
+            text: HomeState.horizon-build != "" ? Tr.t("Ver_Choisir") + " Horizon " + HomeState.horizon-build : Tr.t("Hz_ChoisisBuild");
+            clicked => {
+                HomeState.horizon-select(HomeState.horizon-build);
+                HomeState.picker-open = false;
+            }
+        }
     }
 }
 
