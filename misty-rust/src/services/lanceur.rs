@@ -188,14 +188,22 @@ pub fn rediriger_raccourcis() {
     let icone = icone();
 
     let mut dossiers: Vec<PathBuf> = Vec::new();
+    // menu Démarrer et bureau : leurs raccourcis « Misty » prennent le nouveau nom (« Mistly »).
+    // Pas les épingles : renommer leur fichier pourrait les désépingler (elles affichent déjà
+    // « Mistly », voir RelaunchDisplayName).
+    let mut renommables: Vec<PathBuf> = Vec::new();
     if let Some(d) = dirs::data_dir() {
         // %APPDATA%
         let ql = d.join(r"Microsoft\Internet Explorer\Quick Launch");
-        dossiers.extend([d.join(r"Microsoft\Windows\Start Menu\Programs"), ql.join(r"User Pinned\TaskBar"), ql.join(r"User Pinned\StartMenu"), ql]);
+        let menu = d.join(r"Microsoft\Windows\Start Menu\Programs");
+        renommables.push(menu.clone());
+        dossiers.extend([menu, ql.join(r"User Pinned\TaskBar"), ql.join(r"User Pinned\StartMenu"), ql]);
     }
     if let Some(d) = dirs::desktop_dir() {
+        renommables.push(d.clone());
         dossiers.push(d);
     }
+    let mut a_renommer: Vec<PathBuf> = Vec::new();
 
     // SAFETY : COM initialisé sur ce thread pour la durée de la boucle ; chaque objet COM est
     // libéré par son Drop ; les chaînes passées restent valides pendant les appels.
@@ -223,6 +231,9 @@ pub fn rediriger_raccourcis() {
                 if !vise_misty {
                     continue;
                 }
+                if renommables.contains(&dossier) && fichier.file_stem().is_some_and(|n| n.eq_ignore_ascii_case("Misty")) {
+                    a_renommer.push(fichier.clone());
+                }
                 let deja_bon = cible == lanceur_min
                     && lien.cast::<IPropertyStore>().ok().and_then(|m| proprietes::lire(&m, &PKEY_AppUserModel_ID)).is_some_and(|v| v == AUMID);
                 if deja_bon {
@@ -243,6 +254,15 @@ pub fn rediriger_raccourcis() {
         }
         if com {
             CoUninitialize();
+        }
+    }
+    for ancien in a_renommer {
+        let nouveau = ancien.with_file_name("Mistly.lnk");
+        if nouveau.exists() {
+            // déjà là (installateur récent) : l'ancien ferait doublon
+            let _ = std::fs::remove_file(&ancien);
+        } else if std::fs::rename(&ancien, &nouveau).is_ok() {
+            super::journal::info(&format!("Raccourci renommé : {}", nouveau.display()));
         }
     }
 }

@@ -24,7 +24,7 @@ cargo run                   # lancer le launcher
 - Textes de l'interface : jamais en dur. Ajouter la clé dans **les 6 fichiers** `misty-rust/lang/*.json` (en, fr, es, it, pt, ru), puis l'utiliser avec `loc::t("Cle")`.
 - Nouvelle clé dans `data.txt` (réglages) : incrémenter `DATA_VERSION` dans `src/services/app_info.rs` et l'ajouter dans `src/services/settings.rs`.
 - Ne pas modifier `GITHUB_REPO` (`app_info.rs`) ni l'`AppId` de `installer/Misty.iss` : les mises à jour automatiques et l'installateur en dépendent.
-- Le nom affiché est « Mistly Launcher » (et « Mistly Client » pour le mod ; l'app s'appelait Misty), mais l'exe (`Misty.exe`) et les dossiers de données (`%LOCALAPPDATA%\Misty`, `%LOCALAPPDATA%\Programs\Misty`) gardent le nom « Misty » : les renommer casserait les installations existantes. Il en va de même pour l'`AppId`, l'AUMID, les noms des raccourcis, le domaine `misty-launcher.online`, les repos `Misty-MC/*` et le nom de la licence (« Misty License 1.0 »).
+- Le nom affiché est « Mistly Launcher » (et « Mistly Client » pour le mod ; l'app s'appelait Misty), mais l'exe (`Misty.exe`) et les dossiers de données (`%LOCALAPPDATA%\Misty`, `%LOCALAPPDATA%\Programs\Misty`) gardent le nom « Misty » : les renommer casserait les installations existantes. Les raccourcis (menu Démarrer, bureau) et les infos de l'exe (`build.rs`) affichent « Mistly ». Gardent « Misty » : l'`AppId`, l'AUMID, le domaine `misty-launcher.online`, les repos `Misty-MC/*` et le nom de la licence (« Misty License 1.0 »).
 - `misty-rust/curseforge.key` est privé et ignoré par git : ne jamais le commiter.
 
 ## Commits et branches

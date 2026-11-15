@@ -73,6 +73,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [InstallDelete]
 ; Versions précédentes (installées par le setup ou par la mise à jour automatique)
 Type: filesandordirs; Name: "{app}\Misty-*"
+; Raccourcis d'avant le changement de nom (Misty → Mistly)
+Type: files; Name: "{autoprograms}\Misty.lnk"
+Type: files; Name: "{autodesktop}\Misty.lnk"
 
 [Files]
 Source: "{#Source}\*"; DestDir: "{app}\{#Dossier}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -80,8 +83,8 @@ Source: "{#Source}\Misty.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; AppUserModelID : le même que Misty (lanceur.rs : AUMID), pour un seul bouton dans la barre des tâches
-Name: "{autoprograms}\Misty"; Filename: "{app}\Misty.exe"; WorkingDir: "{app}"; AppUserModelID: "MistyMC.Misty"
-Name: "{autodesktop}\Misty"; Filename: "{app}\Misty.exe"; WorkingDir: "{app}"; AppUserModelID: "MistyMC.Misty"; Tasks: desktopicon
+Name: "{autoprograms}\Mistly"; Filename: "{app}\Misty.exe"; WorkingDir: "{app}"; AppUserModelID: "MistyMC.Misty"
+Name: "{autodesktop}\Mistly"; Filename: "{app}\Misty.exe"; WorkingDir: "{app}"; AppUserModelID: "MistyMC.Misty"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#Dossier}\Misty.exe"; Description: "{cm:Lancer}"; Flags: nowait postinstall skipifsilent

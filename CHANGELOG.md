@@ -1,4 +1,8 @@
 # Changelog
+## 0.3.9
+### Launcher
+- The Start menu and desktop shortcuts are now called Mistly (existing "Misty" shortcuts are renamed), and Windows shows "Mistly Launcher" in the Task Manager and the file properties
+
 ## 0.3.8
 ### Launcher
 - Mistly Client is no longer built into the launcher: it is downloaded from GitHub (the Misty-Client releases) the first time a game needs it, and each new Mistly Client release reaches you without a launcher update

@@ -1,9 +1,11 @@
-//! Création / suppression du raccourci "Misty.lnk" (choisi dans les options) vers Misty : le
+//! Création / suppression du raccourci "Mistly.lnk" (choisi dans les options) vers Misty : le
 //! lanceur fixe une fois installé (voir lanceur.rs), sinon l'exe courant.
 
 use std::path::Path;
 
-const NOM_RACCOURCI: &str = "Misty.lnk";
+const NOM_RACCOURCI: &str = "Mistly.lnk";
+/// Nom d'avant (l'app s'appelait Misty) : retiré avec le nouveau
+const ANCIEN_NOM: &str = "Misty.lnk";
 
 #[cfg(windows)]
 pub fn creer(dossier: &Path) -> anyhow::Result<()> {
@@ -28,8 +30,10 @@ pub fn supprimer(dossier: &Path) {
     if dossier.as_os_str().is_empty() {
         return;
     }
-    let chemin = dossier.join(NOM_RACCOURCI);
-    if chemin.exists() {
-        let _ = std::fs::remove_file(chemin);
+    for nom in [NOM_RACCOURCI, ANCIEN_NOM] {
+        let chemin = dossier.join(nom);
+        if chemin.exists() {
+            let _ = std::fs::remove_file(chemin);
+        }
     }
 }

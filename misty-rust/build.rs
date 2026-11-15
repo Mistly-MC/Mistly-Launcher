@@ -22,6 +22,9 @@ fn main() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         let mut res = winresource::WindowsResource::new();
         res.set_icon("assets/icone.ico");
+        // nom affiché par Windows (Gestionnaire des tâches, propriétés de l'exe) ; l'exe garde le nom Misty.exe
+        res.set("FileDescription", "Mistly Launcher");
+        res.set("ProductName", "Mistly Launcher");
         let _ = res.compile();
     }
 }
