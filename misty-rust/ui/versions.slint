@@ -287,53 +287,6 @@ component CarteProfil inherits Rectangle {
     }
 }
 
-/// Ce que Misty apporte en jeu (une carte par fonction).
-component FonctionMisty inherits Rectangle {
-    in property <string> icon;
-    in property <string> titre;
-    in property <string> texte;
-    // quatre cartes de même largeur, quel que soit leur texte
-    horizontal-stretch: 1;
-    min-width: 0;
-    preferred-width: 0;
-    border-radius: 14px;
-    background: Theme.glass-strong;
-    border-width: 1px;
-    border-color: Theme.glass-border;
-    VerticalLayout {
-        padding: 12px;
-        spacing: 6px;
-        HorizontalLayout {
-            spacing: 8px;
-            Rectangle {
-                width: 26px;
-                height: 26px;
-                border-radius: 8px;
-                background: Theme.accent-soft;
-                Icon {
-                    text: root.icon;
-                    font-size: 13px;
-                    color: Theme.accent;
-                }
-            }
-            Text {
-                text: root.titre;
-                font-size: 13px;
-                font-weight: 700;
-                color: Theme.navy;
-                vertical-alignment: center;
-                overflow: elide;
-            }
-        }
-        Text {
-            text: root.texte;
-            font-size: 11.5px;
-            color: Theme.text-muted;
-            wrap: word-wrap;
-        }
-    }
-}
-
 /// Une version de Misty Client, en puce.
 component PuceMisty inherits Rectangle {
     in property <string> version;
@@ -434,19 +387,6 @@ component PanneauMisty inherits VerticalLayout {
         }
     }
 
-    // ce que Misty apporte
-    PixelLabel {
-        text: Tr.t("Misty_Inclus");
-        font-size: 11px;
-    }
-    HorizontalLayout {
-        spacing: 10px;
-        FonctionMisty { icon: "\u{E80F}"; titre: Tr.t("Misty_F_Menu"); texte: Tr.t("Misty_F_Menu_Texte"); }
-        FonctionMisty { icon: "\u{E9D9}"; titre: Tr.t("Misty_F_Hud"); texte: Tr.t("Misty_F_Hud_Texte"); }
-        FonctionMisty { icon: "\u{E753}"; titre: Tr.t("Misty_F_Badge"); texte: Tr.t("Misty_F_Badge_Texte"); }
-        FonctionMisty { icon: "\u{E7EE}"; titre: Tr.t("Misty_F_Cosmetiques"); texte: Tr.t("Misty_F_Cosmetiques_Texte"); }
-    }
-
     // versions Misty
     PixelLabel {
         text: Tr.t("Ver_Onglet_Versions");
@@ -501,8 +441,8 @@ component PanneauMisty inherits VerticalLayout {
     }
 }
 
-/// Un build d'Horizon, en puce comme les versions : un clic le choisit. Il est téléchargé au
-/// lancement (Jouer), pas avant.
+/// Un build d'Horizon, en puce comme les versions : un clic le choisit et ferme le choix. Il est
+/// téléchargé au lancement (JOUER), pas avant.
 component PuceBuild inherits Rectangle {
     in property <HorizonBuild> b;
     in property <bool> checked;
@@ -556,7 +496,10 @@ component PuceBuild inherits Rectangle {
     zone := TouchArea {
         enabled: !HomeState.horizon-busy;
         mouse-cursor: pointer;
-        clicked => { HomeState.horizon-select(root.b.tag); }
+        clicked => {
+            HomeState.horizon-select(root.b.tag);
+            HomeState.picker-open = false;
+        }
     }
 }
 
@@ -682,28 +625,6 @@ component PanneauHorizon inherits VerticalLayout {
             }
         }
         Rectangle { horizontal-stretch: 1; }
-        VerticalLayout {
-            alignment: center;
-            MButton {
-                icon: "\u{E73E}";
-                text: Tr.t("Ver_Valider");
-                enabled: HomeState.horizon-build != "";
-                clicked => {
-                    HomeState.horizon-select(HomeState.horizon-build);
-                    HomeState.picker-open = false;
-                }
-            }
-        }
-        VerticalLayout {
-            alignment: center;
-            MButton {
-                kind: 1;
-                icon: "\u{E768}";
-                text: HomeState.horizon-build != "" ? Tr.t("Hz_Jouer") : Tr.t("Hz_ChoisisBuild");
-                enabled: HomeState.horizon-build != "" && !HomeState.horizon-busy;
-                clicked => { HomeState.horizon-play(); }
-            }
-        }
     }
 }
 

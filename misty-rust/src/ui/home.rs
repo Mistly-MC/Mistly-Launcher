@@ -1268,6 +1268,7 @@ async fn horizon_telecharger(app: &Rc<App>, an: &Annulation, tag: &str) -> anyho
                         s.set_horizon_progress(f);
                         s.set_progress(f);
                         s.set_percent_text(format!("{pourcent}%").into());
+                        s.set_play_text(format!("{pourcent}%").into());
                     });
                 }
             })
@@ -1387,7 +1388,12 @@ async fn horizon_jouer(app: &Rc<App>) {
         horizon_ouvrir_panneau(app);
         return;
     }
+    if app.home.borrow().installation_en_cours {
+        return;
+    }
     let s = h(app);
+    app.home.borrow_mut().installation_en_cours = true;
+    s.set_play_text("0%".into());
     s.set_play_enabled(false);
     s.set_selectors_enabled(false);
     let an = debut_annulable(app);
@@ -1444,6 +1450,8 @@ async fn horizon_jouer(app: &Rc<App>) {
         }
         telemetry::evenement("game_start", serde_json::json!({ "minecraft": exigences.minecraft, "loader": "horizon", "build": tag }));
         // une autre partie peut être lancée pendant que celle-ci tourne
+        app.home.borrow_mut().installation_en_cours = false;
+        s.set_play_text(loc::t("Home_Bouton_Jouer").into());
         s.set_play_enabled(true);
         s.set_selectors_enabled(true);
         let fin = app.bloquant(move || horizon::jouer(partie, &b, &ex, session.as_ref(), &p)).await;
@@ -1468,6 +1476,8 @@ async fn horizon_jouer(app: &Rc<App>) {
     }
     .await;
     fin_annulable(app);
+    app.home.borrow_mut().installation_en_cours = false;
+    s.set_play_text(loc::t("Home_Bouton_Jouer").into());
     s.set_play_enabled(true);
     s.set_selectors_enabled(true);
     match resultat {

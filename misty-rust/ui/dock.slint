@@ -276,16 +276,17 @@ export component Dock inherits HorizontalLayout {
     BlocJouer {
         width: 250px;
     }
-    // compte (ou « annuler » pendant un téléchargement)
-    if !HomeState.can-cancel: TuileCompte {
+    // compte (ou « annuler » pendant un téléchargement), à la même place et de la même taille :
+    // JOUER ne bouge pas quand l'un remplace l'autre
+    Rectangle {
         horizontal-stretch: 1;
         min-width: 200px;
-    }
-    if HomeState.can-cancel: TuileIcone {
-        horizontal-stretch: 1;
-        icon: "\u{E711}";
-        tooltip: Tr.t("Commun_Annuler");
-        clicked => { HomeState.cancel-install(); }
+        if !HomeState.can-cancel: TuileCompte { }
+        if HomeState.can-cancel: TuileIcone {
+            icon: "\u{E711}";
+            tooltip: Tr.t("Commun_Annuler");
+            clicked => { HomeState.cancel-install(); }
+        }
     }
     // avatar : ouvre l'onglet Skin
     Rectangle {
