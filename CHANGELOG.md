@@ -1,10 +1,12 @@
 # Changelog
-## 0.3.8-beta.3
+## 0.3.8
 ### Launcher
 - Mistly Client is no longer built into the launcher: it is downloaded from GitHub (the Misty-Client releases) the first time a game needs it, and each new Mistly Client release reaches you without a launcher update
 - Fixed: joining a server could fail with "Invalid session" when the launcher had stayed open for a long time. The Microsoft session is now renewed before a game starts if it would expire during the game
 - Stopping a game with the console's Stop button, or closing it yourself (Quit, the window's X, Alt+F4), no longer counts as a crash: no crash report is sent and the console says the game was stopped or closed
 - Mistly Client and Horizon work like the Minecraft versions: clicking a version or a build only selects it, and a "Choose …" button at the bottom confirms it. A Horizon build is downloaded when you press PLAY, with the progress shown in the PLAY tile
+- Lighter on your PC: the animated landscape pauses while the launcher is in the background, minimized, or while a game runs, so it no longer keeps redrawing behind the game
+- Mistly Client updates: before a game, the launcher checks the latest Mistly Client release again if it has been open for a while, and downloads the mod again if the copy it kept does not match the release
 - Play page: next to the latest news, a new pill shows how many Mistly players are online right now (and how many are in game), updated every minute
 - Version picker: Mistly Client and Horizon now look like the Minecraft versions, with their versions or builds on the left and the banner and the Choose button on the right
 - Skin tab: the "Equipped: you see it in game…" message is gone (the warning without Mistly Client stays)
