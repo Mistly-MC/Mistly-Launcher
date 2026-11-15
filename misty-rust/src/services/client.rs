@@ -166,6 +166,7 @@ pub async fn actualiser() -> anyhow::Result<bool> {
     if dossier_dev().is_some() {
         return Ok(false);
     }
+    *DERNIERE_LECTURE.lock().unwrap() = Some(std::time::Instant::now());
     // la dernière release publiée (une pré-release seulement si on suit les pré-releases)
     let pre = settings::get_bool(settings::MAJ_PRERELEASE, false);
     let liste: Vec<serde_json::Value> = http::get_json(&format!("https://api.github.com/repos/{DEPOT}/releases?per_page=20")).await?;
@@ -211,6 +212,27 @@ pub async fn actualiser() -> anyhow::Result<bool> {
     Ok(change)
 }
 
+/// Quand la release a été lue pour la dernière fois.
+static DERNIERE_LECTURE: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+
+/// Avant une partie : relit la release si la dernière lecture date de plus de 30 minutes (le
+/// launcher peut rester ouvert des jours, une nouvelle version du mod doit quand même arriver).
+/// Renvoie vrai si la liste des jars a changé.
+pub async fn actualiser_si_ancien() -> bool {
+    let ancienne = DERNIERE_LECTURE.lock().unwrap().is_none_or(|t| t.elapsed() > std::time::Duration::from_secs(30 * 60));
+    if !ancienne {
+        return false;
+    }
+    match tokio::time::timeout(std::time::Duration::from_secs(10), actualiser()).await {
+        Ok(Ok(change)) => change,
+        Ok(Err(e)) => {
+            journal::info(&format!("Mistly Client : release non relue ({e:#})"));
+            false
+        }
+        Err(_) => false,
+    }
+}
+
 /// Le jar du mod pour cette version de Minecraft.
 fn jar_pour(version_mc: &str) -> Option<Jar> {
     index().jars.into_iter().find(|j| j.minecraft.iter().any(|m| m == version_mc))
@@ -225,8 +247,23 @@ fn chemin(jar: &Jar) -> PathBuf {
 pub async fn telecharger(version_mc: &str) -> anyhow::Result<PathBuf> {
     let jar = jar_pour(version_mc).ok_or_else(|| anyhow::anyhow!("Mistly Client n'existe pas pour Minecraft {version_mc}"))?;
     let chemin = chemin(&jar);
-    if jar.local.is_some() || chemin.is_file() {
+    if jar.local.is_some() {
         return Ok(chemin);
+    }
+    // déjà téléchargé : gardé s'il est intact (même SHA-1 que celui de la release)
+    if chemin.is_file() {
+        let attendu = jar.sha1.clone();
+        let c = chemin.clone();
+        let intact = tokio::task::spawn_blocking(move || match attendu {
+            Some(sha1) => download::sha1_fichier(&c).is_ok_and(|h| h.eq_ignore_ascii_case(&sha1)),
+            None => true,
+        })
+        .await
+        .unwrap_or(false);
+        if intact {
+            return Ok(chemin);
+        }
+        journal::info(&format!("Mistly Client : {} ne correspond plus à la release, nouveau téléchargement", jar.fichier));
     }
     journal::info(&format!("Téléchargement de Mistly Client : {}", jar.fichier));
     download::fichier(&jar.url, &chemin, jar.sha1.as_deref()).await?;

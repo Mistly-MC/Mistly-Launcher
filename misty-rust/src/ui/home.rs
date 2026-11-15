@@ -1048,6 +1048,10 @@ async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install
     // quand on lance la version Misty)
     let voulu = misty || instance.as_ref().map(client::voulu).unwrap_or_else(client::active);
     // le jar de cette version, téléchargé depuis GitHub la première fois
+    // une nouvelle release du mod a pu sortir depuis le démarrage du launcher
+    if voulu && app.bg(client::actualiser_si_ancien()).await {
+        maj_misty_client(app);
+    }
     let jar = if voulu && client::compatible(version, mode) {
         statut(app, &loc::t("Home_TelechargementClient"));
         let v = version.to_string();
