@@ -1,10 +1,7 @@
 # Changelog
-## 0.3.9
-### Launcher
-- The Start menu and desktop shortcuts are now called Mistly (existing "Misty" shortcuts are renamed), and Windows shows "Mistly Launcher" in the Task Manager and the file properties
-
 ## 0.3.8
 ### Launcher
+- The Start menu and desktop shortcuts are now called Mistly (existing "Misty" shortcuts are renamed), and Windows shows "Mistly Launcher" in the Task Manager and the file properties
 - Mistly Client is no longer built into the launcher: it is downloaded from GitHub (the Misty-Client releases) the first time a game needs it, and each new Mistly Client release reaches you without a launcher update
 - Fixed: joining a server could fail with "Invalid session" when the launcher had stayed open for a long time. The Microsoft session is now renewed before a game starts if it would expire during the game
 - Stopping a game with the console's Stop button, or closing it yourself (Quit, the window's X, Alt+F4), no longer counts as a crash: no crash report is sent and the console says the game was stopped or closed
