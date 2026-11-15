@@ -69,6 +69,7 @@ pub fn maven_path(nom: &str) -> Option<String> {
 
 /// Exécution d'une commande sans fenêtre de console.
 pub fn sans_console(cmd: &mut std::process::Command) -> &mut std::process::Command {
+    crate::services::system_info::avant_processus();
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

@@ -3,13 +3,35 @@
 use super::App;
 use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::Path;
+
+/// Icônes gardées au plus : au-delà, les plus anciennes sortent (elles se retéléchargent au besoin).
+/// Sans limite, une longue séance dans l'explorateur de mods gardait chaque icône vue jusqu'à la
+/// fermeture du launcher.
+const MAX_ICONES: usize = 300;
 
 /// Cache des icônes distantes (thread de l'interface seulement).
 #[derive(Default)]
 pub struct Cache {
     images: RefCell<HashMap<String, Option<Image>>>,
+    /// URL dans l'ordre d'arrivée (la plus ancienne en tête)
+    ordre: RefCell<VecDeque<String>>,
+}
+
+impl Cache {
+    fn garder(&self, url: &str, image: Option<Image>) {
+        let mut images = self.images.borrow_mut();
+        let mut ordre = self.ordre.borrow_mut();
+        if images.insert(url.to_string(), image).is_none() {
+            ordre.push_back(url.to_string());
+        }
+        while ordre.len() > MAX_ICONES {
+            if let Some(ancienne) = ordre.pop_front() {
+                images.remove(&ancienne);
+            }
+        }
+    }
 }
 
 /// Le nuage de Misty (vignettes sans image, fond, carte de version).
@@ -111,7 +133,7 @@ pub async fn depuis_url(app: &App, url: &str) -> Option<Image> {
         })
         .await;
     let image = tampon.map(Image::from_rgba8);
-    app.images.images.borrow_mut().insert(url.to_string(), image.clone());
+    app.images.garder(url, image.clone());
     image
 }
 

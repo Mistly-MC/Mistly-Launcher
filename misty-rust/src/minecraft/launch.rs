@@ -30,6 +30,7 @@ pub struct Options {
 /// tubes (lus par la console : voir services::journal).
 pub fn lancer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyhow::Result<Child> {
     use std::process::Stdio;
+    crate::services::system_info::avant_processus();
     Ok(preparer(dirs, v, options)?.stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::null()).spawn()?)
 }
 

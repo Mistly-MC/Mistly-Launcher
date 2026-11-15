@@ -181,17 +181,22 @@ pub fn installer(app: &Rc<App>) {
     // La fenêtre peut aussi être agrandie ou restaurée par Windows (Win+flèches, glisser en haut de l’écran) :
     // on suit son état pour arrondir ou non les coins.
     let a = Rc::downgrade(app);
+    let passages = std::cell::Cell::new(0u32);
     let minuterie = slint::Timer::default();
     minuterie.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(300), move || {
         if let Some(a) = a.upgrade() {
             suivre_agrandissement(&a);
             suivre_decor(&a);
             maj_discord(&a, false);
-            // thème « Comme Windows » : suit Windows quand on le change pendant que Misty est ouvert
-            let sombre = system_info::windows_sombre();
-            let theme = a.ui.global::<crate::Theme>();
-            if theme.get_system_dark() != sombre {
-                theme.set_system_dark(sombre);
+            // thème « Comme Windows » : suit Windows quand on le change pendant que Misty est
+            // ouvert. Lu dans le registre : toutes les 3 secondes, pas à chaque passage.
+            passages.set(passages.get().wrapping_add(1));
+            if passages.get() % 10 == 0 {
+                let sombre = system_info::windows_sombre();
+                let theme = a.ui.global::<crate::Theme>();
+                if theme.get_system_dark() != sombre {
+                    theme.set_system_dark(sombre);
+                }
             }
         }
     });
@@ -229,6 +234,7 @@ pub fn installer(app: &Rc<App>) {
 fn afficher_paysage(app: &App, paysage: scene::Scene) {
     let p = paysage.vers_slint();
     let etat = app.ui.global::<AppState>();
+    let n_cretes = p.cretes.len();
     etat.set_scene_ridges(modele(p.cretes));
     etat.set_scene_stars(p.etoiles);
     etat.set_scene_twinkle(p.etoiles_scintillantes);
@@ -236,7 +242,10 @@ fn afficher_paysage(app: &App, paysage: scene::Scene) {
     etat.set_moon_x(p.lune_x);
     etat.set_moon_y(p.lune_y);
     etat.set_moon_size(p.lune_taille);
-    etat.set_scene_puffs(modele(p.nappes));
+    // une liste de nappes par crête : l'interface ne crée que celles qu'elle dessine
+    let par_crete: Vec<ModelRc<crate::ScenePuff>> =
+        (0..n_cretes).map(|i| modele(p.nappes.iter().filter(|n| n.layer == i as i32).cloned().collect())).collect();
+    etat.set_scene_puffs(modele(par_crete));
 }
 
 thread_local! {
@@ -323,11 +332,24 @@ fn suivre_decor(app: &App) {
     let capture = cfg!(debug_assertions) && std::env::var_os("MISTY_CAPTURE").is_some();
     let mut regarde = true;
     fenetre(app, |w| regarde = w.has_focus() && !w.is_minimized().unwrap_or(false));
-    let anime = capture || (regarde && !journal::parties().iter().any(|p| p.en_cours));
+    let en_jeu = journal::partie_en_cours();
+    let anime = capture || (regarde && !en_jeu);
     let etat = app.ui.global::<AppState>();
     if etat.get_anime() != anime {
         etat.set_anime(anime);
     }
+    // Une partie tourne et on ne regarde pas le launcher : il passe en mode éco (le processeur
+    // reste au jeu). Il en sort dès qu'on revient dessus, ou quand la partie se termine.
+    system_info::mode_eco(en_jeu && !regarde);
+    // Une partie vient de démarrer : le launcher rend sa mémoire inutilisée à Windows
+    if EN_JEU.with(|j| j.replace(en_jeu)) != en_jeu && en_jeu {
+        system_info::liberer_memoire();
+    }
+}
+
+thread_local! {
+    /// Une partie tournait au dernier passage de `suivre_decor`
+    static EN_JEU: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// Accès à la fenêtre winit (déplacement, réduction).
