@@ -61,15 +61,52 @@ const CLES: &[&str] = &[
     CONSOLE, TELEMETRIE, TELEMETRIE_ID, MAJ_PRERELEASE, MISTY_CLIENT, COSMETIQUE, CHAPEAU, MISTY_CHOISI, MISTY_VERSION, PARTAGE, BARRE_MASQUEE, MODE_COMPTE, TAG,
 ];
 
+/// data.txt gardé en mémoire : les réglages sont lus des dizaines de fois (à chaque statut
+/// Discord, à chaque lancement…), le fichier n'est relu que s'il a changé sur le disque.
+struct Cache {
+    chemin: std::path::PathBuf,
+    /// Date et taille du fichier au moment de la lecture
+    empreinte: (Option<std::time::SystemTime>, u64),
+    lignes: Vec<String>,
+}
+
+static CACHE: std::sync::Mutex<Option<Cache>> = std::sync::Mutex::new(None);
+
+fn empreinte(chemin: &std::path::Path) -> Option<(Option<std::time::SystemTime>, u64)> {
+    let meta = fs::metadata(chemin).ok()?;
+    Some((meta.modified().ok(), meta.len()))
+}
+
 fn lire_lignes() -> Option<Vec<String>> {
-    let texte = fs::read_to_string(paths::data_file()).ok()?;
-    Some(texte.lines().map(str::to_string).collect())
+    let chemin = paths::data_file();
+    let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    // fichier absent : rien (et rien à garder)
+    let Some(actuelle) = empreinte(&chemin) else {
+        *cache = None;
+        return None;
+    };
+    if let Some(c) = cache.as_ref() {
+        if c.chemin == chemin && c.empreinte == actuelle {
+            return Some(c.lignes.clone());
+        }
+    }
+    let texte = fs::read_to_string(&chemin).ok()?;
+    let lignes: Vec<String> = texte.lines().map(str::to_string).collect();
+    *cache = Some(Cache { chemin, empreinte: actuelle, lignes: lignes.clone() });
+    Some(lignes)
 }
 
 fn ecrire_lignes(lignes: &[String]) {
     let mut texte = lignes.join("\r\n");
     texte.push_str("\r\n");
-    let _ = fs::write(paths::data_file(), texte);
+    let chemin = paths::data_file();
+    let ecrit = fs::write(&chemin, texte).is_ok();
+    // le cache suit ce qui vient d'être écrit ; en cas d'échec, il sera relu sur le disque
+    let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    *cache = match (ecrit, empreinte(&chemin)) {
+        (true, Some(e)) => Some(Cache { chemin, empreinte: e, lignes: lignes.to_vec() }),
+        _ => None,
+    };
 }
 
 /// Valeur d'une clé ("" si absente).
@@ -82,6 +119,26 @@ pub fn get(cle: &str) -> String {
         }
     }
     valeur
+}
+
+#[cfg(test)]
+mod tests_cache {
+    /// L'empreinte qui valide le cache change quand le fichier change (et manque sans fichier).
+    #[test]
+    fn empreinte_suit_le_fichier() {
+        let lignes = |t: &str| t.lines().map(str::to_string).collect::<Vec<_>>();
+        let dossier = std::env::temp_dir().join(format!("misty-reglages-{}", std::process::id()));
+        std::fs::create_dir_all(&dossier).unwrap();
+        let chemin = dossier.join("data.txt");
+        std::fs::write(&chemin, "a=1\r\n").unwrap();
+        let e1 = super::empreinte(&chemin).unwrap();
+        assert_eq!(lignes(&std::fs::read_to_string(&chemin).unwrap()), vec!["a=1"]);
+        // contenu plus long : l'empreinte change même si la date a la même seconde
+        std::fs::write(&chemin, "a=1\r\nb=2\r\n").unwrap();
+        assert_ne!(super::empreinte(&chemin).unwrap(), e1);
+        assert!(super::empreinte(&dossier.join("absent.txt")).is_none());
+        let _ = std::fs::remove_dir_all(dossier);
+    }
 }
 
 pub fn get_bool(cle: &str, defaut: bool) -> bool {

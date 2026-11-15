@@ -1,5 +1,8 @@
 //! Console des parties : relie ConsoleState (ui/console.slint) au journal (services::journal).
 //! Un panneau par partie ; une minuterie ajoute les nouvelles lignes toutes les 150 ms.
+//!
+//! Console fermée, les lignes ne sont pas copiées dans l'interface (elles restent dans le journal,
+//! et reviennent à l'ouverture) ; sans partie en cours ni console ouverte, la minuterie ne fait rien.
 
 use super::{dialogs, lancer, App};
 use crate::services::{account, journal, loc, settings, system_info, telemetry};
@@ -9,7 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Lignes affichées au plus par panneau (les plus anciennes sortent de l'écran, pas du fichier).
-const AFFICHEES: usize = 10_000;
+const AFFICHEES: usize = 5_000;
 
 /// Ce que l'interface garde d'une partie, à côté de son journal.
 struct Panneau {
@@ -27,6 +30,8 @@ struct Panneau {
 struct Etat {
     panneaux: Vec<Panneau>,
     modele: Option<Rc<VecModel<LogPane>>>,
+    /// Il y avait quelque chose à suivre au dernier passage (console ouverte ou partie en cours)
+    actif: bool,
 }
 
 thread_local! {
@@ -83,7 +88,13 @@ pub fn installer(app: &Rc<App>) {
     let minuterie = slint::Timer::default();
     minuterie.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(150), move || {
         if let Some(a) = a.upgrade() {
-            rafraichir(&a);
+            // rien à suivre : ni console à l'écran, ni partie qui écrit. Un dernier passage après
+            // la fin d'une partie affiche son état final (et ouvre la console si elle a planté).
+            let actif = c(&a).get_open() || journal::partie_en_cours();
+            let avant = ETAT.with(|e| std::mem::replace(&mut e.borrow_mut().actif, actif));
+            if actif || avant {
+                rafraichir(&a);
+            }
         }
     });
     std::mem::forget(minuterie);
@@ -94,6 +105,7 @@ pub fn installer(app: &Rc<App>) {
 pub fn ouvrir(app: &App) {
     c(app).set_focused(-1);
     c(app).set_open(true);
+    rafraichir(app); // les lignes tout de suite, sans attendre la minuterie
 }
 
 /// La console s'ouvre-t-elle toute seule au lancement du jeu ?
@@ -141,6 +153,8 @@ fn rafraichir(app: &App) {
     let filtre = st.get_filter();
     let recherche = st.get_search().to_lowercase();
     let mut plantage = false;
+    // Console fermée : les lignes ne sont pas gardées en double dans l'interface
+    let ouverte = st.get_open();
 
     ETAT.with(|e| {
         let mut e = e.borrow_mut();
@@ -176,7 +190,12 @@ fn rafraichir(app: &App) {
             let Some(pan) = e.panneaux.iter_mut().find(|x| x.id == partie.id) else { continue };
             // lignes
             let tout = pan.lues == u64::MAX;
-            if let Some((lignes, a_refaire)) = journal::nouvelles(pan.id, if tout { 0 } else { pan.lues }) {
+            if !ouverte {
+                if !tout {
+                    pan.lignes.set_vec(Vec::new());
+                    pan.lues = u64::MAX;
+                }
+            } else if let Some((lignes, a_refaire)) = journal::nouvelles(pan.id, if tout { 0 } else { pan.lues }) {
                 let gardees: Vec<LogLine> = lignes.into_iter().filter(|l| garde(filtre, &recherche, l)).map(vers_slint).collect();
                 if tout || a_refaire {
                     let debut = gardees.len().saturating_sub(AFFICHEES);
@@ -191,7 +210,9 @@ fn rafraichir(app: &App) {
                     }
                 }
             }
-            pan.lues = partie.total;
+            if ouverte {
+                pan.lues = partie.total;
+            }
             // la partie vient de planter : la console s'ouvre pour montrer pourquoi
             let plante = partie.plantee();
             if pan.en_cours && !partie.en_cours && plante {

@@ -87,8 +87,7 @@ export component Paysage inherits Rectangle {
             colorize: root.cretes[i];
         }
         // nappes de cette couche : traversent toute la scène (de -2000 à +2000 px) très lentement
-        for n in AppState.scene-puffs: Image {
-            visible: n.layer == i;
+        for n in AppState.scene-puffs[i]: Image {
             property <float> t: Math.mod(AppState.temps / n.period + n.phase, 1);
             x: (n.x + self.t * 4000 - 2000) * root.s * 1px;
             y: n.y * root.s * 1px;

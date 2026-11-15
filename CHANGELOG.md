@@ -10,6 +10,11 @@
 - Stopping a game with the console's Stop button, or closing it yourself (Quit, the window's X, Alt+F4), no longer counts as a crash: no crash report is sent and the console says the game was stopped or closed
 - Mistly Client and Horizon work like the Minecraft versions: clicking a version or a build only selects it, and a "Choose …" button at the bottom confirms it. A Horizon build is downloaded when you press PLAY, with the progress shown in the PLAY tile
 - Lighter on your PC: the animated landscape pauses while the launcher is in the background, minimized, or while a game runs, so it no longer keeps redrawing behind the game
+- Lighter on your PC, again: the animated landscape is now redrawn 30 times per second instead of at every screen refresh (up to 144 on fast monitors), with the same slow drift on screen
+- Skin tab: the 3D character pauses like the landscape (launcher in the background, minimized, or a game running); it used to keep rendering behind the game. It also uses less processor while it is on screen
+- While a game runs and you are not looking at the launcher, the launcher switches to Windows efficiency mode and gives its unused memory back to Windows, so the processor and the memory go to the game. It returns to normal as soon as you come back to it
+- Console: uses less memory (the last 5,000 lines of each game are kept instead of 10,000, and they are no longer held twice while the console is closed). The full log is still written to the game's log file
+- Browsing mods, modpacks and texture packs for a long time no longer keeps every icon in memory
 - Mistly Client updates: before a game, the launcher checks the latest Mistly Client release again if it has been open for a while, and downloads the mod again if the copy it kept does not match the release
 - Play page: next to the latest news, a new pill shows how many Mistly players are online right now (and how many are in game), updated every minute
 - Version picker: Mistly Client and Horizon now look like the Minecraft versions, with their versions or builds on the left and the banner and the Choose button on the right

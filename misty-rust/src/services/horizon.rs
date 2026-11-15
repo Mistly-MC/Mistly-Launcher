@@ -259,6 +259,7 @@ fn resume_erreur(texte: &str, defaut: &str) -> String {
 
 /// Lance le préparateur et suit sa sortie : JSON (`--progress json`) ou texte (anciens builds).
 fn executer_preparateur(mut c: Command, avancement: &dyn Fn(f32, &str)) -> anyhow::Result<()> {
+    super::system_info::avant_processus();
     let mut enfant = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
     // la sortie d'erreur est lue à part : un tuyau plein bloquerait le préparateur
     let lecteur_erreur = enfant.stderr.take().map(|mut e| {
@@ -395,6 +396,7 @@ pub fn jouer(partie: u64, build: &Path, ex: &Exigences, session: Option<&Session
         }
     }
     c.stdout(Stdio::piped());
+    super::system_info::avant_processus();
     let mut enfant = match c.spawn() {
         Ok(e) => e,
         Err(e) => {

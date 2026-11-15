@@ -248,10 +248,11 @@ component Scene3D inherits Rectangle {
     property <length> deplace: 0px;
     property <image> vide;
 
-    // Une image par rafraîchissement d'écran, seulement quand le studio est à l'écran
+    // Une image par rafraîchissement d'écran, seulement quand le studio est à l'écran et qu'on
+    // regarde le launcher (pas en arrière-plan, réduit ou pendant une partie : voir AppState.anime)
     Timer {
         interval: 16ms;
-        running: SkinState.tab == 1 && AppState.page == 0 && !SettingsState.open;
+        running: SkinState.tab == 1 && AppState.page == 0 && !SettingsState.open && AppState.anime;
         triggered => {
             if (root.vise-pitch && !root.glisse) {
                 root.pitch += (root.pitch-cible - root.pitch) * 0.16;
