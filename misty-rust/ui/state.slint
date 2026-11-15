@@ -26,10 +26,10 @@ export global AppState {
     in property <bool> anime: true;
     /// Horloge du décor : le temps de l'animation, arrêté pendant les pauses (le décor reprend là où
     /// il s'était arrêté). À utiliser à la place d'animation-tick() pour tout ce qui bouge sans fin.
-    out property <duration> temps: self.anime ? animation-tick() - self.decalage : self.fige;
-    /// (gérés par MainWindow quand « anime » change)
-    in-out property <duration> fige;
-    in-out property <duration> decalage;
+    /// Elle avance par pas (minuterie de MainWindow) et non à chaque image de l'écran : le décor
+    /// dérive lentement, 30 images par seconde suffisent, et la fenêtre n'est pas redessinée 60 à
+    /// 144 fois par seconde pour lui.
+    in-out property <duration> temps;
     /// 0 accueil, 1 profils, 2 options, 3 notes, 4 packs, 5 détail d'un profil, 6 éditeur de pack, 8 amis
     in-out property <int> page: 0;
     /// Onglet de la barre latérale allumé
@@ -64,7 +64,8 @@ export global AppState {
     in property <float> moon-x;
     in property <float> moon-y;
     in property <float> moon-size;
-    in property <[ScenePuff]> scene-puffs;
+    /// Nappes de brume, une liste par crête (même ordre que scene-ridges)
+    in property <[[ScenePuff]]> scene-puffs;
     /// Mise à jour en cours : fenêtre d'avancement
     in property <bool> updating;
     in property <string> update-title;

@@ -51,7 +51,16 @@ fn main() {
     services::lanceur::identifier_processus();
 
     // Runtime pour le réseau et les fichiers (le thread principal reste à l'interface)
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("runtime tokio");
+    // Le launcher attend surtout le réseau et le disque : 2 à 4 fils suffisent, au lieu d'un par
+    // cœur (16 ou plus sur les processeurs récents). Les calculs longs passent par
+    // `spawn_blocking`, dont les fils sont créés à la demande puis rendus.
+    let fils = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(2, 4);
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(fils)
+        .max_blocking_threads(64)
+        .enable_all()
+        .build()
+        .expect("runtime tokio");
 
     let _ = std::fs::create_dir_all(services::paths::data_dir());
     services::journal::capturer_paniques();

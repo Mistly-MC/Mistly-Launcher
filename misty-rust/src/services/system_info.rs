@@ -28,6 +28,62 @@ pub fn ram_max_proposee_mo() -> u32 {
     total_go.saturating_sub(1).max(1) * 1024
 }
 
+/// Le launcher est-il en mode éco ? (pour ne rien demander à Windows quand rien ne change)
+static ECO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Mode éco de Windows 11 (« mode efficacité » du gestionnaire des tâches) pour le launcher
+/// lui-même : Windows le fait tourner à basse fréquence, sur les cœurs économes s'il y en a.
+/// Demandé pendant une partie, quand on ne regarde pas le launcher : le processeur reste au jeu.
+/// Sans effet sur les versions de Windows qui ne le connaissent pas.
+pub fn mode_eco(actif: bool) {
+    use std::sync::atomic::Ordering;
+    if ECO.swap(actif, Ordering::SeqCst) == actif {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Threading::{
+            GetCurrentProcess, ProcessPowerThrottling, SetProcessInformation, PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+            PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE,
+        };
+        let etat = PROCESS_POWER_THROTTLING_STATE {
+            Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+            ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+            StateMask: if actif { PROCESS_POWER_THROTTLING_EXECUTION_SPEED } else { 0 },
+        };
+        // SAFETY : pseudo-handle du processus courant (toujours valide) et pointeur vers une
+        // structure de la taille annoncée, comme l'exige l'API ; un refus de Windows est ignoré.
+        unsafe {
+            SetProcessInformation(
+                GetCurrentProcess(),
+                ProcessPowerThrottling,
+                &etat as *const _ as *const core::ffi::c_void,
+                std::mem::size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
+            );
+        }
+    }
+}
+
+/// À appeler juste avant de lancer un autre programme (le jeu, un éditeur…) : le launcher quitte
+/// le mode éco, pour que le nouveau processus ne risque pas d'en hériter.
+pub fn avant_processus() {
+    mode_eco(false);
+}
+
+/// Rend à Windows la mémoire que le launcher n'utilise pas en ce moment (elle revient d'elle-même
+/// quand il en a besoin). Appelé quand une partie démarre : la mémoire va au jeu.
+pub fn liberer_memoire() {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
+        // SAFETY : pseudo-handle du processus courant ; (-1, -1) demande à Windows de retirer de
+        // la mémoire vive les pages inutilisées, sans rien libérer ni invalider.
+        unsafe {
+            SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
+        }
+    }
+}
+
 /// Taille totale d'un dossier en octets (0 s'il n'existe pas).
 pub fn taille_dossier(dossier: &Path) -> u64 {
     let Ok(entrees) = std::fs::read_dir(dossier) else { return 0 };
@@ -58,6 +114,7 @@ pub fn montrer_fichier(fichier: &Path) {
 
 /// Ouvre une URL (ou un fichier) avec l'application par défaut.
 pub fn ouvrir(cible: &str) {
+    avant_processus();
     let _ = open::that_detached(cible);
 }
 

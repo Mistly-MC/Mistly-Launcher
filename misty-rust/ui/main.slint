@@ -349,14 +349,12 @@ export component MainWindow inherits Window {
     min-width: 1040px;
     min-height: 660px;
     no-frame: true;
-    // pause du décor : l'horloge s'arrête, puis repart d'où elle était
-    property <bool> decor-anime: AppState.anime;
-    changed decor-anime => {
-        if (self.decor-anime) {
-            AppState.decalage = animation-tick() - AppState.fige;
-        } else {
-            AppState.fige = animation-tick() - AppState.decalage;
-        }
+    // horloge du décor : un pas toutes les 33 ms (30 images par seconde), arrêtée pendant les
+    // pauses ; elle repart d'où elle était
+    Timer {
+        interval: 33ms;
+        running: AppState.anime;
+        triggered => { AppState.temps += 33ms; }
     }
     resize-border-width: AppState.maximized ? 0px : 6px;
     // transparent : les coins arrondis du fond laissent voir le bureau

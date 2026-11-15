@@ -21,7 +21,7 @@ pub const ERREUR: i32 = 2;
 pub const MISTY: i32 = 3;
 
 /// Lignes gardées en mémoire pour la console.
-const MAX_LIGNES: usize = 10_000;
+const MAX_LIGNES: usize = 5_000;
 /// Parties dont le journal est gardé sur le disque.
 const MAX_FICHIERS: usize = 10;
 
@@ -69,8 +69,28 @@ struct Partie {
     etat: Etat,
     lignes: VecDeque<Ligne>,
     debut: Instant,
-    fichier: Option<fs::File>,
+    /// Fichier de la partie, écrit par blocs (une écriture par ligne coûtait un appel au système
+    /// à chaque ligne, sous le verrou de la console) ; vidé toutes les VIDAGE au plus
+    fichier: Option<std::io::BufWriter<fs::File>>,
+    /// Dernier vidage du fichier sur le disque
+    vide: Instant,
+    /// Des lignes attendent dans le tampon
+    en_attente: bool,
     pid: Option<u32>,
+}
+
+/// Le fichier d'une partie est à jour sur le disque à ce délai près.
+const VIDAGE: Duration = Duration::from_millis(500);
+
+impl Partie {
+    /// Écrit sur le disque ce qui attend dans le tampon.
+    fn vider(&mut self) {
+        if let Some(f) = self.fichier.as_mut() {
+            let _ = f.flush();
+        }
+        self.vide = Instant::now();
+        self.en_attente = false;
+    }
 }
 
 struct Console {
@@ -154,7 +174,7 @@ pub fn nouvelle_partie(titre: &str) -> u64 {
         c.prochain += 1;
         // le nom du fichier porte aussi le numéro : deux parties lancées dans la même seconde
         let nom = format!("game-{}-{id}.log", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"));
-        let fichier = fs::File::create(d.join(nom)).ok();
+        let fichier = fs::File::create(d.join(nom)).ok().map(std::io::BufWriter::new);
         if c.parties.len() >= MAX_PARTIES {
             let i = c.parties.iter().position(|p| !p.etat.en_cours).unwrap_or(0);
             c.parties.remove(i);
@@ -164,6 +184,8 @@ pub fn nouvelle_partie(titre: &str) -> u64 {
             lignes: VecDeque::new(),
             debut: Instant::now(),
             fichier,
+            vide: Instant::now(),
+            en_attente: false,
             pid: None,
         });
         id
@@ -193,6 +215,10 @@ pub fn ajouter(id: u64, texte: &str, niveau: i32) {
     avec(id, |p| {
         if let Some(f) = p.fichier.as_mut() {
             let _ = writeln!(f, "{texte}");
+            p.en_attente = true;
+            if p.vide.elapsed() >= VIDAGE {
+                p.vider();
+            }
         }
         p.etat.total += 1;
         // Minecraft écrit « Stopping! » quand il commence à se fermer normalement
@@ -300,7 +326,24 @@ pub fn etat(id: u64) -> Option<Etat> {
 
 /// Les parties de la console, de la plus ancienne à la plus récente.
 pub fn parties() -> Vec<Etat> {
-    CONSOLE.lock().unwrap().parties.iter().map(etat_a_jour).collect()
+    let mut c = CONSOLE.lock().unwrap();
+    vider_en_attente(&mut c);
+    c.parties.iter().map(etat_a_jour).collect()
+}
+
+/// Les dernières lignes d'un jeu devenu silencieux finissent sur le disque : l'interface passe
+/// ici plusieurs fois par seconde (`parties`, `partie_en_cours`).
+fn vider_en_attente(c: &mut Console) {
+    for p in c.parties.iter_mut().filter(|p| p.en_attente && p.vide.elapsed() >= VIDAGE) {
+        p.vider();
+    }
+}
+
+/// Une partie tourne-t-elle ? (sans rien copier : pour les minuteries)
+pub fn partie_en_cours() -> bool {
+    let mut c = CONSOLE.lock().unwrap();
+    vider_en_attente(&mut c);
+    c.parties.iter().any(|p| p.etat.en_cours)
 }
 
 /// Lignes d'une partie arrivées après les `deja` premières. Renvoie aussi s'il faut tout
@@ -474,7 +517,7 @@ mod tests {
         let id = {
             let mut c = CONSOLE.lock().unwrap();
             let id = 1_000_000 + c.prochain;
-            c.parties.push(Partie { etat: Etat { id, en_cours: true, ..Default::default() }, lignes: VecDeque::new(), debut: Instant::now(), fichier: None, pid: None });
+            c.parties.push(Partie { etat: Etat { id, en_cours: true, ..Default::default() }, lignes: VecDeque::new(), debut: Instant::now(), fichier: None, vide: Instant::now(), en_attente: false, pid: None });
             id
         };
         ajouter(id, "[16:25:20] [Render thread/INFO]: Loaded 7 recipes", INFO);

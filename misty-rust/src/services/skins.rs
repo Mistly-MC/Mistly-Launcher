@@ -917,6 +917,19 @@ pub mod partie {
 /// chaque pixel (une valeur de `partie` par pixel, ligne par ligne) : ce qui dit sur quoi on clique.
 /// `surbrillance` : parties teintées de bleu (celles que la souris survole dans le studio).
 #[allow(clippy::too_many_arguments)]
+/// Fils du rendu en direct : créés au premier dessin, puis réutilisés (8 au plus).
+fn fils_du_rendu() -> &'static rayon::ThreadPool {
+    static FILS: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+    FILS.get_or_init(|| {
+        let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 8);
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(n)
+            .thread_name(|i| format!("studio-{i}"))
+            .build()
+            .expect("fils du rendu du studio")
+    })
+}
+
 pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool, elytres: bool, anim: Anim, t: f32, yaw: f32, pitch: f32, surbrillance: &[u8]) -> Option<(RgbaImage, Vec<u8>)> {
     if skin.width() != 64 || skin.height() < 32 {
         return None;
@@ -1065,21 +1078,23 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
         .collect();
     let lignes_utiles = rectangles.iter().fold((LIVE, 0), |(a, b), r| (a.min(r[2]), b.max(r[3])));
 
-    // Rendu en bandes de lignes, directement dans l'image, sur tous les cœurs
+    // Rendu en bandes de lignes, directement dans l'image, sur plusieurs cœurs. Les fils sont
+    // gardés d'une image à l'autre (en créer jusqu'à 8 par image, 60 fois par seconde, coûtait
+    // plus que le dessin lui-même).
     let mut image = RgbaImage::from_pixel(LIVE, LIVE, Rgba([0, 0, 0, 0]));
     let mut carte = vec![partie::AUCUNE; (LIVE * LIVE) as usize];
-    let fils = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 8) as u32;
+    let fils = fils_du_rendu().current_num_threads().max(1) as u32;
     let (premiere, derniere) = lignes_utiles;
     if premiere < derniere {
         let bande = (derniere - premiere).div_ceil(fils);
         let largeur = LIVE as usize * 4;
         let utiles = &mut image.as_mut()[premiere as usize * largeur..derniere as usize * largeur];
         let carte_utile = &mut carte[(premiere * LIVE) as usize..(derniere * LIVE) as usize];
-        std::thread::scope(|sc| {
+        fils_du_rendu().scope(|sc| {
             let (posees, rectangles, parties) = (&posees, &rectangles, &parties);
             let surbrillance = surbrillance;
             for (f, (morceau, morceau_carte)) in utiles.chunks_mut(bande as usize * largeur).zip(carte_utile.chunks_mut((bande * LIVE) as usize)).enumerate() {
-                sc.spawn(move || {
+                sc.spawn(move |_| {
                     let mut candidates: Vec<usize> = Vec::with_capacity(posees.len());
                     for (l, (ligne, ligne_carte)) in morceau.chunks_mut(largeur).zip(morceau_carte.chunks_mut(LIVE as usize)).enumerate() {
                         let py = premiere + f as u32 * bande + l as u32;

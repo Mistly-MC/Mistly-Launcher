@@ -14,6 +14,9 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
 
+/// Au repos (caméra immobile, animation « repos »), temps minimal entre deux images.
+const REPOS: std::time::Duration = std::time::Duration::from_millis(30);
+
 /// Ce que porte le personnage dessiné.
 #[derive(Default)]
 struct Modele {
@@ -108,10 +111,20 @@ pub fn installer(app: &Rc<App>) {
         .expect("fil du studio");
     let _ = DEMANDES.set(tx);
 
-    app.ui.global::<SkinState>().on_render_frame(|yaw, pitch, anim| {
+    // Dernière image demandée : (angles, animation, instant)
+    let derniere = std::cell::Cell::new((f32::NAN, f32::NAN, -1, Instant::now()));
+    app.ui.global::<SkinState>().on_render_frame(move |yaw, pitch, anim| {
+        // Personnage au repos et caméra immobile : seule la respiration bouge, 30 images par
+        // seconde suffisent. Dès qu'on tourne le personnage ou qu'il marche, court ou vole, on
+        // revient à une image par rafraîchissement.
+        let (y, p, a, quand) = derniere.get();
+        if anim == 0 && a == anim && y == yaw && p == pitch && quand.elapsed() < REPOS {
+            return;
+        }
         if OCCUPE.swap(true, Ordering::SeqCst) {
             return; // image précédente pas encore finie : on saute celle-ci
         }
+        derniere.set((yaw, pitch, anim, Instant::now()));
         if let Some(tx) = DEMANDES.get() {
             if tx.send((yaw, pitch, anim)).is_err() {
                 OCCUPE.store(false, Ordering::SeqCst);

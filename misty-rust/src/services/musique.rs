@@ -26,7 +26,7 @@ pub fn demarrer() {
 
 /// Une partie tourne-t-elle ?
 fn partie_en_cours() -> bool {
-    journal::parties().iter().any(|p| p.en_cours)
+    journal::partie_en_cours()
 }
 
 /// Dossier des fichiers : celui de Misty (en test : `MISTY_MUSIQUE_DIR`).
@@ -85,6 +85,9 @@ mod windows_musique {
         let mut dernier = Morceau::default();
         let mut pochette = 0u64;
         let mut ecrit = false;
+        // dernier contenu écrit : music.json n'est réécrit que s'il change (la position et son
+        // instant de mesure ne changent que quand le lecteur les met à jour)
+        let mut dernier_json = String::new();
         loop {
             std::thread::sleep(PERIODE);
             if !partie_en_cours() {
@@ -101,7 +104,11 @@ mod windows_musique {
             let Some(g) = &gestionnaire else { continue };
             match lire(g, &mut dernier, &mut pochette) {
                 Some(json) => {
-                    ecrire(&fichier(), json.to_string().as_bytes());
+                    let texte = json.to_string();
+                    if !ecrit || texte != dernier_json {
+                        ecrire(&fichier(), texte.as_bytes());
+                        dernier_json = texte;
+                    }
                     ecrit = true;
                 }
                 None if ecrit => {

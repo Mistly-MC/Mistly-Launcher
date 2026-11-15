@@ -307,6 +307,7 @@ pub fn modifier_texture(dossier_pack: &Path, dossier_template: &Path, chemin_rel
     }
     match editeur.filter(|e| !e.trim().is_empty()) {
         Some(e) => {
+            super::system_info::avant_processus();
             std::process::Command::new(e).arg(&copie).spawn()?;
         }
         None => open::that_detached(&copie)?, // appli par défaut
