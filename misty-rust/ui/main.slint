@@ -156,7 +156,7 @@ component Brume inherits Rectangle {
         { y: 0.48, h: 0.28, a: 0.18, p: 47000 },
         { y: 0.68, h: 0.32, a: 0.26, p: 73000 },
     ]: Rectangle {
-        x: -root.width * 0.25 + root.width * 0.12 * sin((animation-tick() / (b.p * 1ms)) * 360deg);
+        x: -root.width * 0.25 + root.width * 0.12 * sin((AppState.temps / (b.p * 1ms)) * 360deg);
         y: root.height * b.y;
         width: root.width * 1.5;
         height: root.height * b.h;
@@ -170,7 +170,7 @@ component Brume inherits Rectangle {
         { y: 0.30, s: 380, p: 112000, o: 0.2 },
         { y: 0.86, s: 700, p: 150000, o: 0.85 },
     ]: Rectangle {
-        property <float> t: Math.mod(animation-tick() / (n.p * 1ms) + n.o, 1);
+        property <float> t: Math.mod(AppState.temps / (n.p * 1ms) + n.o, 1);
         x: -n.s * 1px + (root.width + n.s * 2px) * self.t;
         // carrée, le dégradé s'éteint avant les bords (sinon un bord net se voit), puis aplatie
         y: root.height * n.y - n.s * 0.5px;
@@ -233,7 +233,8 @@ component Chargement inherits Rectangle {
     property <length> sw: 1600px * root.s;
     property <length> sh: 440px * root.s;
     property <length> haut: root.height - root.sh;
-    property <float> secondes: animation-tick() / 1s;
+    // plus lue une fois l'écran effacé : rien ne redessine sans fin derrière le launcher
+    property <float> secondes: root.visible ? animation-tick() / 1s : 0;
     property <[float]> vitesses: [4, 7, 11, 17];
     // nuit (comme le client, et pour les thèmes de saison) ou jour (thème Brume)
     property <bool> nuit: Theme.dark;
@@ -268,7 +269,7 @@ component Chargement inherits Rectangle {
         image-rendering: pixelated;
         image-fit: fill;
         colorize: white;
-        opacity: 0.25 + 0.75 * (0.5 + 0.5 * sin((animation-tick() / 8000ms) * 360deg));
+        opacity: root.visible ? 0.25 + 0.75 * (0.5 + 0.5 * sin((animation-tick() / 8000ms) * 360deg)) : 0;
     }
 
     // crêtes, de l'arrière vers l'avant, qui défilent vers la droite (les lointaines plus
@@ -348,6 +349,15 @@ export component MainWindow inherits Window {
     min-width: 1040px;
     min-height: 660px;
     no-frame: true;
+    // pause du décor : l'horloge s'arrête, puis repart d'où elle était
+    property <bool> decor-anime: AppState.anime;
+    changed decor-anime => {
+        if (self.decor-anime) {
+            AppState.decalage = animation-tick() - AppState.fige;
+        } else {
+            AppState.fige = animation-tick() - AppState.decalage;
+        }
+    }
     resize-border-width: AppState.maximized ? 0px : 6px;
     // transparent : les coins arrondis du fond laissent voir le bureau
     background: transparent;

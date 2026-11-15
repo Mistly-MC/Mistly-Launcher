@@ -100,7 +100,7 @@ component PastilleEnLigne inherits Rectangle {
                 background: #1DE062;
                 // halo qui pulse doucement
                 Rectangle {
-                    property <float> t: Math.mod(animation-tick() / 2000ms, 1);
+                    property <float> t: Math.mod(AppState.temps / 2000ms, 1);
                     width: 8px + 10px * self.t;
                     height: self.width;
                     border-radius: self.width / 2;
@@ -150,7 +150,7 @@ export component HomePage inherits Rectangle {
                 { y: 0.52, s: 720, p: 180000, o: 0.60 },
                 { y: 0.78, s: 620, p: 160000, o: 0.35 },
             ]: Rectangle {
-                property <float> t: Math.mod(animation-tick() / (n.p * 1ms) + n.o, 1);
+                property <float> t: Math.mod(AppState.temps / (n.p * 1ms) + n.o, 1);
                 x: -n.s * 1px + (parent.width + n.s * 2px) * self.t;
                 // carrée, le dégradé s'éteint avant les bords, puis aplatie
                 y: parent.height * n.y - n.s * 0.5px;

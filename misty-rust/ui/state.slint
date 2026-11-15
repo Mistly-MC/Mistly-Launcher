@@ -20,6 +20,16 @@ export struct ScenePuff {
 }
 
 export global AppState {
+    /// Le décor bouge-t-il ? Non quand la fenêtre n'a pas le focus, est réduite, ou qu'une partie
+    /// tourne (posé par Rust) : sans animation continue, la fenêtre n'est plus redessinée à chaque
+    /// image, et le jeu garde la machine pour lui.
+    in property <bool> anime: true;
+    /// Horloge du décor : le temps de l'animation, arrêté pendant les pauses (le décor reprend là où
+    /// il s'était arrêté). À utiliser à la place d'animation-tick() pour tout ce qui bouge sans fin.
+    out property <duration> temps: self.anime ? animation-tick() - self.decalage : self.fige;
+    /// (gérés par MainWindow quand « anime » change)
+    in-out property <duration> fige;
+    in-out property <duration> decalage;
     /// 0 accueil, 1 profils, 2 options, 3 notes, 4 packs, 5 détail d'un profil, 6 éditeur de pack, 8 amis
     in-out property <int> page: 0;
     /// Onglet de la barre latérale allumé

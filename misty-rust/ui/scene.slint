@@ -43,12 +43,12 @@ export component Paysage inherits Rectangle {
         image-fit: fill;
         colorize: white;
         // scintillement : 4 s aller-retour, entre 25 % et 100 %
-        opacity: 0.25 + 0.75 * (0.5 + 0.5 * sin((animation-tick() / 8000ms) * 360deg));
+        opacity: 0.25 + 0.75 * (0.5 + 0.5 * sin((AppState.temps / 8000ms) * 360deg));
     }
 
     // ── Lune et son halo (la nuit seulement) ──
     if root.nuit: Rectangle {
-        property <float> respire: 0.5 + 0.5 * sin((animation-tick() / 12000ms) * 360deg);
+        property <float> respire: 0.5 + 0.5 * sin((AppState.temps / 12000ms) * 360deg);
         property <length> r: AppState.moon-size * 2.5 * root.s * (0.9 + 0.2 * self.respire) * 1px;
         x: root.x0 + (AppState.moon-x + AppState.moon-size / 2) * root.s * 1px - self.r;
         y: root.y0 + (AppState.moon-y + AppState.moon-size / 2) * root.s * 1px - self.r;
@@ -63,7 +63,7 @@ export component Paysage inherits Rectangle {
     if root.nuit: Image {
         x: root.x0 + AppState.moon-x * root.s * 1px;
         // flotte de 10 px en 9 s
-        y: root.y0 + AppState.moon-y * root.s * 1px - 5px * root.s * (1 - cos((animation-tick() / 9000ms) * 360deg));
+        y: root.y0 + AppState.moon-y * root.s * 1px - 5px * root.s * (1 - cos((AppState.temps / 9000ms) * 360deg));
         width: AppState.moon-size * root.s * 1px;
         height: self.width;
         source: AppState.scene-moon;
@@ -89,7 +89,7 @@ export component Paysage inherits Rectangle {
         // nappes de cette couche : traversent toute la scène (de -2000 à +2000 px) très lentement
         for n in AppState.scene-puffs: Image {
             visible: n.layer == i;
-            property <float> t: Math.mod(animation-tick() / n.period + n.phase, 1);
+            property <float> t: Math.mod(AppState.temps / n.period + n.phase, 1);
             x: (n.x + self.t * 4000 - 2000) * root.s * 1px;
             y: n.y * root.s * 1px;
             width: n.w * root.s * 1px;
@@ -103,7 +103,7 @@ export component Paysage inherits Rectangle {
         // bande de brume douce qui va et vient (3 premières couches)
         if i < 3: Rectangle {
             property <duration> periode: i == 0 ? 56000ms : i == 1 ? 72000ms : 44000ms;
-            x: -200px * root.s + 90px * root.s * sin((animation-tick() / self.periode) * 360deg);
+            x: -200px * root.s + 90px * root.s * sin((AppState.temps / self.periode) * 360deg);
             y: (30 + i * 7) * 8px * root.s;
             width: 2000px * root.s;
             height: 64px * root.s;

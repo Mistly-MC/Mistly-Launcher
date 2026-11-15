@@ -24,7 +24,7 @@ pub mod settings;
 pub mod skin;
 pub mod studio;
 
-use crate::services::{discord, loc, paths, system_info, Progress};
+use crate::services::{discord, journal, loc, paths, system_info, Progress};
 use crate::*;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::cell::RefCell;
@@ -185,6 +185,7 @@ pub fn installer(app: &Rc<App>) {
     minuterie.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(300), move || {
         if let Some(a) = a.upgrade() {
             suivre_agrandissement(&a);
+            suivre_decor(&a);
             maj_discord(&a, false);
             // thème « Comme Windows » : suit Windows quand on le change pendant que Misty est ouvert
             let sombre = system_info::windows_sombre();
@@ -259,6 +260,7 @@ pub fn appliquer_flou_fond(app: &Rc<App>, niveau: u32) {
 /// Thème de saison (Halloween, Noël) si on est à ±3 jours de la fête et que l'option est active.
 /// En développement, MISTY_EVENT=1 ou 2 force une saison pour la tester.
 pub fn appliquer_saison(app: &App) {
+    #[cfg_attr(not(debug_assertions), allow(unused_mut))]
     let mut saison = if crate::services::settings::get_bool(crate::services::settings::SAISON, true) {
         crate::services::settings::saison_du_jour()
     } else {
@@ -310,6 +312,21 @@ fn suivre_agrandissement(app: &App) {
     let etat = app.ui.global::<AppState>();
     if etat.get_maximized() != agrandie {
         etat.set_maximized(agrandie);
+    }
+}
+
+/// Le décor (paysage, brume) ne bouge que quand on regarde le launcher : fenêtre au premier plan,
+/// pas réduite, et aucune partie en cours. Sinon il s'arrête, et la fenêtre n'est plus redessinée
+/// à chaque image (le jeu garde le processeur et la carte graphique). Pas pendant les captures
+/// d'écran de développement (fenêtre hors de l'écran, jamais au premier plan).
+fn suivre_decor(app: &App) {
+    let capture = cfg!(debug_assertions) && std::env::var_os("MISTY_CAPTURE").is_some();
+    let mut regarde = true;
+    fenetre(app, |w| regarde = w.has_focus() && !w.is_minimized().unwrap_or(false));
+    let anime = capture || (regarde && !journal::parties().iter().any(|p| p.en_cours));
+    let etat = app.ui.global::<AppState>();
+    if etat.get_anime() != anime {
+        etat.set_anime(anime);
     }
 }
 
