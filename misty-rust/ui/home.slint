@@ -79,6 +79,55 @@ component PastilleNews inherits Rectangle {
     }
 }
 
+/// Joueurs Mistly en ligne : un point vert qui pulse, « En ligne », le nombre et ceux en jeu.
+component PastilleEnLigne inherits Rectangle {
+    height: 48px;
+    width: contenu.preferred-width;
+    border-radius: 8px;
+    background: Theme.dark ? #0A0F1DCC : #FFFFFFD9;
+    border-width: 1px;
+    border-color: Theme.glass-border;
+    contenu := HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 18px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: #1DE062;
+                // halo qui pulse doucement
+                Rectangle {
+                    property <float> t: Math.mod(animation-tick() / 2000ms, 1);
+                    width: 8px + 10px * self.t;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: #1DE062;
+                    opacity: 0.45 * (1 - self.t);
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 1px;
+            PixelLabel {
+                text: Tr.t("Home_EnLigne");
+                font-size: 11px;
+                color: Theme.green-dark;
+            }
+            Text {
+                text: HomeState.online-count + " " + (HomeState.online-count == 1 ? Tr.t("Home_Joueur") : Tr.t("Home_Joueurs"))
+                    + (HomeState.online-playing > 0 ? "  ·  " + HomeState.online-playing + " " + Tr.t("Home_EnJeu") : "");
+                font-size: 14px;
+                font-weight: 700;
+                color: Theme.navy;
+            }
+        }
+    }
+}
+
 export component HomePage inherits Rectangle {
     // ═══════════ Jouer : le paysage dans un cadre, le logo au milieu ═══════════
     if SkinState.tab == 0: Rectangle {
@@ -134,9 +183,15 @@ export component HomePage inherits Rectangle {
                 }
             }
         }
-        if HomeState.news-items.length > 0: PastilleNews {
+        // en bas à gauche : la dernière news, puis les joueurs en ligne
+        HorizontalLayout {
             x: 20px;
             y: parent.height - self.height - 20px;
+            width: self.preferred-width;
+            height: 48px;
+            spacing: 10px;
+            if HomeState.news-items.length > 0: PastilleNews { }
+            if HomeState.online-count >= 0: PastilleEnLigne { }
         }
     }
 

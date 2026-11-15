@@ -80,11 +80,11 @@ component CarteAmi inherits Rectangle {
         }
         VerticalLayout {
             alignment: center;
+            // toujours visible : au survol seulement, il disparaissait dès que la souris passait
+            // dessus (le survol de la carte s'arrête sur ses boutons)
             IconButton {
                 width: 32px;
                 height: 32px;
-                opacity: root.survol ? 1 : 0;
-                animate opacity { duration: Theme.fast; }
                 icon: "\u{E74D}";
                 tooltip: Tr.t("Amis_Retirer");
                 clicked => { FriendsState.remove(root.ami.uuid); }

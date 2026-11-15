@@ -349,7 +349,26 @@ fn proposer_mode_compte(app: &Rc<App>) {
     app.ui.global::<AppState>().set_account_choice(true);
 }
 
+/// Joueurs Mistly en ligne (le compteur du site) : lu au démarrage puis chaque minute.
+fn suivre_en_ligne(app: &Rc<App>) {
+    let a = Rc::downgrade(app);
+    let lire = move || {
+        let Some(a) = a.upgrade() else { return };
+        lancer(async move {
+            if let Ok((en_ligne, en_jeu)) = a.bg(crate::services::presence::en_ligne()).await {
+                h(&a).set_online_count(en_ligne.min(i32::MAX as u64) as i32);
+                h(&a).set_online_playing(en_jeu.min(i32::MAX as u64) as i32);
+            }
+        });
+    };
+    lire();
+    let minuterie = slint::Timer::default();
+    minuterie.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(60), lire);
+    std::mem::forget(minuterie);
+}
+
 pub async fn initialiser(app: &Rc<App>) {
+    suivre_en_ligne(app);
     charger_pseudos(app);
     maj_compte(app);
     charger_profils(app);

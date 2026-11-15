@@ -198,6 +198,9 @@ export global HomeState {
     in property <[NewsItem]> news-items;
     /// News affichée dans le carrousel
     in-out property <int> news-index: 0;
+    /// joueurs Mistly en ligne en ce moment, et combien sont en jeu (-1 : pas encore connu)
+    in property <int> online-count: -1;
+    in property <int> online-playing: 0;
     callback news-open(int);
     in property <[string]> accounts;
     in-out property <int> account-index;

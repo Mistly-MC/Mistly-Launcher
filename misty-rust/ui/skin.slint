@@ -1180,28 +1180,29 @@ export component SkinPanel inherits Rectangle {
                                 a-apercu: SkinState.misty-hat;
                                 clicked => { root.ouvrir(2); }
                             }
-                                // article Misty porté : où il se voit en jeu (ou l'avertissement, sans Misty Client)
-                                if SkinState.misty-equip != 0 || SkinState.misty-hat: Rectangle {
+                                // article Mistly porté sans Mistly Client disponible : l'avertissement
+                                // (avec le mod, rien à dire)
+                                if (SkinState.misty-equip != 0 || SkinState.misty-hat) && !SkinState.misty-in-game: Rectangle {
                                     min-height: av.preferred-height;
                                     border-radius: 8px;
-                                    background: SkinState.misty-in-game ? Theme.accent-soft : Theme.dark ? #FFBE5A14 : #FFF1DC;
+                                    background: Theme.dark ? #FFBE5A14 : #FFF1DC;
                                     border-width: 1px;
-                                    border-color: SkinState.misty-in-game ? Theme.accent.with-alpha(0.35) : Theme.dark ? #FFBE5A59 : #F0B35E;
+                                    border-color: Theme.dark ? #FFBE5A59 : #F0B35E;
                                     av := HorizontalLayout {
                                         padding: 10px;
                                         spacing: 10px;
                                         Icon {
                                             width: 16px;
                                             vertical-alignment: top;
-                                            text: SkinState.misty-in-game ? "\u{E73E}" : "\u{E7BA}";
+                                            text: "\u{E7BA}";
                                             font-size: 13px;
-                                            color: SkinState.misty-in-game ? Theme.accent : #FFC56B;
+                                            color: #FFC56B;
                                         }
                                         Text {
                                             horizontal-stretch: 1;
-                                            text: SkinState.misty-in-game ? Tr.t("Cos_EnJeu") + " " + Tr.t("Cos_EnJeu_Profil") + " Fabric " + SkinState.misty-mc : Tr.t("Cos_PasEnJeu");
+                                            text: Tr.t("Cos_PasEnJeu");
                                             font-size: 12px;
-                                            color: SkinState.misty-in-game ? Theme.text : Theme.dark ? #FFD99A : #6B4210;
+                                            color: Theme.dark ? #FFD99A : #6B4210;
                                             wrap: word-wrap;
                                             overflow: elide;
                                         }

@@ -818,5 +818,9 @@
   "Console_CopierSelection": "Копировать выделенное",
   "Hz_BuildIntrouvable": "Сборка {0} не найдена на GitHub",
   "Home_TelechargementClient": "Загрузка Mistly Client…",
-  "Console_Arretee": "Игра остановлена."
+  "Console_Arretee": "Игра остановлена.",
+  "Home_EnLigne": "В СЕТИ",
+  "Home_Joueur": "игрок",
+  "Home_Joueurs": "игроков",
+  "Home_EnJeu": "в игре"
 }

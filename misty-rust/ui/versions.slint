@@ -322,106 +322,113 @@ component PuceMisty inherits Rectangle {
     }
 }
 
-/// Panneau Misty : ce qu'apporte Misty Client, ses versions, et Jouer.
-component PanneauMisty inherits VerticalLayout {
-    spacing: 14px;
-    // le bouton du bas ne touche pas le bord (ses coins arrondis restent visibles)
-    padding-bottom: 6px;
-    // bannière
-    Rectangle {
-        // 200 px, moins si la fenêtre est basse : le bouton Choisir reste visible
-        preferred-height: 200px;
-        min-height: 150px;
-        max-height: 200px;
-        vertical-stretch: 1;
-        border-radius: 20px;
-        clip: true;
-        border-width: 1px;
-        border-color: Theme.accent.with-alpha(0.45);
-        background: @linear-gradient(135deg, #0E1A38 0%, #1D3F86 55%, #3B7BE8 100%);
-        Image {
-            x: 0;
-            width: parent.width;
-            height: max(parent.height, parent.width * 90 / 160);
-            y: min(0px, parent.height - self.height * 82 / 90);
-            source: HomeState.misty-art;
-            image-fit: fill;
-            image-rendering: pixelated;
-            opacity: 0.5;
+/// Panneau Mistly Client, comme les versions : ses versions à gauche ; à droite, la bannière et
+/// « Choisir » (un clic sur une puce la sélectionne seulement).
+component PanneauMisty inherits HorizontalLayout {
+    spacing: 16px;
+    // versions, en grille : autant de puces par ligne que la place le permet
+    VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: 10px;
+        PixelLabel {
+            text: Tr.t("Ver_Onglet_Versions");
+            font-size: 11px;
         }
-        Rectangle {
-            background: @linear-gradient(90deg, #0A1226E6 0%, #0A122699 45%, #0A122600 75%);
-        }
-        Image {
-            width: 120px;
-            height: 120px;
-            x: parent.width - self.width - 36px;
-            y: (parent.height - self.height) / 2;
-            source: Assets.logo;
-        }
-        VerticalLayout {
-            padding: 22px;
-            spacing: 6px;
-            alignment: end;
-            PixelLabel {
-                text: Tr.t("Misty_Etiquette");
-                font-size: 11px;
-                color: #CFE0FF;
+        grille-misty := ScrollView {
+            vertical-stretch: 1;
+            property <int> colonnes: max(1, floor((self.visible-width - 8px + 8px) / 158px));
+            content-width: self.visible-width;
+            content-height: ceil(HomeState.misty-versions.length / self.colonnes) * 50px + 8px;
+            for v[i] in HomeState.misty-versions: PuceMisty {
+                x: 4px + mod(i, grille-misty.colonnes) * 158px;
+                y: 4px + floor(i / grille-misty.colonnes) * 50px;
+                version: v;
+                checked: HomeState.misty-selected && v == HomeState.misty-mc;
+                clicked => { HomeState.misty-select(v); }
             }
-            HorizontalLayout {
-                alignment: start;
-                OutlinedText {
-                    text: "MISTLY";
-                    font-size: 44px;
-                    thickness: 4px;
-                    depth: 5px;
-                    stroke-color: #142A5C;
-                    shadow: #0A1430;
+        }
+    }
+
+    // à droite : la bannière, puis Choisir
+    Rectangle {
+        width: 340px;
+        border-radius: 12px;
+        background: Theme.panel-strong;
+        border-width: 1px;
+        border-color: Theme.glass-border;
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            Rectangle {
+                height: 200px;
+                border-radius: 8px;
+                clip: true;
+                background: @linear-gradient(135deg, #0E1A38 0%, #1D3F86 55%, #3B7BE8 100%);
+                Image {
+                    x: 0;
+                    width: parent.width;
+                    height: max(parent.height, parent.width * 90 / 160);
+                    y: min(0px, parent.height - self.height * 82 / 90);
+                    source: HomeState.misty-art;
+                    image-fit: fill;
+                    image-rendering: pixelated;
+                    opacity: 0.5;
+                }
+                Rectangle {
+                    background: @linear-gradient(0deg, #0A1226E6 0%, #0A122680 55%, #0A122600 100%);
+                }
+                Image {
+                    width: 64px;
+                    height: 64px;
+                    x: parent.width - self.width - 14px;
+                    y: 14px;
+                    source: Assets.logo;
+                }
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 4px;
+                    alignment: end;
+                    PixelLabel {
+                        text: Tr.t("Misty_Etiquette");
+                        font-size: 10px;
+                        color: #CFE0FF;
+                    }
+                    HorizontalLayout {
+                        alignment: start;
+                        OutlinedText {
+                            text: "MISTLY";
+                            font-size: 30px;
+                            thickness: 3px;
+                            depth: 3px;
+                            stroke-color: #142A5C;
+                            shadow: #0A1430;
+                        }
+                    }
+                    Text {
+                        text: Tr.t("Misty_Titre");
+                        font-size: 14px;
+                        font-weight: 800;
+                        color: white;
+                        wrap: word-wrap;
+                    }
+                    Text {
+                        text: "Minecraft " + HomeState.misty-mc + " · Fabric";
+                        font-size: 12px;
+                        color: #CFDAF0;
+                    }
                 }
             }
-            Text {
-                text: Tr.t("Misty_Titre");
-                font-size: 18px;
-                font-weight: 800;
-                color: white;
+            Rectangle { vertical-stretch: 1; }
+            MButton {
+                kind: 1;
+                icon: "\u{E73E}";
+                enabled: HomeState.misty-mc != "";
+                text: Tr.t("Ver_Choisir") + " Mistly " + HomeState.misty-mc;
+                clicked => {
+                    HomeState.misty-select(HomeState.misty-mc);
+                    HomeState.picker-open = false;
+                }
             }
-            Text {
-                text: "Minecraft " + HomeState.misty-mc + " · Fabric · Mistly Client";
-                font-size: 13px;
-                color: #CFDAF0;
-            }
-        }
-    }
-
-    // versions Misty
-    PixelLabel {
-        text: Tr.t("Ver_Onglet_Versions");
-        font-size: 11px;
-    }
-    // en grille : autant de puces par ligne que la place le permet, puis on passe à la ligne
-    Rectangle {
-        property <int> colonnes: max(1, floor((self.width + 8px) / 158px));
-        min-width: 0;
-        height: ceil(HomeState.misty-versions.length / self.colonnes) * 50px - 8px;
-        for v[i] in HomeState.misty-versions: PuceMisty {
-            x: mod(i, parent.colonnes) * 158px;
-            y: floor(i / parent.colonnes) * 50px;
-            version: v;
-            checked: HomeState.misty-selected && v == HomeState.misty-mc;
-            clicked => { HomeState.misty-select(v); }
-        }
-    }
-    Rectangle { vertical-stretch: 1; }
-
-    // bas : Choisir, comme pour les versions (un clic sur une puce la sélectionne seulement)
-    MButton {
-        kind: 1;
-        icon: "\u{E73E}";
-        enabled: HomeState.misty-mc != "";
-        text: Tr.t("Ver_Choisir") + " Mistly " + HomeState.misty-mc;
-        clicked => {
-            HomeState.misty-select(HomeState.misty-mc);
-            HomeState.picker-open = false;
         }
     }
 }
@@ -485,129 +492,137 @@ component PuceBuild inherits Rectangle {
     }
 }
 
-/// Horizon, présenté comme une mise à jour : bannière, builds en puces, puis compte et actions.
-component PanneauHorizon inherits VerticalLayout {
-    spacing: 14px;
-    padding-bottom: 6px;
-    // bannière (même format que les mises à jour)
-    Rectangle {
-        height: 200px;
-        border-radius: 20px;
-        clip: true;
-        border-width: 1px;
-        border-color: #F0795A66;
-        Image {
-            // comme les mises à jour : le bas visible s'arrête juste sous le sol
-            x: 0;
-            width: parent.width;
-            height: max(parent.height, parent.width * 90 / 160);
-            y: min(0px, parent.height - self.height * 82 / 90);
-            source: HomeState.horizon-art;
-            image-fit: fill;
-            image-rendering: pixelated;
-        }
-        Rectangle {
-            background: @linear-gradient(90deg, #120A1CD9 0%, #120A1C80 45%, #120A1C00 75%);
-        }
-        VerticalLayout {
-            padding: 22px;
-            spacing: 6px;
-            alignment: end;
+/// Horizon, comme les versions : ses builds à gauche ; à droite, la bannière, puis supprimer (si
+/// le build est installé) et « Choisir ». Un clic sur une puce sélectionne seulement.
+component PanneauHorizon inherits HorizontalLayout {
+    spacing: 16px;
+    // builds
+    VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 8px;
             PixelLabel {
-                text: Tr.t("Hz_Etiquette");
+                text: Tr.t("Hz_Builds");
                 font-size: 11px;
-                color: #FFC2A8;
             }
-            HorizontalLayout {
-                alignment: start;
-                OutlinedText {
-                    text: "HORIZON";
-                    font-size: 44px;
-                    thickness: 4px;
-                    depth: 5px;
-                    stroke-color: #7A2E14;
-                    shadow: #3A1408;
+            if HomeState.horizon-loading: Icon {
+                text: "\u{E895}";
+                font-size: 11px;
+                color: #F0795A;
+                transform-rotation: (animation-tick() / 1000ms) * 360deg;
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        grille-builds := ScrollView {
+            vertical-stretch: 1;
+            property <int> colonnes: max(2, floor((self.visible-width + 8px) / 190px));
+            property <length> largeur: (self.visible-width - 8px - (self.colonnes - 1) * 8px) / self.colonnes;
+            content-width: self.visible-width;
+            content-height: ceil(HomeState.horizon-visibles / self.colonnes) * 50px + 10px;
+            // les builds filtrés (Tous, Nightly, Stables) sont rangés à la suite
+            for b[i] in HomeState.horizon-builds: PuceBuild {
+                property <int> rang: HomeState.horizon-ranks[i];
+                visible: self.rang >= 0;
+                x: 4px + Math.mod(max(0, self.rang), grille-builds.colonnes) * (grille-builds.largeur + 8px);
+                y: 4px + floor(max(0, self.rang) / grille-builds.colonnes) * 50px;
+                width: grille-builds.largeur;
+                b: b;
+                checked: HomeState.horizon-selected && b.tag == HomeState.horizon-build;
+            }
+        }
+        if HomeState.horizon-message != "": Text {
+            text: HomeState.horizon-message;
+            font-size: 12.5px;
+            color: Theme.navy2;
+            wrap: word-wrap;
+        }
+    }
+
+    // à droite : la bannière, puis supprimer et Choisir
+    Rectangle {
+        width: 340px;
+        border-radius: 12px;
+        background: Theme.panel-strong;
+        border-width: 1px;
+        border-color: Theme.glass-border;
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            Rectangle {
+                height: 200px;
+                border-radius: 8px;
+                clip: true;
+                Image {
+                    // comme les mises à jour : le bas visible s'arrête juste sous le sol
+                    x: 0;
+                    width: parent.width;
+                    height: max(parent.height, parent.width * 90 / 160);
+                    y: min(0px, parent.height - self.height * 82 / 90);
+                    source: HomeState.horizon-art;
+                    image-fit: fill;
+                    image-rendering: pixelated;
+                }
+                Rectangle {
+                    background: @linear-gradient(0deg, #120A1CE6 0%, #120A1C80 55%, #120A1C00 100%);
+                }
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 4px;
+                    alignment: end;
+                    PixelLabel {
+                        text: Tr.t("Hz_Etiquette");
+                        font-size: 10px;
+                        color: #FFC2A8;
+                    }
+                    HorizontalLayout {
+                        alignment: start;
+                        OutlinedText {
+                            text: "HORIZON";
+                            font-size: 30px;
+                            thickness: 3px;
+                            depth: 3px;
+                            stroke-color: #7A2E14;
+                            shadow: #3A1408;
+                        }
+                    }
+                    Text {
+                        text: Tr.t("Hz_Titre");
+                        font-size: 14px;
+                        font-weight: 800;
+                        color: white;
+                        wrap: word-wrap;
+                    }
+                    Text {
+                        text: HomeState.horizon-builds.length + " builds · Rust · MIT · " + Tr.t("Hz_Puce_Officiel");
+                        font-size: 12px;
+                        color: #F6D5C8;
+                    }
                 }
             }
-            Text {
-                text: Tr.t("Hz_Titre");
-                font-size: 18px;
-                font-weight: 800;
-                color: white;
-            }
-            Text {
-                text: HomeState.horizon-builds.length + " builds · Rust · MIT · " + Tr.t("Hz_Puce_Officiel");
-                font-size: 13px;
-                color: #F6D5C8;
-            }
-        }
-    }
-
-    // builds
-    HorizontalLayout {
-        spacing: 8px;
-        PixelLabel {
-            text: Tr.t("Hz_Builds");
-            font-size: 11px;
-        }
-        if HomeState.horizon-loading: Icon {
-            text: "\u{E895}";
-            font-size: 11px;
-            color: #F0795A;
-            transform-rotation: (animation-tick() / 1000ms) * 360deg;
-        }
-        Rectangle { horizontal-stretch: 1; }
-    }
-    grille-builds := ScrollView {
-        vertical-stretch: 1;
-        property <int> colonnes: max(2, floor((self.visible-width + 8px) / 190px));
-        property <length> largeur: (self.visible-width - 8px - (self.colonnes - 1) * 8px) / self.colonnes;
-        // les builds filtrés (Tous, Nightly, Stables) sont rangés à la suite
-        property <[HorizonBuild]> visibles: HomeState.horizon-builds;
-        content-width: self.visible-width;
-        content-height: ceil(HomeState.horizon-visibles / self.colonnes) * 50px + 10px;
-        for b[i] in HomeState.horizon-builds: PuceBuild {
-            property <int> rang: HomeState.horizon-ranks[i];
-            visible: self.rang >= 0;
-            x: 4px + Math.mod(max(0, self.rang), grille-builds.colonnes) * (grille-builds.largeur + 8px);
-            y: 4px + floor(max(0, self.rang) / grille-builds.colonnes) * 50px;
-            width: grille-builds.largeur;
-            b: b;
-            checked: HomeState.horizon-selected && b.tag == HomeState.horizon-build;
-        }
-    }
-
-    if HomeState.horizon-message != "": Text {
-        text: HomeState.horizon-message;
-        font-size: 12.5px;
-        color: Theme.navy2;
-        wrap: word-wrap;
-    }
-
-    // en bas : supprimer le build (s'il est installé), puis Choisir, comme pour les versions
-    HorizontalLayout {
-        spacing: 10px;
-        if HomeState.horizon-build != "" && HomeState.horizon-build-installed: VerticalLayout {
-            alignment: center;
-            IconButton {
-                width: 36px;
-                height: 36px;
-                icon: "\u{E74D}";
-                icon-size: 13px;
-                tooltip: Tr.t("Hz_Supprimer");
-                enabled: !HomeState.horizon-busy;
-                clicked => { HomeState.horizon-remove(HomeState.horizon-build); }
-            }
-        }
-        MButton {
-            horizontal-stretch: 1;
-            kind: 1;
-            icon: "\u{E73E}";
-            enabled: HomeState.horizon-build != "";
-            text: HomeState.horizon-build != "" ? Tr.t("Ver_Choisir") + " Horizon " + HomeState.horizon-build : Tr.t("Hz_ChoisisBuild");
-            clicked => {
-                HomeState.horizon-select(HomeState.horizon-build);
-                HomeState.picker-open = false;
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                spacing: 8px;
+                if HomeState.horizon-build != "" && HomeState.horizon-build-installed: IconButton {
+                    width: 38px;
+                    height: 38px;
+                    icon: "\u{E74D}";
+                    icon-size: 13px;
+                    tooltip: Tr.t("Hz_Supprimer");
+                    enabled: !HomeState.horizon-busy;
+                    clicked => { HomeState.horizon-remove(HomeState.horizon-build); }
+                }
+                MButton {
+                    horizontal-stretch: 1;
+                    kind: 1;
+                    icon: "\u{E73E}";
+                    enabled: HomeState.horizon-build != "";
+                    text: HomeState.horizon-build != "" ? Tr.t("Ver_Choisir") + " Horizon " + HomeState.horizon-build : Tr.t("Hz_ChoisisBuild");
+                    clicked => {
+                        HomeState.horizon-select(HomeState.horizon-build);
+                        HomeState.picker-open = false;
+                    }
+                }
             }
         }
     }

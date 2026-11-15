@@ -818,5 +818,9 @@
   "Console_CopierSelection": "Copiar selección",
   "Hz_BuildIntrouvable": "No se encontró la build {0} en GitHub",
   "Home_TelechargementClient": "Descargando Mistly Client…",
-  "Console_Arretee": "El juego se ha detenido."
+  "Console_Arretee": "El juego se ha detenido.",
+  "Home_EnLigne": "EN LÍNEA",
+  "Home_Joueur": "jugador",
+  "Home_Joueurs": "jugadores",
+  "Home_EnJeu": "jugando"
 }

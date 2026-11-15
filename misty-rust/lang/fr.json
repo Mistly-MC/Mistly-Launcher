@@ -818,5 +818,9 @@
   "Console_CopierSelection": "Copier la sélection",
   "Hz_BuildIntrouvable": "Le build {0} est introuvable sur GitHub",
   "Home_TelechargementClient": "Téléchargement de Mistly Client…",
-  "Console_Arretee": "Le jeu a été arrêté."
+  "Console_Arretee": "Le jeu a été arrêté.",
+  "Home_EnLigne": "EN LIGNE",
+  "Home_Joueur": "joueur",
+  "Home_Joueurs": "joueurs",
+  "Home_EnJeu": "en jeu"
 }

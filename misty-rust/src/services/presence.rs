@@ -29,6 +29,13 @@ pub fn demarrer(rt: &tokio::runtime::Handle) {
     });
 }
 
+/// Joueurs Mistly en ligne en ce moment, et combien sont en jeu (le compteur du site).
+pub async fn en_ligne() -> anyhow::Result<(u64, u64)> {
+    let v: serde_json::Value = http::get_json("https://misty-launcher.online/api/online").await?;
+    let en_ligne = v["online"].as_u64().ok_or_else(|| anyhow::anyhow!("/api/online : pas de nombre"))?;
+    Ok((en_ligne, v["playing"].as_u64().unwrap_or(0)))
+}
+
 /// À la fermeture de Misty : il ne compte plus tout de suite (attend au plus 2 secondes).
 pub fn quitter(rt: &tokio::runtime::Handle) {
     let _ = rt.block_on(async {
