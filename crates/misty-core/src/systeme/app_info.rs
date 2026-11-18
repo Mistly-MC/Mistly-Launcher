@@ -3,8 +3,6 @@
 /// Version du launcher, lue dans Cargo.toml (la seule source de la version). Correspond au tag de
 /// la release GitHub (sans le "v") et au nom du dossier d'installation "Misty-{VERSION}".
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-/// Version du format de data.txt. À incrémenter quand on ajoute/retire une clé.
-pub const DATA_VERSION: &str = "1.3.5";
 pub const GITHUB_REPO: &str = "Misty-MC/Misty-Launcher";
 
 /// Clé publique minisign des releases (deuxième ligne de `misty.pub`). La clé privée n'existe que

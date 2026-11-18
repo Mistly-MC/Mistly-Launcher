@@ -26,7 +26,8 @@ pub mod studio;
 
 use crate::*;
 use misty_core::{
-    social::discord, systeme::journal, systeme::loc, systeme::paths, systeme::system_info, Progress,
+    social::discord, systeme::journal, systeme::loc, systeme::paths, systeme::reglages,
+    systeme::system_info, Progress,
 };
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::cell::RefCell;
@@ -171,7 +172,7 @@ pub fn installer(app: &Rc<App>) {
         etat.set_loading_twinkle(etat.get_scene_twinkle());
         etat.set_loading_logo(images::logo_chargement());
     }
-    let flou = misty_core::systeme::settings::fond_flou();
+    let flou = reglages::lire().fond_flou;
     ui.global::<crate::Theme>().set_bg_blur(flou as i32);
     if flou > 0 {
         appliquer_flou_fond(app, flou);
@@ -223,11 +224,8 @@ pub fn installer(app: &Rc<App>) {
     // Apparence enregistrée
     let theme = ui.global::<crate::Theme>();
     theme.set_system_dark(system_info::windows_sombre());
-    theme.set_mode(misty_core::systeme::settings::theme());
-    theme.set_blur(misty_core::systeme::settings::get_bool(
-        misty_core::systeme::settings::FLOU,
-        true,
-    ));
+    theme.set_mode(reglages::lire().theme);
+    theme.set_blur(reglages::lire().flou);
     appliquer_saison(app);
     ui.global::<AppState>().on_close(|| {
         let _ = slint::quit_event_loop();
@@ -302,12 +300,11 @@ pub fn appliquer_flou_fond(app: &Rc<App>, niveau: u32) {
 /// En développement, MISTY_EVENT=1 ou 2 force une saison pour la tester.
 pub fn appliquer_saison(app: &App) {
     #[cfg_attr(not(debug_assertions), allow(unused_mut))]
-    let mut saison =
-        if misty_core::systeme::settings::get_bool(misty_core::systeme::settings::SAISON, true) {
-            misty_core::systeme::settings::saison_du_jour()
-        } else {
-            0
-        };
+    let mut saison = if reglages::lire().saison {
+        reglages::saison_du_jour()
+    } else {
+        0
+    };
     #[cfg(debug_assertions)]
     if let Ok(force) = std::env::var("MISTY_EVENT") {
         saison = force.trim().parse().unwrap_or(saison);
@@ -419,7 +416,7 @@ pub async fn demarrer(app: Rc<App>) {
         }
     }
 
-    misty_core::systeme::settings::initialiser();
+    reglages::initialiser();
     misty_core::social::pseudos::initialiser();
     news::charger(&app);
 
@@ -470,7 +467,7 @@ pub async fn demarrer(app: Rc<App>) {
     }
     misty_core::systeme::telemetry::evenement(
         "launcher_start",
-        serde_json::json!({ "theme": misty_core::systeme::settings::theme(), "profiles": misty_core::minecraft::instances::lister().len() }),
+        serde_json::json!({ "theme": reglages::lire().theme, "profiles": misty_core::minecraft::instances::lister().len() }),
     );
 }
 

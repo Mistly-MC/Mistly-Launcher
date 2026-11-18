@@ -11,7 +11,7 @@
 //! c'est le joueur qui le demande, et il reçoit un code à donner sur Discord.
 
 use crate::{
-    systeme::app_info, systeme::http, systeme::journal, systeme::loc, systeme::settings,
+    systeme::app_info, systeme::http, systeme::journal, systeme::loc, systeme::reglages,
     systeme::system_info,
 };
 use serde_json::{json, Value};
@@ -29,15 +29,15 @@ pub fn init(rt: tokio::runtime::Handle) {
 
 /// Le joueur a-t-il déjà répondu à la question ?
 pub fn demandee() -> bool {
-    !settings::get(settings::TELEMETRIE).trim().is_empty()
+    reglages::lire().telemetrie.is_some()
 }
 
 pub fn active() -> bool {
-    settings::get_bool(settings::TELEMETRIE, false)
+    reglages::lire().telemetrie.unwrap_or(false)
 }
 
 pub fn activer(oui: bool) {
-    settings::set_bool(settings::TELEMETRIE, oui);
+    reglages::modifier(|r| r.telemetrie = Some(oui));
     journal::info(&format!(
         "Télémétrie {}",
         if oui { "activée" } else { "désactivée" }
@@ -46,12 +46,12 @@ pub fn activer(oui: bool) {
 
 /// Identifiant d'installation (aléatoire, sans lien avec le compte).
 fn id() -> String {
-    let id = settings::get(settings::TELEMETRIE_ID);
+    let id = reglages::lire().telemetrie_id;
     if !id.trim().is_empty() {
         return id;
     }
     let id = uuid::Uuid::new_v4().to_string();
-    settings::set(settings::TELEMETRIE_ID, &id);
+    reglages::modifier(|r| r.telemetrie_id = id.to_string());
     id
 }
 

@@ -378,7 +378,7 @@ pub async fn telecharger_tout(
             Ok::<(), anyhow::Error>(())
         }
     }))
-    .buffer_unordered(crate::systeme::settings::telechargements());
+    .buffer_unordered(crate::systeme::reglages::lire().telechargements);
     while let Some(r) = flux.next().await {
         r?;
     }

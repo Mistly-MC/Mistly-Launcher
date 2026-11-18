@@ -2,7 +2,7 @@
 //!
 //! Fonctionnement : le launcher est installé dans un dossier "Misty-{version}". La mise à jour
 //! télécharge le zip de la dernière release à côté, l'extrait (=> "Misty-{nouvelle}"), note l'ancien
-//! dossier dans data.txt (clé Suppr) puis lance le nouvel exe. Au démarrage suivant, le nouvel exe
+//! dossier dans les réglages (`ancien_dossier`) puis lance le nouvel exe. Au démarrage suivant, le nouvel exe
 //! supprime l'ancien dossier et met à jour le raccourci.
 //!
 //! Vérification : avant l'extraction, le zip doit correspondre à `Misty-x.y.z.zip.sha256` et être
@@ -15,7 +15,7 @@
 
 use crate::{
     systeme::app_info, systeme::http, systeme::journal, systeme::loc, systeme::paths,
-    systeme::settings, systeme::shortcut,
+    systeme::reglages, systeme::shortcut,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -85,43 +85,42 @@ async fn verifier_site() -> anyhow::Result<Option<ReleaseInfo>> {
 
 async fn verifier_github() -> anyhow::Result<Option<ReleaseInfo>> {
     // GitHub refuse les requêtes sans User-Agent (le client partagé en a un)
-    let doc: serde_json::Value =
-        if crate::systeme::settings::get_bool(crate::systeme::settings::MAJ_PRERELEASE, false) {
-            // canal pré-release : la plus haute version parmi les releases publiées, bêtas comprises
-            let liste: serde_json::Value = http::get_json(&format!(
-                "https://api.github.com/repos/{}/releases?per_page=30",
-                app_info::GITHUB_REPO
-            ))
-            .await?;
-            let mut candidates: Vec<serde_json::Value> = liste
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|r| {
-                    !r["draft"].as_bool().unwrap_or(false)
-                        && r["tag_name"].as_str().is_some_and(|t| !t.is_empty())
-                })
-                .cloned()
-                .collect();
-            let tag = |r: &serde_json::Value| {
-                r["tag_name"]
-                    .as_str()
-                    .unwrap_or("")
-                    .trim_start_matches('v')
-                    .to_string()
-            };
-            candidates.sort_by(|a, b| comparer_versions(&tag(a), &tag(b)));
-            match candidates.pop() {
-                Some(r) => r,
-                None => return Ok(None),
-            }
-        } else {
-            http::get_json(&format!(
-                "https://api.github.com/repos/{}/releases/latest",
-                app_info::GITHUB_REPO
-            ))
-            .await?
+    let doc: serde_json::Value = if reglages::lire().maj_prerelease {
+        // canal pré-release : la plus haute version parmi les releases publiées, bêtas comprises
+        let liste: serde_json::Value = http::get_json(&format!(
+            "https://api.github.com/repos/{}/releases?per_page=30",
+            app_info::GITHUB_REPO
+        ))
+        .await?;
+        let mut candidates: Vec<serde_json::Value> = liste
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|r| {
+                !r["draft"].as_bool().unwrap_or(false)
+                    && r["tag_name"].as_str().is_some_and(|t| !t.is_empty())
+            })
+            .cloned()
+            .collect();
+        let tag = |r: &serde_json::Value| {
+            r["tag_name"]
+                .as_str()
+                .unwrap_or("")
+                .trim_start_matches('v')
+                .to_string()
         };
+        candidates.sort_by(|a, b| comparer_versions(&tag(a), &tag(b)));
+        match candidates.pop() {
+            Some(r) => r,
+            None => return Ok(None),
+        }
+    } else {
+        http::get_json(&format!(
+            "https://api.github.com/repos/{}/releases/latest",
+            app_info::GITHUB_REPO
+        ))
+        .await?
+    };
     let prerelease = doc["prerelease"].as_bool().unwrap_or(false);
 
     let version = doc["tag_name"]
@@ -432,12 +431,12 @@ pub async fn installer(
         anyhow::bail!("Misty.exe absent de l'archive (Misty-{})", release.version);
     }
 
-    settings::set(
-        settings::SUPPR,
-        &racine
+    reglages::modifier(|r| {
+        r.ancien_dossier = racine
             .join(format!("Misty-{}", app_info::VERSION))
-            .to_string_lossy(),
-    );
+            .to_string_lossy()
+            .to_string()
+    });
 
     if paths::custom_icon().exists() {
         let _ = fs::copy(paths::custom_icon(), nouveau_dossier.join("Icon.ico"));
@@ -453,7 +452,7 @@ pub async fn installer(
 /// Après une mise à jour : supprime l'ancien dossier et remet le raccourci sur le nouvel exe.
 /// Renvoie true si une mise à jour vient d'être finalisée.
 pub async fn finaliser() -> anyhow::Result<bool> {
-    let ancien = settings::get(settings::SUPPR);
+    let ancien = reglages::lire().ancien_dossier;
     if ancien.is_empty() {
         return Ok(false);
     }
@@ -464,7 +463,7 @@ pub async fn finaliser() -> anyhow::Result<bool> {
     // redirigés vers lui juste après (ui::demarrer)
     crate::systeme::lanceur::installer(true);
 
-    let raccourci = settings::get(settings::RACCOURCI);
+    let raccourci = reglages::lire().raccourci;
     if !raccourci.is_empty() {
         let _ = shortcut::creer(Path::new(&raccourci));
     }
@@ -475,7 +474,7 @@ pub async fn finaliser() -> anyhow::Result<bool> {
     if Path::new(&ancien).exists() {
         fs::remove_dir_all(&ancien)?;
     }
-    settings::set(settings::SUPPR, "");
+    reglages::modifier(|r| r.ancien_dossier = String::new());
     Ok(true)
 }
 

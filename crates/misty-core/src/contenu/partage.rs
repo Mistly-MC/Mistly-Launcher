@@ -11,7 +11,7 @@
 //! serveurs sont fusionnées plutôt qu'écrasées, pour ne perdre aucun serveur ajouté avant. Le
 //! dossier principal reprend aussi une fois les serveurs du launcher Minecraft officiel (.minecraft).
 
-use crate::{systeme::paths, systeme::settings};
+use crate::{systeme::paths, systeme::reglages};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -23,7 +23,7 @@ const MARQUE: &str = ".misty-partage";
 
 /// Réglage : partage activé (Options → Comportement).
 pub fn active() -> bool {
-    settings::get_bool(settings::PARTAGE, true)
+    reglages::lire().partage
 }
 
 /// Dossier qui garde la copie de référence.

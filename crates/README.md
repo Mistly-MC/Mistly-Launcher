@@ -2,7 +2,7 @@
 
 Le launcher réécrit en Rust, avec l'interface en [Slint](https://slint.dev). Il reprend toutes
 les fonctions de l'ancienne version C# / WPF et **les mêmes fichiers de données**
-(`%LOCALAPPDATA%\Misty` : `data.txt`, `listpseudo.txt`, `instances\…\instance.json`,
+(`%LOCALAPPDATA%\Misty` : `data.txt`, converti en `reglages.json` au premier démarrage, `listpseudo.txt`, `instances\…\instance.json`,
 `misty-contenu.json`, versions, bibliothèques, Java…). Rien n'est à réinstaller.
 
 ## Compiler et lancer

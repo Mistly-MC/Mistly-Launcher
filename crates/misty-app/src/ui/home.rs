@@ -7,7 +7,7 @@ use misty_core::minecraft::{install, launch, loaders, FileProgress, McDirs};
 use misty_core::social::horizon;
 use misty_core::{
     auth::account, contenu::content, minecraft::client, social::discord, social::pseudos,
-    systeme::journal, systeme::loc, systeme::settings, systeme::telemetry,
+    systeme::journal, systeme::loc, systeme::reglages, systeme::telemetry,
 };
 use slint::ComponentHandle;
 use std::rc::Rc;
@@ -136,7 +136,7 @@ pub fn installer(app: &Rc<App>) {
     s.on_account_selected(move |i| {
         let pseudo = a.home.borrow().pseudos.get(i as usize).cloned();
         if let Some(p) = pseudo {
-            settings::set(settings::LAST_PSEUDO, &p);
+            reglages::modifier(|r| r.pseudo = p.to_string());
         }
         maj_avatar(&a);
     });
@@ -145,7 +145,7 @@ pub fn installer(app: &Rc<App>) {
     a.ui.global::<AppState>().on_choose_premium({
         let a = a.clone();
         move || {
-            settings::set(settings::MODE_COMPTE, "premium");
+            reglages::modifier(|r| r.mode_compte = reglages::ModeCompte::Premium);
             a.ui.global::<AppState>().set_account_choice(false);
             if account::session().is_none() {
                 let a = a.clone();
@@ -162,8 +162,8 @@ pub fn installer(app: &Rc<App>) {
                 return;
             }
             pseudos::ajouter(&pseudo);
-            settings::set(settings::LAST_PSEUDO, &pseudo);
-            settings::set(settings::MODE_COMPTE, "horsligne");
+            reglages::modifier(|r| r.pseudo = pseudo.to_string());
+            reglages::modifier(|r| r.mode_compte = reglages::ModeCompte::HorsLigne);
             charger_pseudos(&a);
             a.ui.global::<AppState>().set_account_choice(false);
         }
@@ -194,7 +194,7 @@ pub fn installer(app: &Rc<App>) {
         }
         let pseudo = a.home.borrow().pseudos.get(i - ms.len()).cloned();
         if let Some(p) = pseudo {
-            settings::set(settings::LAST_PSEUDO, &p);
+            reglages::modifier(|r| r.pseudo = p.to_string());
             h(&a).set_account_index((i - ms.len()) as i32);
             // hors ligne : la session Microsoft se ferme (le compte reste enregistré)
             if account::session().is_some() {
@@ -217,10 +217,13 @@ pub fn installer(app: &Rc<App>) {
         h(&a).set_horizon_selected(false);
         misty_quitter(&a);
         let profil = a.home.borrow().profils.get(i as usize).cloned().flatten();
-        settings::set(
-            settings::DERNIER_PROFIL,
-            profil.as_ref().map(|p| p.id.as_str()).unwrap_or(""),
-        );
+        reglages::modifier(|r| {
+            r.dernier_profil = profil
+                .as_ref()
+                .map(|p| p.id.as_str())
+                .unwrap_or("")
+                .to_string()
+        });
         a.home.borrow_mut().profil = profil;
         maj_mode_profil(&a);
     });
@@ -238,7 +241,7 @@ pub fn installer(app: &Rc<App>) {
     });
     // Horizon : builds GitHub, lancés par Misty
     s.set_horizon_art(super::picker::illustration("horizon"));
-    s.set_horizon_build(settings::get(settings::HORIZON_BUILD).into());
+    s.set_horizon_build(reglages::lire().horizon_build.into());
     let a = app.clone();
     s.on_horizon_refresh(move || {
         let a = a.clone();
@@ -253,7 +256,7 @@ pub fn installer(app: &Rc<App>) {
     });
     let a = app.clone();
     s.on_horizon_select(move |tag| {
-        settings::set(settings::HORIZON_BUILD, &tag);
+        reglages::modifier(|r| r.horizon_build = tag.to_string());
         h(&a).set_horizon_build(tag);
         horizon_choisir(&a);
         horizon_afficher(&a);
@@ -356,11 +359,11 @@ fn nettoyer_pseudo(texte: &str) -> String {
 /// Au démarrage, tant qu'aucune façon de jouer n'a été choisie : l'écran Premium | Hors ligne.
 /// Un compte Microsoft déjà connecté vaut le choix « premium » (pas de question).
 fn proposer_mode_compte(app: &Rc<App>) {
-    if !settings::get(settings::MODE_COMPTE).is_empty() {
+    if reglages::lire().mode_compte != reglages::ModeCompte::NonChoisi {
         return;
     }
-    if account::session().is_some() || settings::get_bool(settings::PREMIUM, false) {
-        settings::set(settings::MODE_COMPTE, "premium");
+    if account::session().is_some() || reglages::lire().premium {
+        reglages::modifier(|r| r.mode_compte = reglages::ModeCompte::Premium);
         return;
     }
     // captures d'écran de développement : seulement si on le demande (il cacherait les pages)
@@ -403,7 +406,7 @@ pub async fn initialiser(app: &Rc<App>) {
     // Connexion automatique en parallèle du chargement des versions
     // (pas pendant les captures d'écran de développement : la fenêtre de connexion s'ouvrirait)
     let capture = cfg!(debug_assertions) && std::env::var_os("MISTY_CAPTURE").is_some();
-    if !capture && settings::get_bool(settings::PREMIUM, false) && account::session().is_none() {
+    if !capture && reglages::lire().premium && account::session().is_none() {
         let a = app.clone();
         lancer(async move { se_connecter(&a).await });
     }
@@ -422,9 +425,9 @@ pub async fn initialiser(app: &Rc<App>) {
         _ => {}
     }
     // tout premier démarrage (rien de choisi avant) : Misty Client, sur sa version la plus récente
-    let premier = settings::get(settings::LAST_VERSION).is_empty()
-        && settings::get(settings::MISTY_CHOISI).is_empty();
-    if (premier || settings::get_bool(settings::MISTY_CHOISI, false))
+    let premier =
+        reglages::lire().derniere_version.is_empty() && reglages::lire().misty_choisi.is_none();
+    if (premier || reglages::lire().misty_choisi.unwrap_or(false))
         && client::disponible()
         && app.home.borrow().profil.is_none()
     {
@@ -468,7 +471,7 @@ pub fn comptes_hors_ligne_changes(app: &Rc<App>) {
 
 fn charger_pseudos(app: &Rc<App>) {
     let liste = pseudos::lire();
-    let dernier = settings::get(settings::LAST_PSEUDO);
+    let dernier = reglages::lire().pseudo;
     let index = liste
         .iter()
         .position(|p| *p == dernier)
@@ -644,7 +647,7 @@ fn charger_profils(app: &Rc<App>) {
         .profil
         .as_ref()
         .map(|p| p.id.clone())
-        .unwrap_or_else(|| settings::get(settings::DERNIER_PROFIL));
+        .unwrap_or_else(|| reglages::lire().dernier_profil);
 
     let mut profils: Vec<Option<Instance>> = vec![None];
     profils.extend(instances::lister().into_iter().map(Some));
@@ -685,7 +688,7 @@ fn charger_profils(app: &Rc<App>) {
                 art: super::picker::illustration(&super::picker::cle_groupe(
                     &p.as_ref()
                         .map(|i| i.version_mc.clone())
-                        .unwrap_or_else(|| settings::get(settings::LAST_VERSION)),
+                        .unwrap_or_else(|| reglages::lire().derniere_version),
                     0,
                 )),
             }
@@ -824,7 +827,7 @@ fn resume_contenu(instance: &Instance) -> String {
 
 /// Sélectionne un profil et lance la partie (depuis la page Profils).
 pub fn selectionner_et_jouer(app: &Rc<App>, instance: Instance) {
-    settings::set(settings::DERNIER_PROFIL, &instance.id);
+    reglages::modifier(|r| r.dernier_profil = instance.id.to_string());
     app.home.borrow_mut().profil = Some(instance);
     charger_profils(app);
     if !app.home.borrow().installation_en_cours {
@@ -991,7 +994,7 @@ async fn version_choisie_par_id(app: &Rc<App>, id: String) {
 /// Jeu rapide sur la version `id` (le loader voulu est déjà noté).
 async fn aller_a_version(app: &Rc<App>, id: String) {
     if app.home.borrow().profil.is_some() {
-        settings::set(settings::DERNIER_PROFIL, "");
+        reglages::modifier(|r| r.dernier_profil = String::new());
         app.home.borrow_mut().profil = None;
         h(app).set_profile_index(0);
         maj_mode_profil(app);
@@ -1013,7 +1016,7 @@ async fn aller_a_version(app: &Rc<App>, id: String) {
 }
 
 fn charger_derniere_version(app: &Rc<App>) {
-    let derniere = settings::get(settings::LAST_VERSION);
+    let derniere = reglages::lire().derniere_version;
     let index = {
         let e = app.home.borrow();
         e.versions
@@ -1067,7 +1070,7 @@ async fn version_choisie(app: &Rc<App>, i: i32) {
     h(app).set_modes_enabled(false);
     h(app).set_modes(modele_textes(&[]));
     h(app).set_mode_index(-1);
-    settings::set(settings::LAST_VERSION, &version);
+    reglages::modifier(|r| r.derniere_version = version.to_string());
 
     let rapide = app.home.borrow().profil.is_none();
     if rapide {
@@ -1239,7 +1242,7 @@ async fn lancer_jeu(
     // Un profil a son propre dossier de jeu (mods, options, mondes) ; le jeu rapide utilise le dossier principal
     let options = launch::Options {
         joueur,
-        ram_mo: settings::ram_mo(),
+        ram_mo: reglages::lire().ram_mo,
         dossier_jeu: instance
             .as_ref()
             .map(|i| i.dossier())
@@ -1464,7 +1467,7 @@ fn horizon_afficher(app: &App) {
     let charge = !app.home.borrow().horizon_builds.is_empty();
     if choisi.is_empty() || (charge && !lignes.iter().any(|l| l.tag == choisi.as_str())) {
         let nouveau = installes.first().cloned().unwrap_or_default();
-        settings::set(settings::HORIZON_BUILD, &nouveau);
+        reglages::modifier(|r| r.horizon_build = nouveau.to_string());
         s.set_horizon_build(nouveau.into());
     }
     s.set_horizon_build_installed(installes.contains(&s.get_horizon_build().to_string()));
@@ -1604,7 +1607,7 @@ fn maj_misty_client(app: &App) {
 
 /// La version Misty choisie avant (gardée dans les réglages), sinon la plus récente.
 fn version_misty() -> String {
-    let choisie = settings::get(settings::MISTY_VERSION);
+    let choisie = reglages::lire().misty_version;
     if client::existe(&choisie) {
         choisie
     } else {
@@ -1623,15 +1626,15 @@ fn misty_choisir(app: &Rc<App>, version: String) {
     s.set_misty_art(super::picker::illustration(&super::picker::cle_groupe(
         &version, 0,
     )));
-    settings::set(settings::MISTY_VERSION, &version);
+    reglages::modifier(|r| r.misty_version = version.to_string());
     s.set_horizon_selected(false);
     s.set_misty_selected(true);
     s.set_picker_misty(true);
-    settings::set_bool(settings::MISTY_CHOISI, true);
+    reglages::modifier(|r| r.misty_choisi = Some(true));
     let a = app.clone();
     lancer(async move {
         if a.home.borrow().profil.is_some() {
-            settings::set(settings::DERNIER_PROFIL, "");
+            reglages::modifier(|r| r.dernier_profil = String::new());
             a.home.borrow_mut().profil = None;
             h(&a).set_profile_index(0);
         }
@@ -1647,7 +1650,7 @@ fn misty_quitter(app: &App) {
     let s = h(app);
     if s.get_misty_selected() {
         s.set_misty_selected(false);
-        settings::set_bool(settings::MISTY_CHOISI, false);
+        reglages::modifier(|r| r.misty_choisi = Some(false));
     }
 }
 

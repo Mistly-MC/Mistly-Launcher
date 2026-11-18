@@ -20,10 +20,6 @@ pub fn data_dir() -> PathBuf {
     .clone()
 }
 
-pub fn data_file() -> PathBuf {
-    data_dir().join("data.txt")
-}
-
 pub fn profiles_file() -> PathBuf {
     data_dir().join("listpseudo.txt")
 }

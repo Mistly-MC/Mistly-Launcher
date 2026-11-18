@@ -29,7 +29,7 @@ cargo run                   # lancer le launcher
 
 - **Identifiants et commentaires en français** (`executer`, `fenetre`, `dossier`…), comme le reste du code. Garder ce style.
 - Textes de l'interface : jamais en dur. Ajouter la clé dans **les 6 fichiers** `crates/misty-core/lang/*.json` (en, fr, es, it, pt, ru), puis l'utiliser avec `loc::t("Cle")`.
-- Nouvelle clé dans `data.txt` (réglages) : incrémenter `DATA_VERSION` dans `crates/misty-core/src/systeme/app_info.rs` et l'ajouter dans `crates/misty-core/src/systeme/settings.rs`.
+- Nouveau réglage : ajouter un champ à `Reglages` (`crates/misty-core/src/systeme/reglages.rs`) avec `#[serde(default)]` (ou `#[serde(default = "…")]`), puis `reglages::lire().champ` / `reglages::modifier(|r| r.champ = …)`. Pas de version à incrémenter : un ancien `reglages.json` reçoit la valeur par défaut. Ne jamais renommer ni changer le type d'un champ existant sans migration (sinon le joueur perd ce réglage).
 - Ne pas modifier `GITHUB_REPO` (`app_info.rs`) ni l'`AppId` de `installer/Misty.iss` : les mises à jour automatiques et l'installateur en dépendent.
 - Le nom affiché est « Mistly Launcher » (et « Mistly Client » pour le mod ; l'app s'appelait Misty), mais l'exe (`Misty.exe`) et les dossiers de données (`%LOCALAPPDATA%\Misty`, `%LOCALAPPDATA%\Programs\Misty`) gardent le nom « Misty » : les renommer casserait les installations existantes. Les raccourcis (menu Démarrer, bureau) et les infos de l'exe (`build.rs`) affichent « Mistly ». Gardent « Misty » : l'`AppId`, l'AUMID, le domaine `misty-launcher.online`, les repos `Misty-MC/*` et le nom de la licence (« Misty License 1.0 »).
 - `curseforge.key` (racine du repo, lu par `crates/misty-core/build.rs`) est privé et ignoré par git : ne jamais le commiter.

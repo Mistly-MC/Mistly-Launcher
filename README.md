@@ -66,7 +66,7 @@ The version comes from the root `Cargo.toml` only (`[workspace.package]`): the a
 
 To publish a release, push a tag such as `0.4.0`: `.github/workflows/release.yml` builds the zip and the installer, signs the zip with minisign and publishes them. The launcher refuses an update whose signature or SHA-256 checksum doesn't match.
 
-User data lives in `%LOCALAPPDATA%\Misty\` (`data.txt` settings, `msa.json` Microsoft accounts (names only: the sign-in tokens are kept in the Windows Credential Manager, one `msa-<uuid>.Misty` entry per account), `instances/<id>/` profiles, plus versions, libraries, assets and Java). When a key is added to or removed from `data.txt`, bump `DATA_VERSION` in `app_info.rs` and add the key to `crates/misty-core/src/systeme/settings.rs`.
+User data lives in `%LOCALAPPDATA%\Misty\` (`reglages.json` settings, `msa.json` Microsoft accounts (names only: the sign-in tokens are kept in the Windows Credential Manager, one `msa-<uuid>.Misty` entry per account), `instances/<id>/` profiles, plus versions, libraries, assets and Java). The old `data.txt` settings file is converted to `reglages.json` on first start and kept as `data.txt.old`. To add a setting, add a field with `#[serde(default)]` to `Reglages` in `crates/misty-core/src/systeme/reglages.rs`.
 
 ## 📄 License
 

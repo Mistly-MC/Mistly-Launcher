@@ -7,7 +7,7 @@
 use super::{dialogs, lancer, App};
 use crate::{ConsoleState, LogLine, LogPane};
 use misty_core::{
-    auth::account, systeme::journal, systeme::loc, systeme::settings, systeme::system_info,
+    auth::account, systeme::journal, systeme::loc, systeme::reglages, systeme::system_info,
     systeme::telemetry,
 };
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
@@ -127,7 +127,7 @@ pub fn ouvrir(app: &App) {
 
 /// La console s'ouvre-t-elle toute seule au lancement du jeu ?
 pub fn auto() -> bool {
-    settings::get_bool(settings::CONSOLE, true)
+    reglages::lire().console
 }
 
 fn garde(filtre: i32, recherche: &str, l: &journal::Ligne) -> bool {
@@ -316,7 +316,7 @@ async fn envoyer_rapport(app: &Rc<App>, id: u64) {
     let jeu = journal::etat(id).map(|e| e.titre).unwrap_or_default();
     let pseudo = account::session()
         .map(|s| s.pseudo)
-        .unwrap_or_else(|| settings::get(settings::LAST_PSEUDO));
+        .unwrap_or_else(|| reglages::lire().pseudo);
     let resultat = app
         .bg(async move { telemetry::rapport("manual", &jeu, lignes, &pseudo).await })
         .await;

@@ -5,7 +5,7 @@ use super::{dialogs, lancer, modele, App};
 use crate::{LangItem, PseudoRow, SettingResult, SettingsState, StorageRow};
 use misty_core::{
     auth::account, minecraft::client, social::discord, social::pseudos, systeme::app_info,
-    systeme::loc, systeme::paths, systeme::settings, systeme::shortcut, systeme::storage,
+    systeme::loc, systeme::paths, systeme::reglages, systeme::shortcut, systeme::storage,
     systeme::system_info,
 };
 use slint::ComponentHandle;
@@ -234,7 +234,7 @@ pub fn installer(app: &Rc<App>) {
     st.on_recreate_shortcut(move || {
         let a = a.clone();
         lancer(async move {
-            let dossier = settings::get(settings::RACCOURCI);
+            let dossier = reglages::lire().raccourci;
             if dossier.is_empty() {
                 choisir_dossier_raccourci(&a).await;
             } else {
@@ -249,7 +249,7 @@ pub fn installer(app: &Rc<App>) {
         let code = a.settings.borrow().langues.get(i as usize).cloned();
         if let Some(code) = code {
             if code != loc::code() {
-                settings::set(settings::LANGUE, &code);
+                reglages::modifier(|r| r.langue = code.to_string());
                 loc::charger(&code);
                 super::langue_changee(&a);
             }
@@ -259,7 +259,7 @@ pub fn installer(app: &Rc<App>) {
     // RAM
     let a = app.clone();
     st.on_ram_changed(move |v| {
-        settings::set(settings::RAM, &(v as u32).to_string());
+        reglages::modifier(|r| r.ram_mo = v as u32);
         afficher_ram(&a);
     });
 
@@ -301,14 +301,14 @@ pub fn installer(app: &Rc<App>) {
 
     // Discord
     st.on_rich_toggled(|actif| {
-        settings::set_bool(settings::RICH_PRESENCE, actif);
+        reglages::modifier(|r| r.rich_presence = actif);
         discord::reappliquer();
     });
-    st.on_console_auto_toggled(|actif| settings::set_bool(settings::CONSOLE, actif));
-    st.on_share_game_data_toggled(|actif| settings::set_bool(settings::PARTAGE, actif));
-    st.on_misty_client_toggled(|actif| settings::set_bool(settings::MISTY_CLIENT, actif));
+    st.on_console_auto_toggled(|actif| reglages::modifier(|r| r.console = actif));
+    st.on_share_game_data_toggled(|actif| reglages::modifier(|r| r.partage = actif));
+    st.on_misty_client_toggled(|actif| reglages::modifier(|r| r.misty_client = actif));
     st.on_prerelease_toggled(|actif| {
-        settings::set_bool(settings::MAJ_PRERELEASE, actif);
+        reglages::modifier(|r| r.maj_prerelease = actif);
         misty_core::systeme::journal::info(&format!(
             "Mises à jour pré-release : {}",
             if actif { "oui" } else { "non" }
@@ -344,37 +344,35 @@ pub fn installer(app: &Rc<App>) {
     // Apparence
     let a = app.clone();
     st.on_theme_selected(move |mode| {
-        settings::set(settings::THEME, &mode.to_string());
+        reglages::modifier(|r| r.theme = mode);
         a.ui.global::<crate::Theme>().set_mode(mode);
     });
     let a = app.clone();
     st.on_blur_toggled(move |actif| {
-        settings::set_bool(settings::FLOU, actif);
+        reglages::modifier(|r| r.flou = actif);
         a.ui.global::<crate::Theme>().set_blur(actif);
     });
 
     let a = app.clone();
     st.on_seasonal_toggled(move |actif| {
-        settings::set_bool(settings::SAISON, actif);
+        reglages::modifier(|r| r.saison = actif);
         super::appliquer_saison(&a);
     });
 
     let a = app.clone();
     st.on_bg_blur_changed(move |v| {
         let niveau = v.round().clamp(0.0, 10.0) as u32;
-        if niveau == settings::fond_flou()
+        if niveau == reglages::lire().fond_flou
             && a.ui.global::<crate::Theme>().get_bg_blur() == niveau as i32
         {
             return;
         }
-        settings::set(settings::FOND_FLOU, &niveau.to_string());
+        reglages::modifier(|r| r.fond_flou = niveau);
         super::appliquer_flou_fond(&a, niveau);
     });
 
     // Ressources
-    st.on_downloads_changed(|v| {
-        settings::set(settings::TELECHARGEMENTS, &(v.round() as u32).to_string())
-    });
+    st.on_downloads_changed(|v| reglages::modifier(|r| r.telechargements = v.round() as usize));
 
     // Dépannage
     let a = app.clone();
@@ -452,7 +450,7 @@ fn calculer_depannage(app: &Rc<App>) {
 /// Fichier texte à joindre à un signalement de bug.
 fn infos_debug() -> String {
     let theme = ["brume", "nuit", "systeme"]
-        .get(settings::theme() as usize)
+        .get(reglages::lire().theme as usize)
         .copied()
         .unwrap_or("?");
     [
@@ -461,13 +459,13 @@ fn infos_debug() -> String {
         format!(
             "RAM : {} Mo (allouee au jeu : {} Mo)",
             system_info::ram_totale_mo(),
-            settings::ram_mo()
+            reglages::lire().ram_mo
         ),
         format!("Langue : {}", loc::code()),
         format!("Theme : {theme}"),
         format!(
             "Telechargements simultanes : {}",
-            settings::telechargements()
+            reglages::lire().telechargements
         ),
         format!("Dossier : {}", paths::data_dir().display()),
         format!(
@@ -492,7 +490,7 @@ fn infos_debug() -> String {
         ),
         format!(
             "Pre-releases : {}",
-            if settings::get_bool(settings::MAJ_PRERELEASE, false) {
+            if reglages::lire().maj_prerelease {
                 "oui"
             } else {
                 "non"
@@ -533,20 +531,20 @@ pub fn rafraichir(app: &Rc<App>) {
 
     let ram_max = system_info::ram_max_proposee_mo();
     st.set_ram_max(ram_max as f32);
-    st.set_ram_value(settings::ram_mo().clamp(1024, ram_max) as f32);
+    st.set_ram_value(reglages::lire().ram_mo.clamp(1024, ram_max) as f32);
 
-    st.set_shortcut_enabled(!settings::get(settings::RACCOURCI).is_empty());
+    st.set_shortcut_enabled(!reglages::lire().raccourci.is_empty());
     st.set_rich(discord::active());
-    st.set_downloads(settings::telechargements() as f32);
-    st.set_seasonal(settings::get_bool(settings::SAISON, true));
-    st.set_console_auto(settings::get_bool(settings::CONSOLE, true));
+    st.set_downloads(reglages::lire().telechargements as f32);
+    st.set_seasonal(reglages::lire().saison);
+    st.set_console_auto(reglages::lire().console);
     st.set_share_game_data(misty_core::contenu::partage::active());
     st.set_misty_client_available(client::disponible());
     st.set_misty_client_mc(client::versions_texte().into());
     st.set_misty_client(client::active());
-    st.set_prerelease(settings::get_bool(settings::MAJ_PRERELEASE, false));
+    st.set_prerelease(reglages::lire().maj_prerelease);
     st.set_telemetry(misty_core::systeme::telemetry::active());
-    st.set_bg_blur(settings::fond_flou() as f32);
+    st.set_bg_blur(reglages::lire().fond_flou as f32);
 
     maj_textes(app);
     calculer_depannage(app);
@@ -592,7 +590,7 @@ pub fn maj_textes(app: &Rc<App>) {
         )
         .into(),
     );
-    let raccourci = settings::get(settings::RACCOURCI);
+    let raccourci = reglages::lire().raccourci;
     st.set_shortcut_path(
         if raccourci.is_empty() {
             loc::t("Options_AucunDossier")
@@ -657,16 +655,16 @@ fn afficher_ram(app: &App) {
 async fn raccourci_change(app: &Rc<App>, actif: bool) {
     if actif {
         // Pas encore de dossier : on le demande directement
-        if settings::get(settings::RACCOURCI).is_empty() {
+        if reglages::lire().raccourci.is_empty() {
             choisir_dossier_raccourci(app).await;
         }
         // Choix annulé : on remet l'interrupteur sur off
-        if settings::get(settings::RACCOURCI).is_empty() {
+        if reglages::lire().raccourci.is_empty() {
             s(app).set_shortcut_enabled(false);
         }
     } else {
-        shortcut::supprimer(Path::new(&settings::get(settings::RACCOURCI)));
-        settings::set(settings::RACCOURCI, "");
+        shortcut::supprimer(Path::new(&reglages::lire().raccourci));
+        reglages::modifier(|r| r.raccourci = String::new());
         s(app).set_shortcut_path(loc::t("Options_AucunDossier").into());
     }
 }
@@ -675,9 +673,9 @@ async fn choisir_dossier_raccourci(app: &Rc<App>) {
     let Some(dossier) = dialogs::choisir_dossier(&loc::t("Options_DossierRaccourci")).await else {
         return;
     };
-    shortcut::supprimer(Path::new(&settings::get(settings::RACCOURCI))); // ancien emplacement
+    shortcut::supprimer(Path::new(&reglages::lire().raccourci)); // ancien emplacement
     let texte = dossier.to_string_lossy().to_string();
-    settings::set(settings::RACCOURCI, &texte);
+    reglages::modifier(|r| r.raccourci = texte.to_string());
     s(app).set_shortcut_path(texte.clone().into());
     creer_raccourci(app, &texte).await;
 }
@@ -888,11 +886,11 @@ async fn tout_supprimer(app: &Rc<App>) {
 /// Onglets de la barre latérale qu'on peut masquer (Accueil et Options restent toujours).
 const ONGLETS: &[&str] = &["skin", "profils", "notes", "packs", "amis", "dossier"];
 
-/// Onglets masqués, lus dans data.txt ("skin,notes").
+/// Onglets masqués (réglage barre_masquee), sans les noms inconnus.
 fn onglets_masques() -> Vec<String> {
-    settings::get(settings::BARRE_MASQUEE)
-        .split(',')
-        .map(|o| o.trim().to_string())
+    reglages::lire()
+        .barre_masquee
+        .into_iter()
         .filter(|o| ONGLETS.contains(&o.as_str()))
         .collect()
 }
@@ -916,7 +914,7 @@ fn basculer_onglet(app: &App, onglet: &str, visible: bool) {
     if !visible && ONGLETS.contains(&onglet) {
         masques.push(onglet.to_string());
     }
-    settings::set(settings::BARRE_MASQUEE, &masques.join(","));
+    reglages::modifier(|r| r.barre_masquee = masques);
     appliquer_barre(app);
 }
 

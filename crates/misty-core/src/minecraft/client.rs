@@ -22,7 +22,7 @@
 use crate::minecraft::instances::Instance;
 use crate::minecraft::loaders;
 use crate::{
-    systeme::download, systeme::http, systeme::journal, systeme::paths, systeme::settings,
+    systeme::download, systeme::http, systeme::journal, systeme::paths, systeme::reglages,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -214,7 +214,7 @@ pub async fn actualiser() -> anyhow::Result<bool> {
     }
     *DERNIERE_LECTURE.lock().unwrap() = Some(std::time::Instant::now());
     // la dernière release publiée (une pré-release seulement si on suit les pré-releases)
-    let pre = settings::get_bool(settings::MAJ_PRERELEASE, false);
+    let pre = reglages::lire().maj_prerelease;
     let liste: Vec<serde_json::Value> = http::get_json(&format!(
         "https://api.github.com/repos/{DEPOT}/releases?per_page=20"
     ))
@@ -402,7 +402,7 @@ pub fn versions_texte() -> String {
 /// Case « Misty Client » cochée de base dans les profils Fabric (Options → Dépannage, activé de
 /// base). Vaut aussi pour le jeu rapide en Fabric.
 pub fn active() -> bool {
-    settings::get_bool(settings::MISTY_CLIENT, true)
+    reglages::lire().misty_client
 }
 
 /// Misty Client voulu dans ce profil : sa case, ou le réglage par défaut s'il n'y a pas touché.
@@ -540,22 +540,20 @@ pub fn reprendre_du_jeu() {
         return;
     }
     let choix = json["cosmetic"].as_str().unwrap_or("");
-    if (choix.is_empty() || DOS.contains(&choix)) && choix != settings::get(settings::COSMETIQUE) {
-        settings::set(settings::COSMETIQUE, choix);
+    if (choix.is_empty() || DOS.contains(&choix)) && choix != reglages::lire().cosmetique {
+        reglages::modifier(|r| r.cosmetique = choix.to_string());
         journal::info(&format!(
             "Cosmétique choisi en jeu : {}",
             if choix.is_empty() { "aucun" } else { choix }
         ));
     }
     let tag = json["tag"].as_str().unwrap_or("");
-    if (tag.is_empty() || TAGS.contains(&tag)) && tag != settings::get(settings::TAG) {
-        settings::set(settings::TAG, tag);
+    if (tag.is_empty() || TAGS.contains(&tag)) && tag != reglages::lire().tag {
+        reglages::modifier(|r| r.tag = tag.to_string());
     }
     let chapeau = json["hat"].as_str().unwrap_or("");
-    if (chapeau.is_empty() || CHAPEAUX.contains(&chapeau))
-        && chapeau != settings::get(settings::CHAPEAU)
-    {
-        settings::set(settings::CHAPEAU, chapeau);
+    if (chapeau.is_empty() || CHAPEAUX.contains(&chapeau)) && chapeau != reglages::lire().chapeau {
+        reglages::modifier(|r| r.chapeau = chapeau.to_string());
         journal::info(&format!(
             "Chapeau choisi en jeu : {}",
             if chapeau.is_empty() { "aucun" } else { chapeau }
@@ -566,7 +564,7 @@ pub fn reprendre_du_jeu() {
 /// Cosmétique Misty porté dans le dos ("" : aucun).
 pub fn cosmetique() -> String {
     reprendre_du_jeu();
-    let c = settings::get(settings::COSMETIQUE);
+    let c = reglages::lire().cosmetique;
     if DOS.contains(&c.as_str()) {
         c
     } else {
@@ -577,7 +575,7 @@ pub fn cosmetique() -> String {
 /// Chapeau Misty porté ("" : aucun).
 pub fn chapeau() -> String {
     reprendre_du_jeu();
-    let c = settings::get(settings::CHAPEAU);
+    let c = reglages::lire().chapeau;
     if CHAPEAUX.contains(&c.as_str()) {
         c
     } else {
@@ -588,7 +586,7 @@ pub fn chapeau() -> String {
 /// Style du pseudo au-dessus de la tête ("" : classique).
 pub fn tag() -> String {
     reprendre_du_jeu();
-    let t = settings::get(settings::TAG);
+    let t = reglages::lire().tag;
     if TAGS.contains(&t.as_str()) {
         t
     } else {
@@ -599,16 +597,16 @@ pub fn tag() -> String {
 /// Change le style du pseudo (le mod le voit tout de suite, même en pleine partie).
 pub fn equiper_tag(tag: &str) {
     let tag = if TAGS.contains(&tag) { tag } else { "" };
-    if tag != settings::get(settings::TAG) {
-        settings::set(settings::TAG, tag);
+    if tag != reglages::lire().tag {
+        reglages::modifier(|r| r.tag = tag.to_string());
     }
     ecrire_lien();
 }
 
 /// Met (ou enlève : "") le chapeau Misty.
 pub fn equiper_chapeau(chapeau: &str) {
-    if chapeau != settings::get(settings::CHAPEAU) {
-        settings::set(settings::CHAPEAU, chapeau);
+    if chapeau != reglages::lire().chapeau {
+        reglages::modifier(|r| r.chapeau = chapeau.to_string());
     }
     ecrire_lien();
 }
@@ -626,8 +624,8 @@ pub async fn early(uuid: &str) -> bool {
 /// Équipe un cosmétique Misty (ou aucun) : il est gardé d'une session à l'autre et le mod le
 /// voit tout de suite, même en pleine partie.
 pub fn equiper(cosmetique: &str) {
-    if cosmetique != settings::get(settings::COSMETIQUE) {
-        settings::set(settings::COSMETIQUE, cosmetique);
+    if cosmetique != reglages::lire().cosmetique {
+        reglages::modifier(|r| r.cosmetique = cosmetique.to_string());
     }
     ecrire_lien();
 }

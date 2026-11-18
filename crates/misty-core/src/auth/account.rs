@@ -10,7 +10,7 @@
 //! et la WebView ne peuvent pas partager la même boucle d'événements.
 
 use crate::auth::coffre::{self, Coffre, Secrets};
-use crate::{systeme::http, systeme::loc, systeme::paths, systeme::settings};
+use crate::{systeme::http, systeme::loc, systeme::paths, systeme::reglages};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::RwLock;
@@ -245,7 +245,7 @@ pub async fn activer(uuid: &str) -> anyhow::Result<Session> {
 pub async fn ajouter() -> anyhow::Result<Session> {
     let session = connexion_interactive().await?;
     *SESSION.write().unwrap() = Some(session.clone());
-    settings::set(settings::PREMIUM, "True");
+    reglages::modifier(|r| r.premium = true);
     Ok(session)
 }
 
@@ -296,7 +296,7 @@ pub async fn connecter() -> anyhow::Result<Session> {
     };
 
     *SESSION.write().unwrap() = Some(session.clone());
-    settings::set(settings::PREMIUM, "True");
+    reglages::modifier(|r| r.premium = true);
     Ok(session)
 }
 
@@ -349,7 +349,7 @@ pub async fn session_pour_jouer() -> Option<Session> {
 /// Déconnexion rapide : le compte reste en cache pour la prochaine connexion.
 pub fn deconnecter() {
     *SESSION.write().unwrap() = None;
-    settings::set(settings::PREMIUM, "False");
+    reglages::modifier(|r| r.premium = false);
 }
 
 /// Déconnexion totale : supprime aussi le compte mis en cache.

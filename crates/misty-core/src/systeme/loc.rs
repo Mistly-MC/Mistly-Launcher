@@ -3,7 +3,7 @@
 //! `t("Cle")` renvoie le texte dans la langue actuelle (ou en français, ou la clé elle-même).
 //! `tf("Cle", &[&a, &b])` remplace {0}, {1}… par les arguments.
 
-use crate::systeme::settings;
+use crate::systeme::reglages;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -49,7 +49,7 @@ fn existe(code: &str) -> bool {
 
 /// À appeler une fois au démarrage : langue enregistrée, sinon l'anglais (la langue se change dans les options).
 pub fn initialiser() {
-    let mut code = settings::get(settings::LANGUE);
+    let mut code = reglages::lire().langue;
     if code.trim().is_empty() {
         code = DEFAUT.to_string();
     }

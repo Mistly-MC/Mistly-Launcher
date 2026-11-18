@@ -7,7 +7,7 @@
 //! launcher (page ouverte) ou en jeu (« Joue en tant que <pseudo> », version et profil), et un
 //! bouton vers le site.
 
-use crate::{systeme::app_info, systeme::loc, systeme::settings};
+use crate::{systeme::app_info, systeme::loc, systeme::reglages};
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Mutex, OnceLock};
@@ -83,7 +83,7 @@ fn canal() -> &'static Mutex<Sender<Message>> {
 
 /// Option "Rich Presence Discord" (activée par défaut).
 pub fn active() -> bool {
-    settings::get_bool(settings::RICH_PRESENCE, true)
+    reglages::lire().rich_presence
 }
 
 pub fn definir(statut: Statut) {

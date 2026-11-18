@@ -8,7 +8,7 @@ pub mod journal;
 pub mod lanceur;
 pub mod loc;
 pub mod paths;
-pub mod settings;
+pub mod reglages;
 pub mod shortcut;
 pub mod storage;
 pub mod system_info;
