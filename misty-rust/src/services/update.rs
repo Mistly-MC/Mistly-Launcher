@@ -558,6 +558,12 @@ mod tests {
     }
 
     #[test]
+    fn cle_publique_lisible() {
+        // ID de la clé : 7F6148B2774655BD (misty.pub)
+        minisign_verify::PublicKey::from_base64(app_info::CLE_PUBLIQUE_MAJ).unwrap();
+    }
+
+    #[test]
     fn archive_verifiee_acceptee() {
         let (zip, sha256, signature, cle) = archive_signee(b"PK une archive");
         verifier_archive(&zip, &sha256, &signature, &cle).unwrap();
