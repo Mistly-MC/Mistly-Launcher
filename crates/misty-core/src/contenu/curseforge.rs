@@ -6,6 +6,10 @@
 
 use crate::contenu::catalogue::{ProjetDistant, CURSEFORGE};
 use crate::contenu::content::{DATAPACK, MOD, MODPACK, PACK_RESSOURCES, SHADER};
+use crate::contenu::source::{
+    Dependance, DetailsContenu, FutureSource, Recherche, SourceContenu, VersionContenu,
+};
+use crate::minecraft::instances::Instance;
 use crate::minecraft::loaders;
 use crate::{systeme::app_info, systeme::loc};
 use serde::de::DeserializeOwned;
@@ -511,5 +515,264 @@ pub fn vers_projet(m: ModCF) -> ProjetDistant {
             .as_ref()
             .and_then(|l| l.thumbnail_url.clone().or_else(|| l.url.clone())),
         categories: m.categories.into_iter().map(|c| c.name).collect(),
+    }
+}
+
+// ───────────────────────── Source de contenu ─────────────────────────
+
+/// CurseForge comme source de contenu (voir `source::SourceContenu`).
+pub struct CurseForge;
+
+impl FichierCF {
+    /// Modèle commun : dépendances requises seulement (relationType 3).
+    pub fn vers_contenu(&self, mod_id: i64) -> VersionContenu {
+        let (client, serveur) = self.environnement();
+        VersionContenu {
+            id: self.id.to_string(),
+            projet: mod_id.to_string(),
+            nom: self.display_name.clone(),
+            nom_fichier: self.file_name.clone(),
+            url: self.download_url.clone().filter(|u| !u.is_empty()),
+            sha1: self.sha1().map(str::to_string),
+            stable: self.release_type == 1,
+            client_side: Some(client),
+            server_side: Some(serveur),
+            dependances: self
+                .dependencies
+                .iter()
+                .filter(|d| d.relation_type == 3)
+                .map(|d| Dependance {
+                    projet: Some(d.mod_id.to_string()),
+                    version: None,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Fichiers installables dans le profil : disponibles, pour sa version de Minecraft (et son
+/// loader pour les mods), dans l'ordre reçu (les plus récents d'abord).
+pub fn fichiers_compatibles(
+    fichiers: Vec<FichierCF>,
+    instance: &Instance,
+    type_: &str,
+) -> Vec<FichierCF> {
+    let noms = noms_loader(&instance.loader);
+    fichiers
+        .into_iter()
+        .filter(|f| f.is_available && f.game_versions.contains(&instance.version_mc))
+        .filter(|f| {
+            type_ != MOD
+                || f.game_versions
+                    .iter()
+                    .any(|v| noms.iter().any(|n| n.eq_ignore_ascii_case(v)))
+        })
+        .collect()
+}
+
+fn id_numerique(id: &str) -> anyhow::Result<i64> {
+    Ok(id.trim().parse()?)
+}
+
+impl SourceContenu for CurseForge {
+    fn nom(&self) -> &'static str {
+        CURSEFORGE
+    }
+
+    fn libelle(&self) -> &'static str {
+        "CurseForge"
+    }
+
+    fn tris(&self) -> &'static [(&'static str, &'static str)] {
+        TRIS
+    }
+
+    fn rechercher<'a>(&'a self, r: Recherche<'a>) -> FutureSource<'a, (Vec<ProjetDistant>, i64)> {
+        Box::pin(async move {
+            // Sur CurseForge, les mods Quilt sont presque tous publiés comme mods Fabric
+            let loader = match r.instance {
+                Some(i) if r.type_ == MOD => {
+                    let l = if i.loader == loaders::QUILT {
+                        loaders::FABRIC
+                    } else {
+                        i.loader.as_str()
+                    };
+                    type_loader(l)
+                }
+                _ => None,
+            };
+            let (mods, total) = rechercher(
+                r.requete,
+                classe(r.type_),
+                r.instance.map(|i| i.version_mc.as_str()),
+                loader,
+                r.tri,
+                r.offset,
+                r.limite,
+            )
+            .await?;
+            Ok((mods.into_iter().map(vers_projet).collect(), total))
+        })
+    }
+
+    /// Un projet inconnu est une erreur : son nom sert à tous les messages.
+    fn details<'a>(&'a self, id: &'a str) -> FutureSource<'a, Option<DetailsContenu>> {
+        Box::pin(async move {
+            let mod_id = id_numerique(id)?;
+            let m = mods(&[mod_id])
+                .await?
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow::anyhow!(loc::tf("Erreur_ProjetCF", &[&mod_id])))?;
+            Ok(Some(DetailsContenu {
+                id: m.id.to_string(),
+                titre: m.name,
+                icone_url: m.logo.and_then(|l| l.thumbnail_url),
+                client_side: None,
+                server_side: None,
+                site: m
+                    .links
+                    .and_then(|l| l.website_url)
+                    .filter(|s| !s.is_empty()),
+            }))
+        })
+    }
+
+    fn versions<'a>(
+        &'a self,
+        id: &'a str,
+        instance: &'a Instance,
+        type_: &'a str,
+    ) -> FutureSource<'a, Vec<VersionContenu>> {
+        Box::pin(async move {
+            let mod_id = id_numerique(id)?;
+            let liste = fichiers(mod_id, Some(&instance.version_mc)).await?;
+            Ok(fichiers_compatibles(liste, instance, type_)
+                .iter()
+                .map(|f| f.vers_contenu(mod_id))
+                .collect())
+        })
+    }
+
+    /// Le fichier demandé, seulement s'il est compatible avec le profil.
+    fn version<'a>(
+        &'a self,
+        id: &'a str,
+        version_id: &'a str,
+        instance: &'a Instance,
+        type_: &'a str,
+    ) -> FutureSource<'a, Option<VersionContenu>> {
+        Box::pin(async move {
+            Ok(self
+                .versions(id, instance, type_)
+                .await?
+                .into_iter()
+                .find(|v| v.id == version_id.trim()))
+        })
+    }
+
+    fn cle_pas_de_version(&self) -> &'static str {
+        "Erreur_PasDeVersionCF"
+    }
+
+    fn page_version(
+        &self,
+        details: Option<&DetailsContenu>,
+        id: &str,
+        version: &VersionContenu,
+    ) -> String {
+        match details.and_then(|d| d.site.as_deref()) {
+            Some(site) => format!("{}/files/{}", site.trim_end_matches('/'), version.id),
+            None => format!("https://www.curseforge.com/projects/{id}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_source {
+    use super::*;
+
+    fn fichier(id: i64, versions: &[&str], stable: bool, url: Option<&str>) -> FichierCF {
+        serde_json::from_value(serde_json::json!({
+            "id": id, "displayName": format!("Mod {id}"), "fileName": format!("mod-{id}.jar"),
+            "releaseType": if stable { 1 } else { 2 }, "downloadUrl": url,
+            "gameVersions": versions,
+            "hashes": [{ "value": "md5", "algo": 2 }, { "value": "sha1-du-fichier", "algo": 1 }],
+            "dependencies": [{ "modId": 306612, "relationType": 3 }, { "modId": 1, "relationType": 2 }]
+        }))
+        .unwrap()
+    }
+
+    fn profil(version: &str, loader: &str) -> Instance {
+        serde_json::from_value(serde_json::json!({ "VersionMc": version, "Loader": loader }))
+            .unwrap()
+    }
+
+    #[test]
+    fn fichiers_compatibles_version_et_loader() {
+        let liste = vec![
+            fichier(1, &["1.21.1", "NeoForge"], true, Some("u")),
+            fichier(2, &["1.21.1", "Fabric", "Client"], false, Some("u")),
+            fichier(3, &["1.20.1", "Fabric"], true, Some("u")),
+        ];
+        let fabric = profil("1.21.1", loaders::FABRIC);
+        let ids = |l: Vec<FichierCF>| l.iter().map(|f| f.id).collect::<Vec<_>>();
+        assert_eq!(ids(fichiers_compatibles(liste.clone(), &fabric, MOD)), [2]);
+        // pas de filtre de loader pour un pack de ressources
+        assert_eq!(
+            ids(fichiers_compatibles(liste, &fabric, PACK_RESSOURCES)),
+            [1, 2]
+        );
+    }
+
+    #[test]
+    fn fichier_cf_vers_contenu() {
+        let c = fichier(
+            7,
+            &["1.21.1", "Fabric", "Client"],
+            true,
+            Some("https://edge/mod-7.jar"),
+        )
+        .vers_contenu(42);
+        assert_eq!((c.id.as_str(), c.projet.as_str()), ("7", "42"));
+        assert_eq!(c.sha1.as_deref(), Some("sha1-du-fichier"));
+        assert!(c.stable);
+        assert_eq!(
+            (c.client_side.as_deref(), c.server_side.as_deref()),
+            (Some("optional"), Some("unsupported"))
+        );
+        assert_eq!(
+            c.dependances,
+            vec![Dependance {
+                projet: Some("306612".into()),
+                version: None
+            }]
+        );
+        // téléchargement interdit par l'auteur : pas d'adresse
+        assert!(fichier(8, &[], true, None).vers_contenu(42).url.is_none());
+        assert!(fichier(9, &[], true, Some(""))
+            .vers_contenu(42)
+            .url
+            .is_none());
+    }
+
+    #[test]
+    fn page_d_un_fichier() {
+        let v = VersionContenu {
+            id: "7".into(),
+            ..Default::default()
+        };
+        let d = DetailsContenu {
+            site: Some("https://www.curseforge.com/minecraft/mc-mods/jei/".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            CurseForge.page_version(Some(&d), "42", &v),
+            "https://www.curseforge.com/minecraft/mc-mods/jei/files/7"
+        );
+        assert_eq!(
+            CurseForge.page_version(None, "42", &v),
+            "https://www.curseforge.com/projects/42"
+        );
     }
 }

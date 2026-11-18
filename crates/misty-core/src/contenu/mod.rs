@@ -8,3 +8,4 @@ pub mod modpack;
 pub mod modrinth;
 pub mod packs;
 pub mod partage;
+pub mod source;

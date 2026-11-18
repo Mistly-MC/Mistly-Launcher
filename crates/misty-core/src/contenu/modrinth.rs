@@ -1,6 +1,11 @@
 //! Client minimal de l'API Modrinth v2 (https://docs.modrinth.com/api/).
 
 use crate::contenu::catalogue::{ProjetDistant, MODRINTH};
+use crate::contenu::content;
+use crate::contenu::source::{
+    Dependance, DetailsContenu, FutureSource, Recherche, SourceContenu, VersionContenu,
+};
+use crate::minecraft::instances::Instance;
 use crate::systeme::http;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -256,5 +261,182 @@ pub fn formater_nombre(n: i64) -> String {
         format!("{} k", f(n as f64 / 1_000.0))
     } else {
         n.to_string()
+    }
+}
+
+// ───────────────────────── Source de contenu ─────────────────────────
+
+/// Modrinth comme source de contenu (voir `source::SourceContenu`).
+pub struct Modrinth;
+
+impl VersionModrinth {
+    /// Modèle commun : fichier principal, dépendances requises seulement.
+    pub fn vers_contenu(self) -> Option<VersionContenu> {
+        let fichier = self.fichier_principal()?.clone();
+        Some(VersionContenu {
+            id: self.id,
+            projet: self.project_id,
+            nom: self.version_number,
+            nom_fichier: fichier.filename,
+            url: Some(fichier.url),
+            sha1: fichier.hashes.get("sha1").cloned(),
+            stable: self.version_type == "release",
+            // les côtés client / serveur sont ceux du projet (DetailsContenu)
+            client_side: None,
+            server_side: None,
+            dependances: self
+                .dependencies
+                .into_iter()
+                .filter(|d| d.dependency_type == "required")
+                .map(|d| Dependance {
+                    projet: d.project_id,
+                    version: d.version_id,
+                })
+                .collect(),
+        })
+    }
+}
+
+impl SourceContenu for Modrinth {
+    fn nom(&self) -> &'static str {
+        MODRINTH
+    }
+
+    fn libelle(&self) -> &'static str {
+        "Modrinth"
+    }
+
+    fn tris(&self) -> &'static [(&'static str, &'static str)] {
+        TRIS
+    }
+
+    fn rechercher<'a>(&'a self, r: Recherche<'a>) -> FutureSource<'a, (Vec<ProjetDistant>, i64)> {
+        Box::pin(async move {
+            let categories = r
+                .instance
+                .and_then(|i| content::categories_recherche(i, r.type_));
+            let reponse = rechercher(
+                r.requete,
+                r.type_,
+                r.instance.map(|i| i.version_mc.as_str()),
+                categories.as_deref(),
+                r.tri,
+                r.offset,
+                r.limite,
+            )
+            .await?;
+            Ok((
+                reponse.hits.into_iter().map(vers_projet).collect(),
+                reponse.total_hits,
+            ))
+        })
+    }
+
+    fn details<'a>(&'a self, id: &'a str) -> FutureSource<'a, Option<DetailsContenu>> {
+        Box::pin(async move {
+            Ok(projets(&[id.to_string()])
+                .await?
+                .into_iter()
+                .next()
+                .map(|p| DetailsContenu {
+                    id: p.id,
+                    titre: p.title,
+                    icone_url: p.icon_url,
+                    client_side: p.client_side,
+                    server_side: p.server_side,
+                    site: None,
+                }))
+        })
+    }
+
+    fn versions<'a>(
+        &'a self,
+        id: &'a str,
+        instance: &'a Instance,
+        type_: &'a str,
+    ) -> FutureSource<'a, Vec<VersionContenu>> {
+        Box::pin(async move {
+            let loaders = content::loaders_modrinth(instance, type_);
+            Ok(versions(id, loaders.as_deref(), Some(&instance.version_mc))
+                .await?
+                .into_iter()
+                .filter_map(VersionModrinth::vers_contenu)
+                .collect())
+        })
+    }
+
+    /// La version demandée telle quelle (Modrinth la donne directement par son ID).
+    fn version<'a>(
+        &'a self,
+        _id: &'a str,
+        version_id: &'a str,
+        _instance: &'a Instance,
+        _type_: &'a str,
+    ) -> FutureSource<'a, Option<VersionContenu>> {
+        Box::pin(async move { Ok(version(version_id).await?.vers_contenu()) })
+    }
+
+    fn cle_pas_de_version(&self) -> &'static str {
+        "Erreur_PasDeVersion"
+    }
+
+    fn page_version(
+        &self,
+        _details: Option<&DetailsContenu>,
+        id: &str,
+        version: &VersionContenu,
+    ) -> String {
+        format!("https://modrinth.com/project/{id}/version/{}", version.id)
+    }
+}
+
+#[cfg(test)]
+mod tests_source {
+    use super::*;
+
+    #[test]
+    fn version_modrinth_vers_contenu() {
+        let v: VersionModrinth = serde_json::from_value(serde_json::json!({
+            "id": "AbCd", "project_id": "P1", "version_number": "1.2.3", "version_type": "beta",
+            "files": [
+                { "url": "https://x/autre.jar", "filename": "autre.jar", "primary": false, "hashes": {} },
+                { "url": "https://x/mod.jar", "filename": "mod.jar", "primary": true, "hashes": { "sha1": "abc" } }
+            ],
+            "dependencies": [
+                { "project_id": "fabric-api", "version_id": null, "dependency_type": "required" },
+                { "project_id": "modmenu", "dependency_type": "optional" },
+                { "version_id": "V9", "dependency_type": "required" }
+            ]
+        }))
+        .unwrap();
+        let c = v.vers_contenu().unwrap();
+        assert_eq!(
+            (c.id.as_str(), c.projet.as_str(), c.nom.as_str()),
+            ("AbCd", "P1", "1.2.3")
+        );
+        assert_eq!(c.nom_fichier, "mod.jar");
+        assert_eq!(c.url.as_deref(), Some("https://x/mod.jar"));
+        assert_eq!(c.sha1.as_deref(), Some("abc"));
+        assert!(!c.stable);
+        assert_eq!(
+            c.dependances,
+            vec![
+                Dependance {
+                    projet: Some("fabric-api".into()),
+                    version: None
+                },
+                Dependance {
+                    projet: None,
+                    version: Some("V9".into())
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn version_sans_fichier_ignoree() {
+        let v: VersionModrinth =
+            serde_json::from_value(serde_json::json!({ "id": "x", "files": [] })).unwrap();
+        assert!(v.vers_contenu().is_none());
     }
 }

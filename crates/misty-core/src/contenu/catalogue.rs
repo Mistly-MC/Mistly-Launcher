@@ -1,19 +1,15 @@
-//! Recherche de contenu, quelle que soit la plateforme (Modrinth ou CurseForge).
+//! Recherche de contenu, quelle que soit la plateforme (Modrinth ou CurseForge) : chaque appel
+//! passe par la source correspondante (voir `source::SourceContenu`).
 
-use crate::contenu::content::{self, MOD};
+use crate::contenu::source::{source, Recherche};
 use crate::minecraft::instances::Instance;
-use crate::minecraft::loaders;
-use crate::{contenu::curseforge, contenu::modrinth, systeme::loc};
+use crate::systeme::loc;
 
 pub const MODRINTH: &str = "modrinth";
 pub const CURSEFORGE: &str = "curseforge";
 
-pub fn libelle_source(source: &str) -> &'static str {
-    if source == CURSEFORGE {
-        "CurseForge"
-    } else {
-        "Modrinth"
-    }
+pub fn libelle_source(nom: &str) -> &'static str {
+    source(nom).libelle()
 }
 
 /// Un projet (mod, pack, modpack…) trouvé sur Modrinth ou CurseForge, tel qu'affiché dans l'explorateur.
@@ -31,13 +27,9 @@ pub struct ProjetDistant {
 }
 
 /// Tris proposés par la plateforme : (clé API, libellé traduit).
-pub fn tris(source: &str) -> Vec<(String, String)> {
-    let liste = if source == CURSEFORGE {
-        curseforge::TRIS
-    } else {
-        modrinth::TRIS
-    };
-    liste
+pub fn tris(nom: &str) -> Vec<(String, String)> {
+    source(nom)
+        .tris()
         .iter()
         .map(|(cle, libelle)| (cle.to_string(), loc::t(libelle)))
         .collect()
@@ -45,7 +37,7 @@ pub fn tris(source: &str) -> Vec<(String, String)> {
 
 /// `instance` : profil cible (filtre version + loader), ou None pour les modpacks.
 pub async fn rechercher(
-    source: &str,
+    nom: &str,
     requete: &str,
     type_: &str,
     instance: Option<&Instance>,
@@ -53,52 +45,14 @@ pub async fn rechercher(
     offset: usize,
     limite: usize,
 ) -> anyhow::Result<(Vec<ProjetDistant>, i64)> {
-    if source == CURSEFORGE {
-        // Sur CurseForge, les mods Quilt sont presque tous publiés comme mods Fabric
-        let loader = match instance {
-            Some(i) if type_ == MOD => {
-                let l = if i.loader == loaders::QUILT {
-                    loaders::FABRIC
-                } else {
-                    i.loader.as_str()
-                };
-                curseforge::type_loader(l)
-            }
-            _ => None,
-        };
-        let (mods, total) = curseforge::rechercher(
+    source(nom)
+        .rechercher(Recherche {
             requete,
-            curseforge::classe(type_),
-            instance.map(|i| i.version_mc.as_str()),
-            loader,
+            type_,
+            instance,
             tri,
             offset,
             limite,
-        )
-        .await?;
-        return Ok((
-            mods.into_iter().map(curseforge::vers_projet).collect(),
-            total,
-        ));
-    }
-
-    let categories = instance.and_then(|i| content::categories_recherche(i, type_));
-    let reponse = modrinth::rechercher(
-        requete,
-        type_,
-        instance.map(|i| i.version_mc.as_str()),
-        categories.as_deref(),
-        tri,
-        offset,
-        limite,
-    )
-    .await?;
-    Ok((
-        reponse
-            .hits
-            .into_iter()
-            .map(modrinth::vers_projet)
-            .collect(),
-        reponse.total_hits,
-    ))
+        })
+        .await
 }

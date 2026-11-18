@@ -2,6 +2,7 @@
 //! Installation depuis Modrinth ou CurseForge (avec dépendances), liste, activation/désactivation, suppression.
 
 use crate::contenu::catalogue::{CURSEFORGE, MODRINTH};
+use crate::contenu::source::{self, SourceContenu, VersionContenu};
 use crate::minecraft::instances::Instance;
 use crate::minecraft::loaders;
 use crate::{contenu::curseforge, contenu::modrinth, systeme::download, systeme::loc, Progress};
@@ -735,34 +736,18 @@ pub async fn mettre_a_jour(
         instance,
         metas: lire_meta(instance),
         installes: Vec::new(),
-        visites_mr: HashSet::new(),
-        visites_cf: HashSet::new(),
+        visites: HashSet::new(),
         progression,
     };
-    let resultat = if source == CURSEFORGE {
-        installer_cf(
-            &mut etat,
-            project_id.parse()?,
-            contenu.type_.clone(),
-            contenu.monde.clone(),
-            Some(maj.version_id.parse()?),
-        )
-        .await
-    } else {
-        match modrinth::version(&maj.version_id).await {
-            Ok(v) => {
-                installer_mr(
-                    &mut etat,
-                    project_id.clone(),
-                    contenu.type_.clone(),
-                    contenu.monde.clone(),
-                    Some(v),
-                )
-                .await
-            }
-            Err(e) => Err(e),
-        }
-    };
+    let resultat = installer_projet(
+        &mut etat,
+        source::source(&source),
+        project_id.clone(),
+        contenu.type_.clone(),
+        contenu.monde.clone(),
+        Choix::ParId(maj.version_id.clone()),
+    )
+    .await;
     if resultat.is_ok() && !contenu.actif() {
         let nouveau = etat
             .metas
@@ -807,8 +792,9 @@ struct Installation<'a> {
     instance: &'a Instance,
     metas: Vec<ContenuMeta>,
     installes: Vec<String>,
-    visites_mr: HashSet<String>,
-    visites_cf: HashSet<i64>,
+    /// (source, ID ou slug) des projets déjà traités : une dépendance commune n'est installée
+    /// qu'une fois, et les dépendances circulaires s'arrêtent
+    visites: HashSet<(&'static str, String)>,
     progression: Option<Progress>,
 }
 
@@ -826,29 +812,18 @@ pub async fn installer(
         instance,
         metas: lire_meta(instance),
         installes: Vec::new(),
-        visites_mr: HashSet::new(),
-        visites_cf: HashSet::new(),
+        visites: HashSet::new(),
         progression,
     };
-    let resultat = if source == CURSEFORGE {
-        installer_cf(
-            &mut etat,
-            project_id.parse()?,
-            type_.to_string(),
-            monde.map(str::to_string),
-            None,
-        )
-        .await
-    } else {
-        installer_mr(
-            &mut etat,
-            project_id.to_string(),
-            type_.to_string(),
-            monde.map(str::to_string),
-            None,
-        )
-        .await
-    };
+    let resultat = installer_projet(
+        &mut etat,
+        source::source(source),
+        project_id.to_string(),
+        type_.to_string(),
+        monde.map(str::to_string),
+        Choix::Meilleure,
+    )
+    .await;
     // On garde ce qui a déjà été installé même en cas d'erreur
     ecrire_meta(instance, &etat.metas)?;
     resultat?;
@@ -857,58 +832,70 @@ pub async fn installer(
 
 type Fut<'a> = Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>;
 
-fn installer_mr<'a>(
+/// Version d'un projet à installer.
+enum Choix {
+    /// La meilleure version compatible (la dernière stable, sinon la plus récente)
+    Meilleure,
+    /// Une version précise (mise à jour) : erreur si elle n'existe pas ou n'est pas compatible
+    ParId(String),
+    /// Une version déjà récupérée (dépendance qui impose sa version)
+    Connue(VersionContenu),
+}
+
+/// Installe un projet d'une source, puis ses dépendances requises (mods seulement).
+fn installer_projet<'a>(
     etat: &'a mut Installation<'_>,
-    project_id: String,
+    source: &'static dyn SourceContenu,
+    id: String,
     type_: String,
     monde: Option<String>,
-    version_imposee: Option<modrinth::VersionModrinth>,
+    choix: Choix,
 ) -> Fut<'a> {
     Box::pin(async move {
-        if !etat.visites_mr.insert(project_id.clone()) {
+        if !etat.visites.insert((source.nom(), id.clone())) {
             return Ok(());
         }
         let instance = etat.instance;
 
-        let version = match version_imposee {
-            Some(v) => Some(v),
-            None => {
-                let loaders = loaders_modrinth(instance, &type_);
-                meilleure_version(
-                    modrinth::versions(&project_id, loaders.as_deref(), Some(&instance.version_mc))
-                        .await?,
-                )
-            }
+        let details = source.details(&id).await?;
+        let version = match choix {
+            Choix::Meilleure => source::meilleure(source.versions(&id, instance, &type_).await?),
+            Choix::ParId(version_id) => source.version(&id, &version_id, instance, &type_).await?,
+            Choix::Connue(v) => Some(v),
         };
-        let projet = modrinth::projets(std::slice::from_ref(&project_id))
-            .await?
-            .into_iter()
-            .next();
         let Some(version) = version else {
-            let titre = projet.map(|p| p.title).unwrap_or(project_id);
+            let titre = details.map(|d| d.titre).unwrap_or(id);
             anyhow::bail!(loc::tf(
-                "Erreur_PasDeVersion",
+                source.cle_pas_de_version(),
                 &[&titre, &instance.version_mc, &instance.loader]
             ));
         };
-        let fichier = version
-            .fichier_principal()
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_AucunFichier")))?;
         // On garde l'ID réel, même si on a reçu un slug
-        let project_id = projet.as_ref().map(|p| p.id.clone()).unwrap_or(project_id);
-        etat.visites_mr.insert(project_id.clone());
-        let titre = projet
+        let id = details.as_ref().map(|d| d.id.clone()).unwrap_or(id);
+        etat.visites.insert((source.nom(), id.clone()));
+        let titre = details
             .as_ref()
-            .map(|p| p.title.clone())
-            .unwrap_or_else(|| fichier.filename.clone());
-        let dossier = dossier(instance, &type_, monde.as_deref())?;
+            .map(|d| d.titre.clone())
+            .unwrap_or_else(|| version.nom_fichier.clone());
 
+        // Téléchargement interdit hors du site (CurseForge) : on s'arrête avant de retirer
+        // l'ancienne version
+        if version.url.is_none() {
+            anyhow::bail!(loc::tf(
+                "Erreur_CFInterdit",
+                &[
+                    &titre,
+                    &source.page_version(details.as_ref(), &id, &version)
+                ]
+            ));
+        }
+
+        let dossier = dossier(instance, &type_, monde.as_deref())?;
         retirer_ancienne_version(
             instance,
             &mut etat.metas,
-            MODRINTH,
-            &project_id,
+            source.nom(),
+            &id,
             &type_,
             &dossier,
         );
@@ -916,27 +903,29 @@ fn installer_mr<'a>(
         if let Some(p) = &etat.progression {
             p(loc::tf("Progres_Telechargement", &[&titre]));
         }
-        let destination = dossier.join(download::nom_fichier_sur(&fichier.filename));
-        download::fichier(
-            &fichier.url,
-            &destination,
-            fichier.hashes.get("sha1").map(String::as_str),
-        )
-        .await?;
+        let destination = dossier.join(download::nom_fichier_sur(&version.nom_fichier));
+        source.telecharger(&version, &destination).await?;
 
         let rel = relatif(instance, &destination);
         etat.metas.retain(|m| !m.chemin.eq_ignore_ascii_case(&rel));
         etat.metas.push(ContenuMeta {
             chemin: rel,
-            source: Some(MODRINTH.into()),
-            project_id: Some(project_id.clone()),
+            source: Some(source.nom().into()),
+            project_id: Some(id.clone()),
             version_id: Some(version.id.clone()),
             titre: titre.clone(),
-            version_nom: Some(version.version_number.clone()),
-            icone_url: projet.as_ref().and_then(|p| p.icon_url.clone()),
+            version_nom: Some(version.nom.clone()),
+            icone_url: details.as_ref().and_then(|d| d.icone_url.clone()),
             type_: type_.clone(),
-            client_side: projet.as_ref().and_then(|p| p.client_side.clone()),
-            server_side: projet.as_ref().and_then(|p| p.server_side.clone()),
+            // côtés du fichier (CurseForge), sinon ceux du projet (Modrinth)
+            client_side: version
+                .client_side
+                .clone()
+                .or_else(|| details.as_ref().and_then(|d| d.client_side.clone())),
+            server_side: version
+                .server_side
+                .clone()
+                .or_else(|| details.as_ref().and_then(|d| d.server_side.clone())),
         });
         etat.installes.push(titre);
 
@@ -945,149 +934,36 @@ fn installer_mr<'a>(
         }
 
         // Dépendances requises
-        for dep in version
-            .dependencies
-            .iter()
-            .filter(|d| d.dependency_type == "required")
-        {
-            let version_dep = match &dep.version_id {
-                Some(id) => modrinth::version(id).await.ok(),
+        for dep in &version.dependances {
+            // version imposée par la dépendance ; si elle est introuvable, la meilleure compatible
+            let connue = match &dep.version {
+                Some(v) => source
+                    .version(dep.projet.as_deref().unwrap_or(""), v, instance, MOD)
+                    .await
+                    .ok()
+                    .flatten(),
                 None => None,
             };
-            let Some(id_dep) = dep
-                .project_id
-                .clone()
-                .or_else(|| version_dep.as_ref().map(|v| v.project_id.clone()))
-            else {
+            let Some(id_dep) = dep.projet.clone().or_else(|| {
+                connue
+                    .as_ref()
+                    .map(|v| v.projet.clone())
+                    .filter(|p| !p.is_empty())
+            }) else {
                 continue;
             };
-            if etat.metas.iter().any(|m| m.correspond(MODRINTH, &id_dep)) {
-                continue; // déjà là
-            }
-            installer_mr(etat, id_dep, MOD.into(), None, version_dep).await?;
-        }
-        Ok(())
-    })
-}
-
-/// Privilégie la dernière version stable, sinon la plus récente.
-fn meilleure_version(
-    versions: Vec<modrinth::VersionModrinth>,
-) -> Option<modrinth::VersionModrinth> {
-    let stable = versions.iter().position(|v| v.version_type == "release");
-    let mut versions = versions;
-    match stable {
-        Some(i) => Some(versions.swap_remove(i)),
-        None => versions.into_iter().next(),
-    }
-}
-
-/// `fichier_impose` : ID du fichier à installer (mise à jour), sinon le meilleur fichier compatible.
-fn installer_cf<'a>(
-    etat: &'a mut Installation<'_>,
-    mod_id: i64,
-    type_: String,
-    monde: Option<String>,
-    fichier_impose: Option<i64>,
-) -> Fut<'a> {
-    Box::pin(async move {
-        if !etat.visites_cf.insert(mod_id) {
-            return Ok(());
-        }
-        let instance = etat.instance;
-
-        let m = curseforge::mods(&[mod_id])
-            .await?
-            .into_iter()
-            .next()
-            .ok_or_else(|| anyhow::anyhow!(loc::tf("Erreur_ProjetCF", &[&mod_id])))?;
-
-        // Fichiers compatibles : bonne version de Minecraft (+ bon loader pour les mods)
-        let mut fichiers: Vec<curseforge::FichierCF> =
-            curseforge::fichiers(mod_id, Some(&instance.version_mc))
-                .await?
-                .into_iter()
-                .filter(|f| f.is_available && f.game_versions.contains(&instance.version_mc))
-                .collect();
-        if type_ == MOD {
-            let noms = curseforge::noms_loader(&instance.loader);
-            fichiers.retain(|f| {
-                f.game_versions
-                    .iter()
-                    .any(|v| noms.iter().any(|n| n.eq_ignore_ascii_case(v)))
-            });
-        }
-        let fichier = match fichier_impose {
-            Some(id) => fichiers.iter().find(|f| f.id == id),
-            None => fichiers
-                .iter()
-                .find(|f| f.release_type == 1)
-                .or_else(|| fichiers.first()),
-        }
-        .cloned()
-        .ok_or_else(|| {
-            anyhow::anyhow!(loc::tf(
-                "Erreur_PasDeVersionCF",
-                &[&m.name, &instance.version_mc, &instance.loader]
-            ))
-        })?;
-
-        let Some(url) = fichier.download_url.clone().filter(|u| !u.is_empty()) else {
-            anyhow::bail!(loc::tf(
-                "Erreur_CFInterdit",
-                &[
-                    &m.name,
-                    &curseforge::page_fichier(Some(&m), mod_id, fichier.id)
-                ]
-            ));
-        };
-
-        let dossier = dossier(instance, &type_, monde.as_deref())?;
-        retirer_ancienne_version(
-            instance,
-            &mut etat.metas,
-            CURSEFORGE,
-            &mod_id.to_string(),
-            &type_,
-            &dossier,
-        );
-
-        if let Some(p) = &etat.progression {
-            p(loc::tf("Progres_Telechargement", &[&m.name]));
-        }
-        let destination = dossier.join(download::nom_fichier_sur(&fichier.file_name));
-        download::fichier(&url, &destination, fichier.sha1()).await?;
-
-        let rel = relatif(instance, &destination);
-        etat.metas.retain(|x| !x.chemin.eq_ignore_ascii_case(&rel));
-        etat.metas.push(ContenuMeta {
-            chemin: rel,
-            source: Some(CURSEFORGE.into()),
-            project_id: Some(mod_id.to_string()),
-            version_id: Some(fichier.id.to_string()),
-            titre: m.name.clone(),
-            version_nom: Some(fichier.display_name.clone()),
-            icone_url: m.logo.as_ref().and_then(|l| l.thumbnail_url.clone()),
-            type_: type_.clone(),
-            client_side: Some(fichier.environnement().0),
-            server_side: Some(fichier.environnement().1),
-        });
-        etat.installes.push(m.name.clone());
-
-        if type_ != MOD {
-            return Ok(());
-        }
-
-        // Dépendances requises (relationType 3)
-        for dep in fichier.dependencies.iter().filter(|d| d.relation_type == 3) {
             if etat
                 .metas
                 .iter()
-                .any(|x| x.correspond(CURSEFORGE, &dep.mod_id.to_string()))
+                .any(|m| m.correspond(source.nom(), &id_dep))
             {
-                continue;
+                continue; // déjà là
             }
-            installer_cf(etat, dep.mod_id, MOD.into(), None, None).await?;
+            let choix = match connue {
+                Some(v) => Choix::Connue(v),
+                None => Choix::Meilleure,
+            };
+            installer_projet(etat, source, id_dep, MOD.into(), None, choix).await?;
         }
         Ok(())
     })
@@ -1179,4 +1055,133 @@ fn ecrire_meta(instance: &Instance, metas: &[ContenuMeta]) -> anyhow::Result<()>
         serde_json::to_string_pretty(metas)?,
     )?;
     Ok(())
+}
+
+/// Installation en vrai (réseau) par les deux sources, sur un dossier de données à part :
+/// `MISTY_DATA_DIR=<dossier temporaire> cargo test installation_reseau -- --ignored --nocapture`.
+#[cfg(test)]
+mod tests_reseau {
+    use super::*;
+    use crate::minecraft::instances;
+
+    fn dossier_de_test() -> bool {
+        // jamais sur les vraies données du joueur
+        std::env::var_os("MISTY_DATA_DIR").is_some()
+            && crate::systeme::paths::data_dir()
+                .starts_with(std::env::var_os("MISTY_DATA_DIR").unwrap())
+    }
+
+    fn meta<'a>(metas: &'a [ContenuMeta], source: &str, id: &str) -> &'a ContenuMeta {
+        metas
+            .iter()
+            .find(|m| m.correspond(source, id))
+            .unwrap_or_else(|| panic!("{source} {id} absent des métadonnées"))
+    }
+
+    /// Modrinth : un slug, sa dépendance requise, puis une mise à jour vers une version précise.
+    #[tokio::test]
+    #[ignore]
+    async fn installation_reseau_modrinth() {
+        assert!(dossier_de_test(), "MISTY_DATA_DIR requis");
+        let i = instances::creer("Test Modrinth", "1.21.1", loaders::FABRIC, None).unwrap();
+
+        // Mod Menu (slug « modmenu ») exige Fabric API
+        let installes = installer(&i, MODRINTH, "modmenu", MOD, None, None)
+            .await
+            .unwrap();
+        println!("installés : {installes:?}");
+        let metas = lire_meta(&i);
+        let mm = meta(&metas, MODRINTH, "mOgUt4GM"); // ID réel gardé, pas le slug
+        let api = meta(&metas, MODRINTH, "P7dR8mSH");
+        for m in [mm, api] {
+            assert!(i.dossier().join(&m.chemin).exists(), "{} absent", m.chemin);
+            assert!(m.client_side.is_some() && m.icone_url.is_some());
+        }
+
+        // mise à jour vers la deuxième version compatible (une version précise)
+        let versions = modrinth::versions("mOgUt4GM", Some(&["fabric"]), Some("1.21.1"))
+            .await
+            .unwrap();
+        let cible = &versions[1];
+        let contenu = lister(&i)
+            .into_iter()
+            .find(|c| {
+                c.meta
+                    .as_ref()
+                    .is_some_and(|m| m.correspond(MODRINTH, "mOgUt4GM"))
+            })
+            .unwrap();
+        let maj = MajDispo {
+            version_id: cible.id.clone(),
+            version_nom: cible.version_number.clone(),
+        };
+        mettre_a_jour(&i, &contenu, &maj, None).await.unwrap();
+        let metas = lire_meta(&i);
+        let mm = meta(&metas, MODRINTH, "mOgUt4GM");
+        assert_eq!(mm.version_id.as_deref(), Some(cible.id.as_str()));
+        assert!(i.dossier().join(&mm.chemin).exists());
+        assert!(
+            !contenu.chemin_fichier.exists()
+                || contenu.chemin_fichier == i.dossier().join(&mm.chemin)
+        );
+        instances::supprimer(&i).unwrap();
+    }
+
+    /// CurseForge : JEI, puis une mise à jour vers un fichier précis.
+    #[tokio::test]
+    #[ignore]
+    async fn installation_reseau_curseforge() {
+        assert!(dossier_de_test(), "MISTY_DATA_DIR requis");
+        assert!(curseforge::disponible(), "clé CurseForge requise");
+        let i = instances::creer("Test CurseForge", "1.20.1", loaders::FORGE, None).unwrap();
+
+        let installes = installer(&i, CURSEFORGE, "238222", MOD, None, None)
+            .await
+            .unwrap();
+        println!("installés : {installes:?}");
+        let metas = lire_meta(&i);
+        let jei = meta(&metas, CURSEFORGE, "238222");
+        assert!(i.dossier().join(&jei.chemin).exists());
+        assert_eq!(jei.titre, "Just Enough Items (JEI)");
+
+        let compatibles = curseforge::fichiers_compatibles(
+            curseforge::fichiers(238222, Some("1.20.1")).await.unwrap(),
+            &i,
+            MOD,
+        );
+        let cible = &compatibles[1];
+        let contenu = lister(&i)
+            .into_iter()
+            .find(|c| {
+                c.meta
+                    .as_ref()
+                    .is_some_and(|m| m.correspond(CURSEFORGE, "238222"))
+            })
+            .unwrap();
+        let maj = MajDispo {
+            version_id: cible.id.to_string(),
+            version_nom: cible.display_name.clone(),
+        };
+        mettre_a_jour(&i, &contenu, &maj, None).await.unwrap();
+        let jei = meta(&lire_meta(&i), CURSEFORGE, "238222").clone();
+        assert_eq!(jei.version_id, Some(cible.id.to_string()));
+        assert!(i.dossier().join(&jei.chemin).exists());
+
+        // un fichier qui n'est pas pour ce profil est refusé, l'ancien reste
+        let maj = MajDispo {
+            version_id: "1".into(),
+            version_nom: "?".into(),
+        };
+        let contenu = lister(&i)
+            .into_iter()
+            .find(|c| {
+                c.meta
+                    .as_ref()
+                    .is_some_and(|m| m.correspond(CURSEFORGE, "238222"))
+            })
+            .unwrap();
+        assert!(mettre_a_jour(&i, &contenu, &maj, None).await.is_err());
+        assert!(i.dossier().join(&jei.chemin).exists());
+        instances::supprimer(&i).unwrap();
+    }
 }
