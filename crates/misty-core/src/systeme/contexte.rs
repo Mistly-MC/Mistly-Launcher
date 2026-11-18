@@ -84,10 +84,12 @@ impl Drop for GardeContexte {
     }
 }
 
+/// Un seul test à la fois peut changer le contexte, ou compter sur le vrai dossier de données.
+static UN_SEUL: Mutex<()> = Mutex::new(());
+
 /// Tests : remplace le dossier de données par `dossier` jusqu'à la fin de la garde. Les tests qui
-/// l'utilisent passent un par un (les autres ne lisent pas le dossier de données).
+/// l'utilisent passent un par un, et jamais en même temps qu'un test de `reel_pour_test`.
 pub fn pour_test(dossier: &Path) -> GardeContexte {
-    static UN_SEUL: Mutex<()> = Mutex::new(());
     let un_seul = UN_SEUL.lock().unwrap_or_else(|e| e.into_inner());
     let _ = std::fs::create_dir_all(dossier);
     let nouveau = Arc::new(Contexte::nouveau(dossier.to_path_buf(), None));
@@ -97,6 +99,16 @@ pub fn pour_test(dossier: &Path) -> GardeContexte {
         .replace(nouveau);
     GardeContexte {
         avant,
+        _un_seul: un_seul,
+    }
+}
+
+/// Tests qui comptent sur le vrai dossier de données (par exemple un fichier déjà téléchargé) :
+/// le contexte n'est pas changé, mais aucun test de `pour_test` ne peut le changer pendant ce temps.
+pub fn reel_pour_test() -> GardeContexte {
+    let un_seul = UN_SEUL.lock().unwrap_or_else(|e| e.into_inner());
+    GardeContexte {
+        avant: ACTUEL.read().unwrap_or_else(|e| e.into_inner()).clone(),
         _un_seul: un_seul,
     }
 }

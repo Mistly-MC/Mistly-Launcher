@@ -184,6 +184,8 @@ mod tests {
     /// seule fois (celui du launcher, nommé avec sa version) si on le demande.
     #[test]
     fn export_mrpack() {
+        // le jar de Mistly Client déjà téléchargé dans le vrai dossier de données
+        let _garde = crate::systeme::contexte::reel_pour_test();
         let Some(mc) = client::versions().last().cloned() else {
             return;
         };
