@@ -1,6 +1,8 @@
 # Changelog
 ## 0.3.9
 ### Launcher
+- Updates are now verified before they install: the downloaded file must match its SHA-256 checksum and carry the Mistly team's signature. If either check fails, the file is deleted, nothing is installed and you get a message explaining why
+- Your Microsoft accounts are better protected: their sign-in tokens are now kept in the Windows Credential Manager instead of a plain file that any program could read. Accounts you already added are moved over automatically when you start the launcher, with no need to sign in again
 - Security fix for Java4Shell (CVE-2026-114938), a flaw in Java that lets a server run code on your computer as soon as it shows up in your server list or you join it: every game now starts with Java's fast Base64 decoder turned off (-XX:-UseBASE64Intrinsics), the fix recommended until Java is patched. Nothing to do on your side: update the launcher and restart your games
 - Fixed: when Mojang updated a Java runtime, only the files that changed size were downloaded again, leaving a mix of old and new files (Java could then fail to load some of its own parts). Each file is now checked, and Java runtimes already updated that way are repaired at the next game
 ### Mistly Client (in game)
