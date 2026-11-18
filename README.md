@@ -30,6 +30,8 @@ Download `Misty-Setup-<version>.exe` from the [latest release](https://github.co
 - Nothing else to install: Java is downloaded automatically when the game needs it.
 - **Portable version**: download the zip, extract it and run `Misty-<version>/Misty.exe`.
 
+**Linux** (x86_64, glibc 2.35 or newer: Ubuntu 22.04, Debian 12, Fedora 36…): download `Misty-<version>-linux-x86_64.tar.gz`, extract it where you want to keep it and run `Misty-<version>/Misty`. It adds itself to your applications menu. It needs GTK 3 (file dialogs) and, to keep your Microsoft sign-in, a keyring (GNOME Keyring or KWallet).
+
 Updates install themselves afterwards.
 
 ## 🗂️ Project structure
