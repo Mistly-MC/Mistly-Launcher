@@ -171,6 +171,7 @@ pub fn supprimer_build(tag: &str) -> std::io::Result<()> {
 }
 
 fn commande(exe: &Path) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut c = Command::new(exe);
     #[cfg(windows)]
     {

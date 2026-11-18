@@ -9,6 +9,10 @@
 //!
 //! Le mod Misty Client (module « Musique » du HUD) lit ces deux fichiers.
 
+// La lecture du morceau n'existe que sous Windows (contrôles multimédia) : ailleurs, ces outils
+// ne servent pas encore.
+#![cfg_attr(not(windows), allow(dead_code))]
+
 use crate::{systeme::journal, systeme::paths};
 use std::time::Duration;
 

@@ -44,6 +44,7 @@ static ECO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(f
 /// lui-même : Windows le fait tourner à basse fréquence, sur les cœurs économes s'il y en a.
 /// Demandé pendant une partie, quand on ne regarde pas le launcher : le processeur reste au jeu.
 /// Sans effet sur les versions de Windows qui ne le connaissent pas.
+#[cfg_attr(not(windows), allow(clippy::needless_return))]
 pub fn mode_eco(actif: bool) {
     use std::sync::atomic::Ordering;
     if ECO.swap(actif, Ordering::SeqCst) == actif {

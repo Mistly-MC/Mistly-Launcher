@@ -1,7 +1,10 @@
-# Release : pousser un tag « x.y.z » (sans v, ou « x.y.z-beta.n » pour une pré-release) compile
-# le launcher, prépare le zip et l'installateur avec installer/build.ps1, puis publie la release
-# GitHub avec Misty-x.y.z.zip, Misty-Setup-x.y.z.exe, Misty-x.y.z.zip.sha256 et
-# Misty-x.y.z.zip.minisig. La mise à jour automatique refuse tout zip sans ces deux preuves
+# Release : pousser un tag « x.y.z » (sans v, ou « x.y.z-beta.n » pour une pré-release) compile le
+# launcher pour Windows (installer/build.ps1) et pour Linux (installer/build-linux.sh), signe les
+# deux archives puis publie la release GitHub avec :
+#   Misty-x.y.z.zip, Misty-Setup-x.y.z.exe                  Windows
+#   Misty-x.y.z-linux-x86_64.tar.gz                          Linux
+#   <archive>.sha256 et <archive>.minisig pour chaque archive
+# La mise à jour automatique refuse toute archive sans ces deux preuves
 # (crates/misty-core/src/systeme/update.rs).
 #
 # Secrets du repo :
@@ -22,43 +25,52 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  # Outil de signature, épinglé : version et empreinte SHA-256 du zip officiel
-  MINISIGN_VERSION: "0.12"
-  MINISIGN_SHA256: 37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479
 
 jobs:
-  publier:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Le tag doit être la version de Cargo.toml
+        id: v
+        run: |
+          version="$(grep -m1 -E '^version = "' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')"
+          tag="${{ github.ref_name }}"
+          if [ "$tag" != "$version" ]; then
+            echo "Le tag $tag ne correspond pas à la version de Cargo.toml ($version) : le launcher proposerait la mise à jour en boucle" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          case "$version" in *-*) echo "prerelease=true" ;; *) echo "prerelease=false" ;; esac >> "$GITHUB_OUTPUT"
+
+      - name: Secrets obligatoires
+        env:
+          MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
+          CURSEFORGE_KEY: ${{ secrets.CURSEFORGE_KEY }}
+        run: |
+          [ -n "$MINISIGN_KEY" ] || { echo "Secret MINISIGN_KEY absent : la release ne pourrait pas être signée" >&2; exit 1; }
+          [ -n "$CURSEFORGE_KEY" ] || { echo "Secret CURSEFORGE_KEY absent : CurseForge ne marcherait pas dans cette version" >&2; exit 1; }
+
+  windows:
+    needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Le tag doit être la version de Cargo.toml
-        id: version
-        shell: pwsh
-        run: |
-          $cargo = Get-Content Cargo.toml -Raw
-          if ($cargo -notmatch '(?m)^version = "([^"]+)"') { throw "Version introuvable dans Cargo.toml" }
-          $version = $Matches[1]
-          $tag = "${{ github.ref_name }}"
-          if ($tag -ne $version) {
-            throw "Le tag $tag ne correspond pas à la version de Cargo.toml ($version) : le launcher proposerait la mise à jour en boucle"
-          }
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "prerelease=$($version.Contains('-').ToString().ToLower())" >> $env:GITHUB_OUTPUT
-
       - name: Clés privées
         shell: pwsh
         env:
-          MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
           CURSEFORGE_KEY: ${{ secrets.CURSEFORGE_KEY }}
           CODESIGN_PFX: ${{ secrets.CODESIGN_PFX }}
           CODESIGN_PASSWORD: ${{ secrets.CODESIGN_PASSWORD }}
         run: |
-          if (-not $env:MINISIGN_KEY) { throw "Secret MINISIGN_KEY absent : la release ne pourrait pas être signée" }
-          if (-not $env:CURSEFORGE_KEY) { throw "Secret CURSEFORGE_KEY absent : CurseForge ne marcherait pas dans cette version" }
-          # lue par build.rs, ignorée par git
+          # lue par crates/misty-core/build.rs, ignorée par git
           [IO.File]::WriteAllText("$PWD/curseforge.key", $env:CURSEFORGE_KEY.Trim())
           # certificat de signature de code, cherché par installer/build.ps1 (sinon l'exe n'est pas signé)
           if ($env:CODESIGN_PFX) {
@@ -83,69 +95,116 @@ jobs:
       - name: Compilation, zip et installateur (installer/build.ps1)
         run: powershell -ExecutionPolicy Bypass -File installer\build.ps1
 
-      - name: Empreinte SHA-256 et signature minisign du zip
-        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            publish/Misty-${{ needs.version.outputs.version }}.zip
+            publish/Misty-Setup-${{ needs.version.outputs.version }}.exe
+          if-no-files-found: error
+
+  linux:
+    needs: version
+    # même système que la CI : glibc 2.35, compatible avec la plupart des distributions récentes
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Dépendances
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libfontconfig1-dev libxkbcommon-dev libgtk-3-dev
+
+      - name: Clé CurseForge
+        env:
+          CURSEFORGE_KEY: ${{ secrets.CURSEFORGE_KEY }}
+        run: printf '%s' "$CURSEFORGE_KEY" | tr -d '\r\n ' > curseforge.key
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+
+      - name: Compilation et archive (installer/build-linux.sh)
+        run: bash installer/build-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: publish/Misty-${{ needs.version.outputs.version }}-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  publier:
+    needs: [version, windows, linux]
+    runs-on: ubuntu-latest
+    env:
+      # Outil de signature, épinglé : version et empreinte SHA-256 de l'archive officielle
+      MINISIGN_VERSION: "0.12"
+      MINISIGN_SHA256: 9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: publish
+          merge-multiple: true
+
+      - name: Empreintes SHA-256 et signatures minisign des archives
         env:
           MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
         run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $nom = "Misty-$version.zip"
-          $zip = "publish/$nom"
-
-          # même format que sha256sum : « <empreinte>  <fichier> »
-          $empreinte = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-          [IO.File]::WriteAllText("$PWD/$zip.sha256", "$empreinte  $nom`n")
+          set -euo pipefail
+          version="${{ needs.version.outputs.version }}"
 
           # minisign, vérifié contre l'empreinte épinglée
-          $outil = Join-Path $env:RUNNER_TEMP "minisign.zip"
-          Invoke-WebRequest "https://github.com/jedisct1/minisign/releases/download/$env:MINISIGN_VERSION/minisign-$env:MINISIGN_VERSION-win64.zip" -OutFile $outil
-          if ((Get-FileHash $outil -Algorithm SHA256).Hash.ToLower() -ne $env:MINISIGN_SHA256) { throw "minisign téléchargé ne correspond pas à l'empreinte épinglée" }
-          Expand-Archive $outil -DestinationPath (Join-Path $env:RUNNER_TEMP "minisign")
-          $minisign = Join-Path $env:RUNNER_TEMP "minisign/minisign-win64/x86_64/minisign.exe"
+          curl -fsSL -o "$RUNNER_TEMP/minisign.tar.gz" \
+            "https://github.com/jedisct1/minisign/releases/download/$MINISIGN_VERSION/minisign-$MINISIGN_VERSION-linux.tar.gz"
+          echo "$MINISIGN_SHA256  $RUNNER_TEMP/minisign.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/minisign.tar.gz" -C "$RUNNER_TEMP" minisign-linux/x86_64/minisign
+          minisign="$RUNNER_TEMP/minisign-linux/x86_64/minisign"
 
-          $cle = Join-Path $env:RUNNER_TEMP "misty.key"
-          [IO.File]::WriteAllText($cle, $env:MINISIGN_KEY)
-          try {
-            & $minisign -S -s $cle -m $zip -t "Mistly Launcher $version"
-            if ($LASTEXITCODE -ne 0) { throw "minisign -S a échoué" }
-          } finally {
-            Remove-Item $cle
-          }
+          # clé publique intégrée au launcher : chaque signature doit passer avec elle
+          cle_publique="$(grep -oP 'CLE_PUBLIQUE_MAJ: &str = "\K[^"]+' crates/misty-core/src/systeme/app_info.rs)"
+          [ -n "$cle_publique" ] || { echo "CLE_PUBLIQUE_MAJ introuvable dans app_info.rs" >&2; exit 1; }
 
-          # la signature doit passer avec la clé publique intégrée au launcher, sinon personne ne
-          # pourrait installer cette mise à jour
-          $appInfo = Get-Content crates/misty-core/src/systeme/app_info.rs -Raw
-          if ($appInfo -notmatch 'CLE_PUBLIQUE_MAJ: &str = "([^"]+)"') { throw "CLE_PUBLIQUE_MAJ introuvable dans app_info.rs" }
-          & $minisign -Vm $zip -P $Matches[1]
-          if ($LASTEXITCODE -ne 0) { throw "La signature ne correspond pas à CLE_PUBLIQUE_MAJ : MINISIGN_KEY n'est pas la bonne clé" }
+          printf '%s' "$MINISIGN_KEY" > "$RUNNER_TEMP/misty.key"
+          trap 'rm -f "$RUNNER_TEMP/misty.key"' EXIT
+          cd publish
+          for archive in "Misty-$version.zip" "Misty-$version-linux-x86_64.tar.gz"; do
+            # même format que sha256sum : « <empreinte>  <fichier> »
+            sha256sum "$archive" > "$archive.sha256"
+            "$minisign" -S -s "$RUNNER_TEMP/misty.key" -m "$archive" -t "Mistly Launcher $version"
+            "$minisign" -Vm "$archive" -P "$cle_publique" \
+              || { echo "La signature ne correspond pas à CLE_PUBLIQUE_MAJ : MINISIGN_KEY n'est pas la bonne clé" >&2; exit 1; }
+          done
+          ls -l
 
       - name: Notes de version (section de CHANGELOG.md)
-        shell: pwsh
         run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $lignes = Get-Content CHANGELOG.md -Encoding utf8
-          $debut = [Array]::IndexOf($lignes, "## $version")
-          if ($debut -lt 0) { throw "Pas de section « ## $version » dans CHANGELOG.md" }
-          $fin = $lignes.Length
-          for ($i = $debut + 1; $i -lt $lignes.Length; $i++) {
-            if ($lignes[$i].StartsWith("## ")) { $fin = $i; break }
-          }
-          $notes = $lignes[($debut + 1)..($fin - 1)] -join "`n"
-          [IO.File]::WriteAllText("$env:RUNNER_TEMP/notes.md", $notes)
+          version="${{ needs.version.outputs.version }}"
+          awk -v titre="## $version" '
+            $0 == titre { dedans = 1; next }
+            dedans && /^## / { exit }
+            dedans { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          [ -s "$RUNNER_TEMP/notes.md" ] || { echo "Pas de section « ## $version » dans CHANGELOG.md" >&2; exit 1; }
 
       - name: Release GitHub
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $fichiers = @(
-            "publish/Misty-$version.zip",
-            "publish/Misty-Setup-$version.exe",
-            "publish/Misty-$version.zip.sha256",
-            "publish/Misty-$version.zip.minisig"
-          )
-          $options = @("--title", "Mistly Launcher $version", "--notes-file", "$env:RUNNER_TEMP/notes.md", "--verify-tag")
-          if ("${{ steps.version.outputs.prerelease }}" -eq "true") { $options += "--prerelease" }
-          gh release create $version @fichiers @options
-          if ($LASTEXITCODE -ne 0) { throw "gh release create a échoué" }
+          version="${{ needs.version.outputs.version }}"
+          options=(--title "Mistly Launcher $version" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag)
+          if [ "${{ needs.version.outputs.prerelease }}" = "true" ]; then options+=(--prerelease); fi
+          gh release create "$version" \
+            "publish/Misty-$version.zip" \
+            "publish/Misty-Setup-$version.exe" \
+            "publish/Misty-$version.zip.sha256" \
+            "publish/Misty-$version.zip.minisig" \
+            "publish/Misty-$version-linux-x86_64.tar.gz" \
+            "publish/Misty-$version-linux-x86_64.tar.gz.sha256" \
+            "publish/Misty-$version-linux-x86_64.tar.gz.minisig" \
+            "${options[@]}"
