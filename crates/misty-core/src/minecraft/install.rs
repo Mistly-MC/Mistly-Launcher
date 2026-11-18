@@ -75,7 +75,9 @@ pub async fn assurer_json(dirs: &McDirs, id: &str) -> anyhow::Result<()> {
         return Ok(());
     }
     let Some(v) = manifeste().await?.into_iter().find(|v| v.id == id) else {
-        anyhow::bail!("Version {id} introuvable chez Mojang");
+        anyhow::bail!(crate::minecraft::InstallErreur::VersionInconnue(
+            id.to_string()
+        ));
     };
     download::fichier(&v.url, &chemin, Some(&v.sha1)).await
 }
@@ -85,7 +87,7 @@ pub async fn installer(
     dirs: &McDirs,
     id: &str,
     progression: FileProgress,
-) -> anyhow::Result<VersionInstallee> {
+) -> Result<VersionInstallee, crate::minecraft::InstallErreur> {
     // JSON de la version et de ses parents
     let mut courant = id.to_string();
     loop {
@@ -128,7 +130,9 @@ pub async fn installer(
                 taille: lib.taille,
             }),
             None if !lib.chemin.exists() => {
-                anyhow::bail!("Bibliothèque manquante : {}", lib.chemin.display());
+                return Err(crate::minecraft::InstallErreur::BibliothequeManquante(
+                    lib.chemin.clone(),
+                ));
             }
             None => {}
         }
@@ -367,7 +371,10 @@ pub async fn telecharger_tout(
             if resultat.is_err() {
                 resultat = download::fichier(&t.url, &t.chemin, t.sha1.as_deref()).await;
             }
-            resultat.map_err(|e| anyhow::anyhow!("{} : {e}", t.url))?;
+            resultat.map_err(|e| crate::minecraft::InstallErreur::Telechargement {
+                url: t.url.clone(),
+                detail: e.to_string(),
+            })?;
             let n = faits.fetch_add(1, Ordering::SeqCst) + 1;
             let nom = t
                 .chemin

@@ -13,9 +13,10 @@
 //! panne), la version vient de `/api/latest` ; si le téléchargement depuis GitHub échoue, le zip
 //! vient de `/download/portable`.
 
+use crate::systeme::MajErreur;
 use crate::{
-    systeme::app_info, systeme::http, systeme::journal, systeme::loc, systeme::paths,
-    systeme::reglages, systeme::shortcut,
+    systeme::app_info, systeme::http, systeme::journal, systeme::paths, systeme::reglages,
+    systeme::shortcut,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -51,7 +52,7 @@ fn url_site() -> String {
 
 /// Renvoie la dernière release si elle est plus récente que la version actuelle, sinon None.
 /// GitHub d'abord, le site si GitHub ne répond pas.
-pub async fn verifier() -> anyhow::Result<Option<ReleaseInfo>> {
+pub async fn verifier() -> Result<Option<ReleaseInfo>, MajErreur> {
     match verifier_github().await {
         Ok(r) => Ok(r),
         Err(e_github) => match verifier_site().await {
@@ -62,7 +63,7 @@ pub async fn verifier() -> anyhow::Result<Option<ReleaseInfo>> {
     }
 }
 
-async fn verifier_site() -> anyhow::Result<Option<ReleaseInfo>> {
+async fn verifier_site() -> Result<Option<ReleaseInfo>, MajErreur> {
     let doc: serde_json::Value = http::get_json(&format!("{SITE}/api/latest")).await?;
     let version = doc["version"]
         .as_str()
@@ -70,7 +71,7 @@ async fn verifier_site() -> anyhow::Result<Option<ReleaseInfo>> {
         .trim_start_matches('v')
         .to_string();
     if version.is_empty() {
-        anyhow::bail!("{SITE}/api/latest : version absente");
+        return Err(MajErreur::SiteSansVersion(SITE));
     }
     let taille = doc["portableSize"].as_u64().unwrap_or(0);
     Ok(
@@ -83,7 +84,7 @@ async fn verifier_site() -> anyhow::Result<Option<ReleaseInfo>> {
     )
 }
 
-async fn verifier_github() -> anyhow::Result<Option<ReleaseInfo>> {
+async fn verifier_github() -> Result<Option<ReleaseInfo>, MajErreur> {
     // GitHub refuse les requêtes sans User-Agent (le client partagé en a un)
     let doc: serde_json::Value = if reglages::lire().maj_prerelease {
         // canal pré-release : la plus haute version parmi les releases publiées, bêtas comprises
@@ -140,7 +141,7 @@ async fn verifier_github() -> anyhow::Result<Option<ReleaseInfo>> {
     let taille = zip.and_then(|a| a["size"].as_u64()).unwrap_or(0);
 
     if version.is_empty() {
-        anyhow::bail!("GitHub : release sans version");
+        return Err(MajErreur::GitHubSansVersion);
     }
     if !est_plus_recente(&version, app_info::VERSION) {
         return Ok(None);
@@ -260,7 +261,7 @@ async fn telecharger(
     taille: u64,
     zip: &Path,
     avancement: &(dyn Fn(Etape) + Send + Sync),
-) -> anyhow::Result<()> {
+) -> Result<(), MajErreur> {
     use futures::StreamExt;
     use tokio::io::AsyncWriteExt;
     let site = url.starts_with(SITE);
@@ -282,7 +283,7 @@ async fn telecharger(
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
         if !nom.contains(&attendu) {
-            anyhow::bail!("le site propose un autre fichier que {attendu}");
+            return Err(MajErreur::AutreFichier(attendu));
         }
     }
     let total = reponse
@@ -303,9 +304,9 @@ async fn telecharger(
         }
         sortie.flush().await?;
         if total != 0 && recu != total {
-            anyhow::bail!("téléchargement incomplet ({recu} octets sur {total})");
+            return Err(MajErreur::Incomplet { recu, total });
         }
-        anyhow::Ok(())
+        Ok::<(), MajErreur>(())
     }
     .await;
     if let Err(e) = resultat {
@@ -325,7 +326,7 @@ pub fn verifier_archive(
     sha256: &str,
     signature: &str,
     cle_publique: &str,
-) -> anyhow::Result<()> {
+) -> Result<(), MajErreur> {
     use sha2::{Digest, Sha256};
     let attendu = sha256
         .split_whitespace()
@@ -333,7 +334,7 @@ pub fn verifier_archive(
         .unwrap_or("")
         .to_ascii_lowercase();
     if attendu != hex::encode(Sha256::digest(octets)) {
-        anyhow::bail!(loc::t("Maj_Verif_Empreinte"));
+        return Err(MajErreur::Empreinte);
     }
     let signature_valide =
         minisign_verify::PublicKey::from_base64(cle_publique.trim()).and_then(|cle| {
@@ -343,14 +344,14 @@ pub fn verifier_archive(
         });
     if let Err(e) = signature_valide {
         journal::info(&format!("Signature de la mise à jour refusée : {e}"));
-        anyhow::bail!(loc::t("Maj_Verif_Signature"));
+        return Err(MajErreur::Signature);
     }
     Ok(())
 }
 
 /// `Misty-x.y.z.zip.sha256` et `.minisig`, toujours pris sur la release GitHub (même quand le zip
 /// vient du site) : une copie du zip ne peut pas fournir ses propres preuves.
-async fn telecharger_preuves(version: &str) -> anyhow::Result<(String, String)> {
+async fn telecharger_preuves(version: &str) -> Result<(String, String), MajErreur> {
     let base = format!(
         "https://github.com/{}/releases/download/{version}/Misty-{version}.zip",
         app_info::GITHUB_REPO
@@ -360,14 +361,14 @@ async fn telecharger_preuves(version: &str) -> anyhow::Result<(String, String)> 
         futures::try_join!(http::get_text(&url_sha256), http::get_text(&url_signature)).map_err(
             |e| {
                 journal::info(&format!("Preuves de la mise à jour introuvables : {e:#}"));
-                anyhow::anyhow!(loc::t("Maj_Verif_Fichiers"))
+                MajErreur::Preuves
             },
         )?;
     Ok((sha256, signature))
 }
 
 /// Vérifie le zip téléchargé ; s'il est refusé, il est supprimé.
-async fn verifier_zip(zip: &Path, version: &str) -> anyhow::Result<()> {
+async fn verifier_zip(zip: &Path, version: &str) -> Result<(), MajErreur> {
     let resultat = async {
         let (sha256, signature) = telecharger_preuves(version).await?;
         let zip = zip.to_path_buf();
@@ -392,7 +393,7 @@ async fn verifier_zip(zip: &Path, version: &str) -> anyhow::Result<()> {
 pub async fn installer(
     release: &ReleaseInfo,
     avancement: impl Fn(Etape) + Send + Sync,
-) -> anyhow::Result<()> {
+) -> Result<(), MajErreur> {
     let racine = racine();
     let zip = racine.join(format!("Misty-{}.zip", release.version));
     let nouveau_dossier = racine.join(format!("Misty-{}", release.version));
@@ -409,7 +410,12 @@ pub async fn installer(
                 }
                 Err(e) => erreur = Some(e),
             },
-            Err(e) => erreur = Some(e.context(url.clone())),
+            Err(e) => {
+                erreur = Some(MajErreur::Source {
+                    url: url.clone(),
+                    erreur: Box::new(e),
+                })
+            }
         }
     }
     if let Some(e) = erreur {
@@ -419,7 +425,7 @@ pub async fn installer(
     {
         let zip = zip.clone();
         let racine = racine.clone();
-        tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+        tokio::task::spawn_blocking(move || -> Result<(), MajErreur> {
             let mut archive = zip::ZipArchive::new(fs::File::open(&zip)?)?;
             archive.extract(&racine)?;
             Ok(())
@@ -428,7 +434,7 @@ pub async fn installer(
     }
     let _ = fs::remove_file(&zip);
     if !nouveau_dossier.join("Misty.exe").exists() {
-        anyhow::bail!("Misty.exe absent de l'archive (Misty-{})", release.version);
+        return Err(MajErreur::ExeAbsent(release.version.clone()));
     }
 
     reglages::modifier(|r| {
@@ -451,7 +457,7 @@ pub async fn installer(
 
 /// Après une mise à jour : supprime l'ancien dossier et remet le raccourci sur le nouvel exe.
 /// Renvoie true si une mise à jour vient d'être finalisée.
-pub async fn finaliser() -> anyhow::Result<bool> {
+pub async fn finaliser() -> Result<bool, MajErreur> {
     let ancien = reglages::lire().ancien_dossier;
     if ancien.is_empty() {
         return Ok(false);
@@ -503,7 +509,7 @@ fn maj_entree_desinstallation() {}
 
 /// Migre l'ancien dossier de données C:\TEXT vers %LOCALAPPDATA%\Misty.
 /// Renvoie true si une migration a eu lieu.
-pub fn migrer_ancien_dossier() -> anyhow::Result<bool> {
+pub fn migrer_ancien_dossier() -> Result<bool, MajErreur> {
     let ancien = Path::new(paths::LEGACY_DATA_DIR);
     if !ancien.exists() {
         return Ok(false);
@@ -515,7 +521,7 @@ pub fn migrer_ancien_dossier() -> anyhow::Result<bool> {
     Ok(true)
 }
 
-fn copier_dossier(source: &Path, destination: &Path) -> anyhow::Result<()> {
+fn copier_dossier(source: &Path, destination: &Path) -> Result<(), MajErreur> {
     fs::create_dir_all(destination)?;
     for entree in fs::read_dir(source)?.flatten() {
         let cible = destination.join(entree.file_name());
@@ -531,6 +537,7 @@ fn copier_dossier(source: &Path, destination: &Path) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::systeme::loc;
 
     #[test]
     fn ordre_des_versions() {

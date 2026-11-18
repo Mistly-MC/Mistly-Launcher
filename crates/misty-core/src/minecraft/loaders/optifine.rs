@@ -49,7 +49,10 @@ pub async fn installer(
         .into_iter()
         .find(|(v, _)| v == mc)
         .map(|(_, f)| f)
-        .ok_or_else(|| anyhow::anyhow!("OptiFine indisponible pour {mc}"))?;
+        .ok_or_else(|| crate::minecraft::InstallErreur::LoaderIndisponible {
+            loader: "OptiFine".into(),
+            version_mc: mc.to_string(),
+        })?;
 
     // "OptiFine_1.20.1_HD_U_I6.jar" → édition "HD_U_I6"
     let edition = fichier

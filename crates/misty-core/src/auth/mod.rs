@@ -2,3 +2,6 @@
 
 pub mod account;
 pub mod coffre;
+pub mod erreur;
+
+pub use erreur::AuthErreur;

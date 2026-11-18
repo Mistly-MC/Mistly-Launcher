@@ -36,9 +36,13 @@ pub async fn disponible(mc: &str) -> bool {
 }
 
 pub async fn installer(dirs: &McDirs, mc: &str) -> anyhow::Result<String> {
-    let (infos, snapshot) = derniere(mc)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("LiteLoader indisponible pour {mc}"))?;
+    let (infos, snapshot) =
+        derniere(mc)
+            .await?
+            .ok_or_else(|| crate::minecraft::InstallErreur::LoaderIndisponible {
+                loader: "LiteLoader".into(),
+                version_mc: mc.to_string(),
+            })?;
     let id = format!("{mc}-LiteLoader{mc}");
     let version_ll = infos["version"].as_str().unwrap_or(mc).to_string();
     let tweak = infos["tweakClass"]

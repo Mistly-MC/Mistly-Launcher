@@ -6,8 +6,12 @@ use std::path::PathBuf;
 
 /// Lit le JSON d'une version installée.
 pub fn lire(dirs: &McDirs, id: &str) -> anyhow::Result<Value> {
-    let texte = std::fs::read_to_string(dirs.version_json(id))
-        .map_err(|e| anyhow::anyhow!("Version {id} introuvable ({e})"))?;
+    let texte = std::fs::read_to_string(dirs.version_json(id)).map_err(|e| {
+        crate::minecraft::InstallErreur::VersionIllisible {
+            id: id.to_string(),
+            detail: e.to_string(),
+        }
+    })?;
     Ok(serde_json::from_str(texte.trim_start_matches('\u{feff}'))?)
 }
 

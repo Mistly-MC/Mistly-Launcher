@@ -3,6 +3,7 @@
 
 use crate::contenu::catalogue::{CURSEFORGE, MODRINTH};
 use crate::contenu::source::{self, SourceContenu, VersionContenu};
+use crate::contenu::ContenuErreur;
 use crate::minecraft::instances::Instance;
 use crate::minecraft::loaders;
 use crate::{contenu::curseforge, contenu::modrinth, systeme::download, systeme::loc, Progress};
@@ -266,9 +267,9 @@ pub fn dossier(instance: &Instance, type_: &str, monde: Option<&str>) -> anyhow:
         SHADER => base.join("shaderpacks"),
         DATAPACK => base
             .join("saves")
-            .join(monde.ok_or_else(|| anyhow::anyhow!("Monde requis pour un datapack"))?)
+            .join(monde.ok_or(ContenuErreur::MondeRequis)?)
             .join("datapacks"),
-        autre => anyhow::bail!("Type inconnu : {autre}"),
+        autre => anyhow::bail!(ContenuErreur::TypeInconnu(autre.to_string())),
     })
 }
 
@@ -722,15 +723,9 @@ pub async fn mettre_a_jour(
     contenu: &ContenuInstalle,
     maj: &MajDispo,
     progression: Option<Progress>,
-) -> anyhow::Result<Vec<String>> {
-    let meta = contenu
-        .meta
-        .clone()
-        .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_AucunFichier")))?;
-    let project_id = meta
-        .project_id
-        .clone()
-        .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_AucunFichier")))?;
+) -> Result<Vec<String>, ContenuErreur> {
+    let meta = contenu.meta.clone().ok_or(ContenuErreur::AucunFichier)?;
+    let project_id = meta.project_id.clone().ok_or(ContenuErreur::AucunFichier)?;
     let source = meta.source().to_string();
     let mut etat = Installation {
         instance,
@@ -807,7 +802,7 @@ pub async fn installer(
     type_: &str,
     monde: Option<&str>,
     progression: Option<Progress>,
-) -> anyhow::Result<Vec<String>> {
+) -> Result<Vec<String>, ContenuErreur> {
     let mut etat = Installation {
         instance,
         metas: lire_meta(instance),
@@ -830,7 +825,7 @@ pub async fn installer(
     Ok(etat.installes)
 }
 
-type Fut<'a> = Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>;
+type Fut<'a> = Pin<Box<dyn Future<Output = Result<(), ContenuErreur>> + Send + 'a>>;
 
 /// Version d'un projet à installer.
 enum Choix {
@@ -865,10 +860,12 @@ fn installer_projet<'a>(
         };
         let Some(version) = version else {
             let titre = details.map(|d| d.titre).unwrap_or(id);
-            anyhow::bail!(loc::tf(
-                source.cle_pas_de_version(),
-                &[&titre, &instance.version_mc, &instance.loader]
-            ));
+            return Err(ContenuErreur::PasDeVersion {
+                cle: source.cle_pas_de_version(),
+                titre,
+                version_mc: instance.version_mc.clone(),
+                loader: instance.loader.clone(),
+            });
         };
         // On garde l'ID réel, même si on a reçu un slug
         let id = details.as_ref().map(|d| d.id.clone()).unwrap_or(id);
@@ -881,13 +878,10 @@ fn installer_projet<'a>(
         // Téléchargement interdit hors du site (CurseForge) : on s'arrête avant de retirer
         // l'ancienne version
         if version.url.is_none() {
-            anyhow::bail!(loc::tf(
-                "Erreur_CFInterdit",
-                &[
-                    &titre,
-                    &source.page_version(details.as_ref(), &id, &version)
-                ]
-            ));
+            return Err(ContenuErreur::TelechargementInterdit {
+                page: source.page_version(details.as_ref(), &id, &version),
+                titre,
+            });
         }
 
         let dossier = dossier(instance, &type_, monde.as_deref())?;

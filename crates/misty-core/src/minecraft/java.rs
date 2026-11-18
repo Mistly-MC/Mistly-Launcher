@@ -60,7 +60,10 @@ pub async fn assurer(
             .cloned();
     }
     let Some(entree) = entree else {
-        anyhow::bail!("Java {majeure} indisponible pour {}", plateforme())
+        anyhow::bail!(crate::minecraft::InstallErreur::JavaIndisponible {
+            majeure,
+            plateforme: plateforme(),
+        })
     };
     let url_manifeste = entree["manifest"]["url"]
         .as_str()
@@ -127,7 +130,9 @@ pub async fn assurer(
     }
 
     if !javaw.exists() {
-        anyhow::bail!("Installation de Java incomplète ({composant})");
+        anyhow::bail!(crate::minecraft::InstallErreur::JavaIncomplet(
+            composant.to_string()
+        ));
     }
     Ok(javaw)
 }

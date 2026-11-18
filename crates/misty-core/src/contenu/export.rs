@@ -80,8 +80,7 @@ pub fn exporter(instance: &Instance, destination: &Path, avec_misty: bool) -> an
     let mut dependances = serde_json::Map::new();
     dependances.insert("minecraft".into(), instance.version_mc.clone().into());
     if let Some(cle) = cle_loader(&instance.loader) {
-        let version = version_loader(instance)
-            .ok_or_else(|| anyhow::anyhow!(crate::systeme::loc::t("Export_JamaisLance")))?;
+        let version = version_loader(instance).ok_or(crate::contenu::ContenuErreur::JamaisLance)?;
         dependances.insert(cle.into(), version.into());
     }
     let index = serde_json::json!({

@@ -334,8 +334,9 @@ fn chemin(jar: &Jar) -> PathBuf {
 
 /// Le jar de cette version, téléchargé s'il ne l'est pas encore. Renvoie son chemin.
 pub async fn telecharger(version_mc: &str) -> anyhow::Result<PathBuf> {
-    let jar = jar_pour(version_mc)
-        .ok_or_else(|| anyhow::anyhow!("Mistly Client n'existe pas pour Minecraft {version_mc}"))?;
+    let jar = jar_pour(version_mc).ok_or_else(|| {
+        crate::minecraft::InstallErreur::ClientIndisponible(version_mc.to_string())
+    })?;
     let chemin = chemin(&jar);
     if jar.local.is_some() {
         return Ok(chemin);

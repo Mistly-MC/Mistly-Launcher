@@ -225,9 +225,12 @@ pub async fn installer(
     } else {
         "NeoForge"
     };
-    let (version, url) = choisir(sorte, mc, loader)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("{nom} indisponible pour {mc}"))?;
+    let (version, url) = choisir(sorte, mc, loader).await?.ok_or_else(|| {
+        crate::minecraft::InstallErreur::LoaderIndisponible {
+            loader: nom.to_string(),
+            version_mc: mc.to_string(),
+        }
+    })?;
 
     // Déjà installé (et processors déjà exécutés) : rien à refaire
     let marqueur = dirs

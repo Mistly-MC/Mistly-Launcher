@@ -312,10 +312,10 @@ async fn importer_fichier_interne(
 ) -> anyhow::Result<Resultat> {
     progression(loc::t("Progres_Modpack"));
     let mut zip = zip::ZipArchive::new(std::fs::File::open(chemin)?)
-        .map_err(|_| anyhow::anyhow!(loc::t("Erreur_ModpackIllisible")))?;
+        .map_err(|_| crate::contenu::ContenuErreur::ModpackIllisible)?;
     let modrinth_format = zip.by_name("modrinth.index.json").is_ok();
     if !modrinth_format && zip.by_name("manifest.json").is_err() {
-        anyhow::bail!(loc::t("Erreur_ModpackFormat"));
+        anyhow::bail!(crate::contenu::ContenuErreur::ModpackFormat);
     }
     progression(loc::t("Progres_Reconnaissance"));
     let origine = Origine::reconnaitre(chemin, modrinth_format).await;
@@ -351,7 +351,7 @@ fn projet_du_profil(instance: &Instance) -> anyhow::Result<ProjetDistant> {
     let id = instance
         .modpack_project_id
         .clone()
-        .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_PasUnModpack")))?;
+        .ok_or(crate::contenu::ContenuErreur::PasUnModpack)?;
     Ok(ProjetDistant {
         source: instance
             .modpack_source
@@ -421,9 +421,9 @@ pub async fn mettre_a_jour(
             .await?
             .into_iter()
             .next()
-            .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_ModpackSansVersion")))?;
+            .ok_or(crate::contenu::ContenuErreur::ModpackSansVersion)?;
         let Some(url) = fichier.download_url.clone().filter(|u| !u.is_empty()) else {
-            anyhow::bail!(loc::t("Erreur_ModpackCFInterdit"));
+            anyhow::bail!(crate::contenu::ContenuErreur::ModpackInterdit);
         };
         let mut zip =
             telecharger_archive(&url, fichier.sha1(), &progression, &mut temporaire).await?;
@@ -441,7 +441,7 @@ pub async fn mettre_a_jour(
             .files
             .iter()
             .find(|f| f.filename.to_lowercase().ends_with(".mrpack"))
-            .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_SansMrpack")))?;
+            .ok_or(crate::contenu::ContenuErreur::SansMrpack)?;
         let mut zip = telecharger_archive(
             &f.url,
             f.hashes.get("sha1").map(String::as_str),
@@ -594,12 +594,12 @@ async fn installer_modrinth(
                 .find(|v| version_id.is_none() && v.version_type == "release")
         })
         .or_else(|| versions.first())
-        .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_ModpackSansVersion")))?;
+        .ok_or(crate::contenu::ContenuErreur::ModpackSansVersion)?;
     let fichier = version
         .files
         .iter()
         .find(|f| f.filename.to_lowercase().ends_with(".mrpack"))
-        .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_SansMrpack")))?;
+        .ok_or(crate::contenu::ContenuErreur::SansMrpack)?;
 
     let mut zip = telecharger_archive(
         &fichier.url,
@@ -633,7 +633,7 @@ async fn appliquer_modrinth(
         .dependencies
         .get("minecraft")
         .cloned()
-        .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_ModpackSansMc")))?;
+        .ok_or(crate::contenu::ContenuErreur::ModpackSansMc)?;
     let (loader, version_loader) = loader_modrinth(&index.dependencies);
 
     let version_pack = version_pack.unwrap_or_else(|| index.version_id.clone());
@@ -689,7 +689,10 @@ async fn appliquer_modrinth(
                 }
             }
             let detail = derniere.map(|e| format!("\n{e}")).unwrap_or_default();
-            anyhow::bail!("{}{detail}", loc::tf("Erreur_Telechargement", &[&chemin]))
+            anyhow::bail!(crate::contenu::ContenuErreur::Telechargement {
+                chemin: chemin.to_string(),
+                detail
+            })
         },
     )
     .await?;
@@ -741,9 +744,9 @@ async fn installer_curseforge(
                 .find(|f| version_id.is_none() && f.release_type == 1 && f.is_available)
         })
         .or_else(|| fichiers_pack.first())
-        .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_ModpackSansVersion")))?;
+        .ok_or(crate::contenu::ContenuErreur::ModpackSansVersion)?;
     let Some(url) = fichier_pack.download_url.clone().filter(|u| !u.is_empty()) else {
-        anyhow::bail!(loc::t("Erreur_ModpackCFInterdit"));
+        anyhow::bail!(crate::contenu::ContenuErreur::ModpackInterdit);
     };
 
     let mut zip = telecharger_archive(&url, fichier_pack.sha1(), progression, temporaire).await?;
@@ -1106,7 +1109,9 @@ fn loader_curseforge(
         "neoforge" => (loaders::NEOFORGE, version),
         "fabric" => (loaders::FABRIC, version),
         "quilt" => (loaders::QUILT, version),
-        _ => anyhow::bail!(loc::tf("Erreur_LoaderNonPris", &[&principal.id])),
+        _ => anyhow::bail!(crate::contenu::ContenuErreur::LoaderNonPris(
+            principal.id.clone()
+        )),
     })
 }
 
@@ -1118,7 +1123,7 @@ fn lire_json<T: serde::de::DeserializeOwned>(
 ) -> anyhow::Result<T> {
     let mut entree = zip
         .by_name(nom)
-        .map_err(|_| anyhow::anyhow!(loc::tf("Erreur_Manquant", &[&nom])))?;
+        .map_err(|_| crate::contenu::ContenuErreur::Manquant(nom.to_string()))?;
     let mut texte = String::new();
     entree.read_to_string(&mut texte)?;
     serde_json::from_str(texte.trim_start_matches('\u{feff}'))

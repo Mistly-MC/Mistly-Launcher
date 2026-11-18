@@ -11,7 +11,7 @@ use crate::contenu::source::{
 };
 use crate::minecraft::instances::Instance;
 use crate::minecraft::loaders;
-use crate::{systeme::app_info, systeme::loc};
+use crate::systeme::app_info;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::sync::OnceLock;
@@ -55,7 +55,7 @@ pub fn disponible() -> bool {
 fn client() -> anyhow::Result<&'static reqwest::Client> {
     static C: OnceLock<reqwest::Client> = OnceLock::new();
     let Some(cle) = cle() else {
-        anyhow::bail!(loc::t("Erreur_CleCF"))
+        anyhow::bail!(crate::contenu::ContenuErreur::CleCF)
     };
     Ok(C.get_or_init(|| {
         let mut entetes = reqwest::header::HeaderMap::new();
@@ -623,7 +623,7 @@ impl SourceContenu for CurseForge {
                 .await?
                 .into_iter()
                 .next()
-                .ok_or_else(|| anyhow::anyhow!(loc::tf("Erreur_ProjetCF", &[&mod_id])))?;
+                .ok_or(crate::contenu::ContenuErreur::ProjetCF(mod_id))?;
             Ok(Some(DetailsContenu {
                 id: m.id.to_string(),
                 titre: m.name,

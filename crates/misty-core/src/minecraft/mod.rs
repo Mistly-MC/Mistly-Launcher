@@ -8,12 +8,15 @@
 //! Le dossier de jeu (mods, options, mondes) est celui du profil, ou Misty lui-même en jeu rapide.
 
 pub mod client;
+pub mod erreur;
 pub mod install;
 pub mod instances;
 pub mod java;
 pub mod launch;
 pub mod loaders;
 pub mod version;
+
+pub use erreur::InstallErreur;
 
 use std::path::PathBuf;
 use std::sync::Arc;

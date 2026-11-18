@@ -46,7 +46,7 @@ misty-core/         la logique, sans interface ni Slint
     social/         amis, présence, Discord, pseudos hors ligne, Horizon
     systeme/        chemins, réglages, stockage, mises à jour, lanceur fixe, raccourcis,
                     télémétrie, infos système, journal, traductions, HTTP, téléchargements
-    media/          skins (rendu, studio), musique en jeu, catégories de textures
+    media/          skins (skins/ : fichiers, rendu, studio), musique en jeu, catégories de textures
 misty-ui/           l'interface Slint : à part, pour qu'une modification du code Rust ne
                     recompile pas les ~20 Mo de Rust générés par Slint (4 s au lieu de 20)
   ui/

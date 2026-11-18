@@ -62,13 +62,13 @@ pub async fn template(version_mc: &str, progression: Progress) -> anyhow::Result
         .as_array()
         .and_then(|v| v.iter().find(|v| v["id"] == version_mc))
         .and_then(|v| v["url"].as_str())
-        .ok_or_else(|| anyhow::anyhow!(loc::tf("Pack_VersionInconnue", &[&version_mc])))?
+        .ok_or_else(|| crate::contenu::ContenuErreur::PackVersionInconnue(version_mc.to_string()))?
         .to_string();
     let version: serde_json::Value = http::get_json(&url_version).await?;
     let client = &version["downloads"]["client"];
-    let url = client["url"]
-        .as_str()
-        .ok_or_else(|| anyhow::anyhow!(loc::tf("Pack_VersionInconnue", &[&version_mc])))?;
+    let url = client["url"].as_str().ok_or_else(|| {
+        crate::contenu::ContenuErreur::PackVersionInconnue(version_mc.to_string())
+    })?;
 
     progression(loc::t("Pack_TelechargementTemplate"));
     let jar = std::env::temp_dir().join(format!("misty-{}.jar", uuid::Uuid::new_v4().simple()));
@@ -128,7 +128,9 @@ fn extraire_template(jar: &Path, dossier: &Path, version_mc: &str) -> anyhow::Re
     }
 
     if lister_textures(dossier).is_empty() {
-        anyhow::bail!(loc::tf("Pack_VersionTropAncienne", &[&version_mc]));
+        anyhow::bail!(crate::contenu::ContenuErreur::PackVersionTropAncienne(
+            version_mc.to_string()
+        ));
     }
 
     let format = format.unwrap_or_else(|| format_depuis_nom(version_mc));
@@ -177,11 +179,11 @@ pub fn creer_pack(
     let nom = download::nom_fichier_sur(nom);
     let nom = nom.trim().trim_end_matches('.');
     if nom.is_empty() {
-        anyhow::bail!(loc::t("Pack_NomInvalide"));
+        anyhow::bail!(crate::contenu::ContenuErreur::PackNomInvalide);
     }
     let dossier = dossier_packs().join(nom);
     if dossier.exists() {
-        anyhow::bail!(loc::t("Pack_ExisteDeja"));
+        anyhow::bail!(crate::contenu::ContenuErreur::PackExisteDeja);
     }
     fs::create_dir_all(&dossier)?;
 
@@ -260,7 +262,10 @@ pub fn importer(zip_fichier: &Path) -> anyhow::Result<String> {
         .trim()
         .trim_end_matches('.')
         .to_string();
-    anyhow::ensure!(!base.is_empty(), loc::t("Pack_NomInvalide"));
+    anyhow::ensure!(
+        !base.is_empty(),
+        crate::contenu::ContenuErreur::PackNomInvalide
+    );
     // nom libre : « Pack », « Pack (2) »…
     let mut nom = base.clone();
     let mut n = 2;
@@ -301,7 +306,7 @@ pub fn importer(zip_fichier: &Path) -> anyhow::Result<String> {
         .and_then(|d| format_du_pack(&d["pack"]));
     let Some(format) = format else {
         let _ = fs::remove_dir_all(&dossier);
-        anyhow::bail!(loc::t("Pack_ImportPasUnPack"));
+        anyhow::bail!(crate::contenu::ContenuErreur::PackPasUnPack);
     };
     fs::write(
         dossier.join("misty.json"),
@@ -325,12 +330,12 @@ pub async fn importer_distant(source: &str, id: &str, titre: &str) -> anyhow::Re
             .find(|f| f.release_type == 1)
             .or(disponibles.first())
             .cloned();
-        let fichier = fichier.ok_or_else(|| anyhow::anyhow!(loc::t("Pack_DistantAucunFichier")))?;
+        let fichier = fichier.ok_or(crate::contenu::ContenuErreur::PackAucunFichier)?;
         let Some(url) = fichier.download_url.clone().filter(|u| !u.is_empty()) else {
-            anyhow::bail!(loc::tf(
-                "Erreur_CFInterdit",
-                &[&titre, &curseforge::page_fichier(None, mod_id, fichier.id)]
-            ));
+            anyhow::bail!(crate::contenu::ContenuErreur::TelechargementInterdit {
+                titre: titre.to_string(),
+                page: curseforge::page_fichier(None, mod_id, fichier.id),
+            });
         };
         (url, fichier.sha1().map(str::to_string))
     } else {
@@ -341,7 +346,7 @@ pub async fn importer_distant(source: &str, id: &str, titre: &str) -> anyhow::Re
             .or(versions.first());
         let fichier = version
             .and_then(|v| v.fichier_principal())
-            .ok_or_else(|| anyhow::anyhow!(loc::t("Pack_DistantAucunFichier")))?;
+            .ok_or(crate::contenu::ContenuErreur::PackAucunFichier)?;
         (fichier.url.clone(), fichier.hashes.get("sha1").cloned())
     };
     // le nom du fichier devient celui du pack

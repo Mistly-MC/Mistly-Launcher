@@ -2,6 +2,7 @@
 
 pub mod app_info;
 pub mod download;
+pub mod erreur;
 pub mod fichiers;
 pub mod http;
 pub mod journal;
@@ -15,3 +16,5 @@ pub mod system_info;
 pub mod telemetry;
 pub mod update;
 pub mod version_compat;
+
+pub use erreur::MajErreur;

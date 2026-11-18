@@ -1,0 +1,753 @@
+//! Skins : rendu des vues fixes (personnage en 3D qui tourne, tête, cape, élytres, cosmétiques Mistly).
+
+use super::*;
+
+/// Skin de Steve (PNG 64×64), le skin par défaut.
+pub const STEVE_PNG: &[u8] = include_bytes!("../../../assets/steve.png");
+
+/// Steve en entier : toujours le même, calculé une seule fois puis gardé en mémoire.
+pub fn steve_tour() -> Option<&'static Vec<RgbaImage>> {
+    static STEVE: std::sync::OnceLock<Option<Vec<RgbaImage>>> = std::sync::OnceLock::new();
+    STEVE
+        .get_or_init(|| rendre_tour(STEVE_PNG, false, None))
+        .as_ref()
+}
+
+/// Envoie un nouveau skin (PNG 64×64 ou 64×32).
+pub(super) fn coller(
+    dest: &mut RgbaImage,
+    skin: &RgbaImage,
+    src: (u32, u32, u32, u32),
+    vers: (u32, u32),
+    miroir: bool,
+) {
+    let (sx, sy, w, h) = src;
+    for y in 0..h {
+        for x in 0..w {
+            let px = skin.get_pixel(if miroir { sx + w - 1 - x } else { sx + x }, sy + y);
+            if px[3] == 0 {
+                continue;
+            }
+            let (dx, dy) = (vers.0 + x, vers.1 + y);
+            if px[3] == 255 {
+                dest.put_pixel(dx, dy, *px);
+            } else {
+                let mut d = *dest.get_pixel(dx, dy);
+                let a = px[3] as f32 / 255.0;
+                for i in 0..3 {
+                    d[i] = (px[i] as f32 * a + d[i] as f32 * (1.0 - a)) as u8;
+                }
+                d[3] = d[3].max(px[3]);
+                dest.put_pixel(dx, dy, d);
+            }
+        }
+    }
+}
+
+// ───────────────────────── 3D preview ─────────────────────────
+// Tiny software ray caster: the player model is a handful of textured boxes,
+// seen from the side with an orthographic camera that turns around the character.
+
+/// Number of pre-rendered views for one full turn (keep in sync with ui/skin.slint).
+pub const IMAGES_TOUR: usize = 36;
+pub(super) const ECHELLE: f32 = 9.0;
+pub(super) const LARGEUR: u32 = 224;
+pub(super) const HAUTEUR: u32 = 320;
+
+/// Region of the texture used by one face of a box (x, y, width, height).
+#[derive(Clone, Copy)]
+pub(super) struct Region(
+    pub(super) u32,
+    pub(super) u32,
+    pub(super) u32,
+    pub(super) u32,
+);
+
+pub(super) struct Boite {
+    pub(super) min: [f32; 3],
+    pub(super) max: [f32; 3],
+    /// +z, -z, -x, +x (front, back, character right, character left)
+    pub(super) faces: [Region; 4],
+    /// the picture of each face is flipped horizontally
+    pub(super) miroir: bool,
+    /// tilt around the X axis at the top of the box (radians): the bottom swings backwards
+    pub(super) incline: f32,
+    /// second tilt, around the Z axis (radians): the bottom swings outward (elytra wings)
+    pub(super) roulis: f32,
+    /// pivot of the tilts: (x, y, z)
+    pub(super) pivot: [f32; 3],
+    /// translation after the tilts (crouching)
+    pub(super) decale: [f32; 3],
+    /// top and bottom faces (only boxes that can show them when tilted, like the limbs)
+    pub(super) dessus: Option<[Region; 2]>,
+}
+
+/// Box of the player model, with the layout of the Minecraft skin (origin u,v and size w,h,d).
+pub(super) fn boite_skin(
+    origine: (u32, u32),
+    taille: (u32, u32, u32),
+    min: [f32; 3],
+    gonfle: f32,
+    miroir: bool,
+) -> Boite {
+    let (u, v) = origine;
+    let (w, h, d) = taille;
+    let droite = Region(u, v + d, d, h);
+    let devant = Region(u + d, v + d, w, h);
+    let gauche = Region(u + d + w, v + d, d, h);
+    let dos = Region(u + 2 * d + w, v + d, w, h);
+    Boite {
+        min: [min[0] - gonfle, min[1] - gonfle, min[2] - gonfle],
+        max: [
+            min[0] + w as f32 + gonfle,
+            min[1] + h as f32 + gonfle,
+            min[2] + d as f32 + gonfle,
+        ],
+        faces: if miroir {
+            [devant, dos, gauche, droite]
+        } else {
+            [devant, dos, droite, gauche]
+        },
+        miroir,
+        incline: 0.0,
+        roulis: 0.0,
+        pivot: [0.0, 0.0, 0.0],
+        decale: [0.0, 0.0, 0.0],
+        dessus: Some([Region(u + d, v, w, d), Region(u + d + w, v, w, d)]),
+    }
+}
+
+/// Cape: a thin box behind the body, its outside faces backwards.
+pub(super) fn boite_cape(f: u32) -> Boite {
+    Boite {
+        min: [-5.0, 8.0, -3.25],
+        max: [5.0, 24.0, -2.25],
+        faces: [
+            Region(12 * f, f, 10 * f, 16 * f),
+            Region(f, f, 10 * f, 16 * f),
+            Region(0, f, f, 16 * f),
+            Region(11 * f, f, f, 16 * f),
+        ],
+        miroir: false,
+        incline: CAPE_INCLINAISON,
+        roulis: 0.0,
+        pivot: [0.0, 24.0, -2.25],
+        decale: [0.0, 0.0, 0.0],
+        dessus: None,
+    }
+}
+/// Like on NameMC, the cape hangs diagonally instead of sticking to the body.
+pub(super) const CAPE_INCLINAISON: f32 = 0.25;
+
+/// Entry point of a ray into a box: distance, axis and whether the face is on the positive side.
+pub(super) fn entrer(o: [f32; 3], d: [f32; 3], b: &Boite) -> Option<(f32, usize, bool)> {
+    let (mut tmin, mut tmax) = (f32::NEG_INFINITY, f32::INFINITY);
+    let (mut axe, mut positif) = (1, false);
+    for i in 0..3 {
+        if d[i].abs() < 1e-6 {
+            if o[i] < b.min[i] || o[i] > b.max[i] {
+                return None;
+            }
+            continue;
+        }
+        let t1 = (b.min[i] - o[i]) / d[i];
+        let t2 = (b.max[i] - o[i]) / d[i];
+        let (proche, loin) = if t1 < t2 { (t1, t2) } else { (t2, t1) };
+        if proche > tmin {
+            tmin = proche;
+            axe = i;
+            positif = d[i] < 0.0;
+        }
+        tmax = tmax.min(loin);
+    }
+    if tmin > tmax || tmax < 0.0 || (axe == 1 && b.dessus.is_none()) {
+        return None;
+    }
+    Some((tmin, axe, positif))
+}
+
+pub(super) fn echantillon(
+    b: &Boite,
+    texture: &RgbaImage,
+    p: [f32; 3],
+    axe: usize,
+    positif: bool,
+) -> Rgba<u8> {
+    if axe == 1 {
+        if let Some([haut, bas]) = b.dessus {
+            let mut fu = (p[0] - b.min[0]) / (b.max[0] - b.min[0]);
+            if b.miroir {
+                fu = 1.0 - fu;
+            }
+            let profondeur = b.max[2] - b.min[2];
+            let (Region(x, y, w, h), fv) = if positif {
+                (haut, (p[2] - b.min[2]) / profondeur)
+            } else {
+                (bas, (b.max[2] - p[2]) / profondeur)
+            };
+            let tx = x + (fu.clamp(0.0, 0.9999) * w as f32) as u32;
+            let ty = y + (fv.clamp(0.0, 0.9999) * h as f32) as u32;
+            return *texture.get_pixel(tx.min(texture.width() - 1), ty.min(texture.height() - 1));
+        }
+    }
+    let largeur = b.max[axe_largeur(axe)] - b.min[axe_largeur(axe)];
+    let (face, mut fu) = match (axe, positif) {
+        (2, true) => (0, (p[0] - b.min[0]) / largeur),
+        (2, false) => (1, (b.max[0] - p[0]) / largeur),
+        (0, false) => (2, (p[2] - b.min[2]) / largeur),
+        _ => (3, (b.max[2] - p[2]) / largeur),
+    };
+    if b.miroir {
+        fu = 1.0 - fu;
+    }
+    let fv = (b.max[1] - p[1]) / (b.max[1] - b.min[1]);
+    let Region(x, y, w, h) = b.faces[face];
+    let tx = x + ((fu.clamp(0.0, 0.9999)) * w as f32) as u32;
+    let ty = y + ((fv.clamp(0.0, 0.9999)) * h as f32) as u32;
+    *texture.get_pixel(tx.min(texture.width() - 1), ty.min(texture.height() - 1))
+}
+
+pub(super) fn axe_largeur(axe: usize) -> usize {
+    // faces facing z are as wide as the box is along x, faces facing x as the box is deep along z
+    if axe == 2 {
+        0
+    } else {
+        2
+    }
+}
+
+/// The character turning on itself: `IMAGES_TOUR` views, the first one seen from the front.
+/// The cape (texture bytes of the whole cape) is only visible from behind.
+pub fn rendre_tour(png: &[u8], fin: bool, cape: Option<&[u8]>) -> Option<Vec<RgbaImage>> {
+    let toutes: Vec<usize> = (0..IMAGES_TOUR).collect();
+    rendre_vues(png, fin, cape, &toutes)
+}
+
+/// Seulement certaines vues du tour (ex. [0] : la face, pour afficher le personnage tout de suite).
+pub fn rendre_vues(
+    png: &[u8],
+    fin: bool,
+    cape: Option<&[u8]>,
+    indices: &[usize],
+) -> Option<Vec<RgbaImage>> {
+    rendre_vues_pose(png, fin, cape, indices, 0.0, false)
+}
+
+/// Le tour complet, avec des élytres à la place de la cape.
+pub fn rendre_tour_elytres(
+    png: &[u8],
+    fin: bool,
+    cape: Option<&[u8]>,
+    elytres: bool,
+) -> Option<Vec<RgbaImage>> {
+    let toutes: Vec<usize> = (0..IMAGES_TOUR).collect();
+    rendre_vues_pose(png, fin, cape, &toutes, 0.0, elytres)
+}
+
+/// Texture d'élytres quand le joueur n'a pas de cape : celle de Misty (nuit, plumes et croissant de lune).
+pub(super) fn elytres_par_defaut() -> RgbaImage {
+    static ELYTRES: std::sync::OnceLock<RgbaImage> = std::sync::OnceLock::new();
+    ELYTRES
+        .get_or_init(|| {
+            image::load_from_memory(texture_misty())
+                .map(|i| i.to_rgba8())
+                .unwrap_or_else(|_| RgbaImage::from_pixel(64, 32, Rgba([60, 80, 140, 255])))
+        })
+        .clone()
+}
+
+/// Poses de la marche : nombre d'images du cycle, et nombre d'angles de vue (un tous les 30°).
+pub const POSES_MARCHE: usize = 12;
+pub const ANGLES_MARCHE: usize = 12;
+
+/// Le personnage qui marche : POSES_MARCHE poses x ANGLES_MARCHE angles (pose d'abord).
+pub fn rendre_marche(
+    png: &[u8],
+    fin: bool,
+    cape: Option<&[u8]>,
+    elytres: bool,
+) -> Option<Vec<RgbaImage>> {
+    let angles: Vec<usize> = (0..ANGLES_MARCHE)
+        .map(|a| a * IMAGES_TOUR / ANGLES_MARCHE)
+        .collect();
+    let mut toutes = Vec::new();
+    for pose in 0..POSES_MARCHE {
+        let balancement = 0.5 * (pose as f32 * std::f32::consts::TAU / POSES_MARCHE as f32).sin();
+        toutes.extend(rendre_vues_pose(
+            png,
+            fin,
+            cape,
+            &angles,
+            balancement,
+            elytres,
+        )?);
+    }
+    Some(toutes)
+}
+
+/// Comme `rendre_vues`, avec les bras et les jambes balancés de `balancement` radians (marche).
+pub fn rendre_vues_pose(
+    png: &[u8],
+    fin: bool,
+    cape: Option<&[u8]>,
+    indices: &[usize],
+    balancement: f32,
+    elytres: bool,
+) -> Option<Vec<RgbaImage>> {
+    let skin = image::load_from_memory(png).ok()?.to_rgba8();
+    if skin.width() != 64 || skin.height() < 32 {
+        return None;
+    }
+    let mut cape_img = cape
+        .and_then(|c| image::load_from_memory(c).ok())
+        .map(|i| i.to_rgba8());
+    if elytres {
+        // les élytres utilisent la texture de la cape (64x32), ou une texture grise par défaut
+        cape_img = Some(match cape_img {
+            Some(c) if c.width() != 64 || c.height() != 32 => {
+                imageops::resize(&c, 64, 32, imageops::FilterType::Nearest)
+            }
+            Some(c) => c,
+            None => elytres_par_defaut(),
+        });
+    }
+    let moderne = skin.height() >= 64;
+    let bras: u32 = if fin { 3 } else { 4 };
+    let b = bras as f32;
+
+    let mut boites: Vec<Boite> = vec![
+        boite_skin((0, 0), (8, 8, 8), [-4.0, 24.0, -4.0], 0.0, false),
+        boite_skin((16, 16), (8, 12, 4), [-4.0, 12.0, -2.0], 0.0, false),
+        boite_skin((40, 16), (bras, 12, 4), [-4.0 - b, 12.0, -2.0], 0.0, false),
+        boite_skin((0, 16), (4, 12, 4), [-4.0, 0.0, -2.0], 0.0, false),
+    ];
+    if moderne {
+        boites.push(boite_skin(
+            (32, 48),
+            (bras, 12, 4),
+            [4.0, 12.0, -2.0],
+            0.0,
+            false,
+        ));
+        boites.push(boite_skin(
+            (16, 48),
+            (4, 12, 4),
+            [0.0, 0.0, -2.0],
+            0.0,
+            false,
+        ));
+    } else {
+        boites.push(boite_skin(
+            (40, 16),
+            (bras, 12, 4),
+            [4.0, 12.0, -2.0],
+            0.0,
+            true,
+        ));
+        boites.push(boite_skin((0, 16), (4, 12, 4), [0.0, 0.0, -2.0], 0.0, true));
+    }
+    // Clothes layer, a little bigger than the base layer
+    boites.push(boite_skin(
+        (32, 0),
+        (8, 8, 8),
+        [-4.0, 24.0, -4.0],
+        0.5,
+        false,
+    ));
+    if moderne {
+        boites.push(boite_skin(
+            (16, 32),
+            (8, 12, 4),
+            [-4.0, 12.0, -2.0],
+            0.25,
+            false,
+        ));
+        boites.push(boite_skin(
+            (40, 32),
+            (bras, 12, 4),
+            [-4.0 - b, 12.0, -2.0],
+            0.25,
+            false,
+        ));
+        boites.push(boite_skin(
+            (48, 48),
+            (bras, 12, 4),
+            [4.0, 12.0, -2.0],
+            0.25,
+            false,
+        ));
+        boites.push(boite_skin(
+            (0, 32),
+            (4, 12, 4),
+            [-4.0, 0.0, -2.0],
+            0.25,
+            false,
+        ));
+        boites.push(boite_skin(
+            (0, 48),
+            (4, 12, 4),
+            [0.0, 0.0, -2.0],
+            0.25,
+            false,
+        ));
+    }
+    let nb_skin = boites.len();
+    if balancement != 0.0 {
+        // bras droit et jambe gauche d'un côté, bras gauche et jambe droite de l'autre
+        let mut pencher = |i: usize, angle: f32, y: f32| {
+            if let Some(b) = boites.get_mut(i) {
+                b.incline = angle;
+                b.pivot = [0.0, y, 0.0];
+            }
+        };
+        for (i, angle, y) in [
+            (2, balancement, 22.0),
+            (3, -balancement, 12.0),
+            (4, -balancement, 22.0),
+            (5, balancement, 12.0),
+        ] {
+            pencher(i, angle, y);
+        }
+        if moderne {
+            for (i, angle, y) in [
+                (8, balancement, 22.0),
+                (9, -balancement, 22.0),
+                (10, -balancement, 12.0),
+                (11, balancement, 12.0),
+            ] {
+                pencher(i, angle, y);
+            }
+        }
+    }
+    let facteur = cape_img
+        .as_ref()
+        .map(|c| (c.width() / 64).max(1))
+        .unwrap_or(1);
+    if elytres {
+        // like in the game: the wings hang from the shoulders, tilted backwards and spread outward
+        for (cote, miroir) in [(1.0f32, false), (-1.0, true)] {
+            let mut aile = boite_skin((22, 0), (10, 20, 2), [-5.0, 4.0, -4.0], 0.0, miroir);
+            aile.incline = 0.26;
+            aile.roulis = 0.38 * cote;
+            aile.pivot = [5.0 * cote, 24.0, -2.0];
+            aile.faces[0] = aile.faces[1];
+            boites.push(aile);
+        }
+    } else if cape_img.is_some() {
+        boites.push(boite_cape(facteur));
+    }
+
+    let rendre = |k: usize| -> RgbaImage {
+        let a = k as f32 * std::f32::consts::TAU / IMAGES_TOUR as f32;
+        let (s, c) = a.sin_cos();
+        // the viewer is at (sin, 0, cos) and looks at the character; screen right is (cos, 0, -sin)
+        let regard = [-s, 0.0, -c];
+        let droite = [c, 0.0, -s];
+        let mut vue = RgbaImage::from_pixel(LARGEUR, HAUTEUR, Rgba([0, 0, 0, 0]));
+        for py in 0..HAUTEUR {
+            let sy = (HAUTEUR as f32 / 2.0 - (py as f32 + 0.5)) / ECHELLE + 16.0;
+            for px in 0..LARGEUR {
+                let sx = (px as f32 + 0.5 - LARGEUR as f32 / 2.0) / ECHELLE;
+                let o = [
+                    droite[0] * sx - regard[0] * 100.0,
+                    sy,
+                    droite[2] * sx - regard[2] * 100.0,
+                ];
+                let mut meilleur: Option<(f32, Rgba<u8>)> = None;
+                for (i, boite) in boites.iter().enumerate() {
+                    let (ol, dl) = if boite.incline == 0.0 && boite.roulis == 0.0 {
+                        (o, regard)
+                    } else {
+                        // the ray in the frame of the tilted box (inverse rotations around the pivot)
+                        let (sx, cx) = boite.incline.sin_cos();
+                        let (sz, cz) = boite.roulis.sin_cos();
+                        let inverse = |v: [f32; 3]| -> [f32; 3] {
+                            let (x, y, z) = (v[0] * cz + v[1] * sz, -v[0] * sz + v[1] * cz, v[2]);
+                            [x, y * cx + z * sx, -y * sx + z * cx]
+                        };
+                        let [px, py, pz] = boite.pivot;
+                        let po = inverse([o[0] - px, o[1] - py, o[2] - pz]);
+                        ([po[0] + px, po[1] + py, po[2] + pz], inverse(regard))
+                    };
+                    let Some((t, axe, positif)) = entrer(ol, dl, boite) else {
+                        continue;
+                    };
+                    if meilleur.map(|(m, _)| t >= m).unwrap_or(false) {
+                        continue;
+                    }
+                    let p = [ol[0] + dl[0] * t, ol[1] + dl[1] * t, ol[2] + dl[2] * t];
+                    let texture = if i >= nb_skin {
+                        cape_img.as_ref().unwrap()
+                    } else {
+                        &skin
+                    };
+                    let couleur = echantillon(boite, texture, p, axe, positif);
+                    if couleur[3] >= 128 {
+                        meilleur = Some((t, Rgba([couleur[0], couleur[1], couleur[2], 255])));
+                    }
+                }
+                if let Some((_, couleur)) = meilleur {
+                    vue.put_pixel(px, py, couleur);
+                }
+            }
+        }
+        vue
+    };
+
+    // Les vues sont indépendantes : on les calcule en parallèle sur tous les cœurs
+    let fils = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .clamp(1, indices.len().max(1));
+    let mut resultats: Vec<(usize, RgbaImage)> = Vec::with_capacity(indices.len());
+    std::thread::scope(|sc| {
+        let rendre = &rendre;
+        let poignees: Vec<_> = (0..fils)
+            .map(|t| {
+                sc.spawn(move || {
+                    indices
+                        .iter()
+                        .skip(t)
+                        .step_by(fils)
+                        .map(|&k| (k, rendre(k)))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        for p in poignees {
+            if let Ok(v) = p.join() {
+                resultats.extend(v);
+            }
+        }
+    });
+    resultats.sort_by_key(|(k, _)| indices.iter().position(|i| i == k));
+    Some(resultats.into_iter().map(|(_, v)| v).collect())
+}
+/// Tête du skin avec le chapeau, agrandie à 64×64 sans lissage.
+pub fn rendre_tete(png: &[u8]) -> Option<RgbaImage> {
+    let skin = image::load_from_memory(png).ok()?.to_rgba8();
+    if skin.width() != 64 || skin.height() < 32 {
+        return None;
+    }
+    let mut r = RgbaImage::from_pixel(8, 8, Rgba([0, 0, 0, 0]));
+    coller(&mut r, &skin, (8, 8, 8, 8), (0, 0), false);
+    // anciens skins 64 × 32 : un calque du chapeau sans aucun pixel transparent est ignoré, comme
+    // le fait Minecraft (sinon, souvent une tête toute noire)
+    let chapeau_opaque = skin.height() == 32
+        && (0..32).all(|x| (0..16).all(|y| skin.get_pixel(32 + x, y)[3] == 255));
+    if !chapeau_opaque {
+        coller(&mut r, &skin, (40, 8, 8, 8), (0, 0), false);
+    }
+    Some(imageops::resize(&r, 64, 64, imageops::FilterType::Nearest))
+}
+
+/// Face extérieure d'une cape (10×16 sur une texture 64×32, ou un multiple).
+pub fn rendre_cape(png: &[u8]) -> Option<RgbaImage> {
+    let cape = image::load_from_memory(png).ok()?.to_rgba8();
+    let f = (cape.width() / 64).max(1);
+    if cape.width() < 22 * f || cape.height() < 17 * f {
+        return None;
+    }
+    Some(imageops::crop_imm(&cape, f, f, 10 * f, 16 * f).to_image())
+}
+
+/// Face peinte des deux élytres côte à côte (la zone de 12×22 en (31, 0), la seconde en miroir).
+pub fn rendre_elytres(png: &[u8]) -> Option<RgbaImage> {
+    let tex = image::load_from_memory(png).ok()?.to_rgba8();
+    let f = (tex.width() / 64).max(1);
+    if tex.width() < 43 * f || tex.height() < 22 * f {
+        return None;
+    }
+    let aile = imageops::crop_imm(&tex, 31 * f, 0, 12 * f, 22 * f).to_image();
+    let mut r = RgbaImage::from_pixel(25 * f, 22 * f, Rgba([0, 0, 0, 0]));
+    imageops::overlay(&mut r, &imageops::flip_horizontal(&aile), 0, 0);
+    imageops::overlay(&mut r, &aile, (13 * f) as i64, 0);
+    Some(r)
+}
+
+/// Texture 64 × 32 de la cape et des élytres Misty, dessinée comme sur la boutique du site :
+/// cape en dégradé nuit avec un nuage, élytres en plumes avec un croissant de lune. PNG en mémoire.
+/// Texture de la cape early player (cape et élytres), la même que celle du mod.
+pub fn texture_early() -> &'static [u8] {
+    include_bytes!(
+        "../../../../../misty-client/src/main/resources/assets/misty/textures/cape/early.png"
+    )
+}
+
+/// Aperçu du chapeau Cloudly : un petit nuage en pixels, 16 × 8 agrandi 4 fois.
+pub fn apercu_cloudly() -> RgbaImage {
+    // lignes du nuage, de haut en bas : début et longueur
+    const LIGNES: [(u32, u32); 7] = [(6, 4), (4, 8), (3, 10), (1, 14), (0, 16), (0, 16), (1, 14)];
+    let mut img = RgbaImage::new(64, 32);
+    for (r, &(debut, long)) in LIGNES.iter().enumerate() {
+        let couleur = if r < 2 {
+            [255, 255, 255, 255]
+        } else if r < 5 {
+            [241, 246, 255, 255]
+        } else {
+            [214, 226, 255, 255]
+        };
+        for x in debut..debut + long {
+            for dy in 0..4 {
+                for dx in 0..4 {
+                    img.put_pixel(x * 4 + dx, 2 + r as u32 * 4 + dy, image::Rgba(couleur));
+                }
+            }
+        }
+    }
+    img
+}
+
+pub fn texture_misty() -> &'static [u8] {
+    static PNG: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    PNG.get_or_init(|| {
+        let mut img = RgbaImage::new(64, 32);
+        let mut pose = |x: u32, y: u32, r: f32, g: f32, b: f32| {
+            img.put_pixel(
+                x,
+                y,
+                image::Rgba([
+                    r.clamp(0.0, 255.0) as u8,
+                    g.clamp(0.0, 255.0) as u8,
+                    b.clamp(0.0, 255.0) as u8,
+                    255,
+                ]),
+            );
+        };
+        // Cape : face extérieure (1,1) en dégradé avec un léger grain
+        for y in 0..16u32 {
+            for x in 1..11u32 {
+                let t = y as f32 / 16.0;
+                let d = ((x + y) % 2) as f32 * 6.0 - 3.0 + (((x - 1) * 7 + y * 3) % 5) as f32 - 2.0;
+                pose(
+                    x,
+                    y + 1,
+                    (26.0 + 70.0 * t + d).round(),
+                    (40.0 + 105.0 * t + d).round(),
+                    (77.0 + 160.0 * t + d).round(),
+                );
+            }
+        }
+        // Nuage sur la cape
+        let nuage = ["..###...", ".######.", "########", "########", ".######."];
+        for (y, ligne) in nuage.iter().enumerate() {
+            for (x, c) in ligne.chars().enumerate() {
+                if c == '#' {
+                    let (r, g, b) = if y == 4 {
+                        (185.0, 205.0, 245.0)
+                    } else {
+                        (234.0, 241.0, 255.0)
+                    };
+                    pose(2 + x as u32, 5 + y as u32, r, g, b);
+                }
+            }
+        }
+        for (x0, y0, l) in [(2u32, 11u32, 6u32), (6, 13, 4)] {
+            for x in x0..x0 + l {
+                pose(x, y0, 207.0, 224.0, 255.0);
+            }
+        }
+        // Face intérieure et tranches en bleu nuit uni
+        for y in 1..17u32 {
+            for x in 12..22u32 {
+                pose(x, y, 18.0, 27.0, 51.0);
+            }
+            pose(0, y, 28.0, 42.0, 77.0);
+            pose(11, y, 28.0, 42.0, 77.0);
+        }
+        for x in 1..21u32 {
+            pose(x, 0, 28.0, 42.0, 77.0);
+        }
+        // Élytres : seule la face de dos est peinte (même masque que les capes de Mojang)
+        const MASQUE: [(u32, u32); 22] = [
+            (31, 33),
+            (32, 33),
+            (34, 42),
+            (34, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (36, 42),
+            (36, 42),
+            (36, 42),
+            (36, 42),
+            (37, 41),
+            (37, 41),
+            (37, 41),
+            (37, 41),
+            (38, 40),
+            (38, 39),
+        ];
+        const LUNE: [&str; 6] = ["..##", ".#..", "#...", "#...", ".#..", "..##"];
+        for (y, (x0, x1)) in MASQUE.iter().enumerate() {
+            let y = y as u32;
+            for x in *x0..=*x1 {
+                let t = y as f32 / 21.0;
+                let d = ((x * 7 + y * 3) % 5) as f32 - 2.0;
+                let (mut r, mut g, mut b) = (
+                    24.0 + 62.0 * t + d,
+                    36.0 + 98.0 * t + d,
+                    70.0 + 150.0 * t + d * 1.5,
+                );
+                let k = ((y as f32 - (x as f32 - 35.0) * 0.7) % 4.5 + 4.5) % 4.5;
+                if y > 7 && y < 20 && k < 1.0 {
+                    r += 70.0;
+                    g += 72.0;
+                    b += 30.0;
+                }
+                if x == *x0 {
+                    r += 40.0;
+                    g += 45.0;
+                    b += 28.0;
+                }
+                let lune = y >= 4
+                    && x >= 37
+                    && LUNE
+                        .get((y - 4) as usize)
+                        .and_then(|l| l.as_bytes().get((x - 37) as usize))
+                        == Some(&b'#');
+                if lune {
+                    (r, g, b) = (234.0, 241.0, 255.0);
+                }
+                pose(
+                    x,
+                    y,
+                    r.min(245.0).floor(),
+                    g.min(248.0).floor(),
+                    b.min(255.0).floor(),
+                );
+            }
+        }
+        let mut png = Vec::new();
+        let _ = image::DynamicImage::ImageRgba8(img)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png);
+        png
+    })
+}
+
+#[cfg(test)]
+mod tests_misty {
+    #[test]
+    fn apercus_misty() {
+        let cape = super::rendre_cape(super::texture_misty()).expect("cape");
+        assert_eq!((cape.width(), cape.height()), (10, 16));
+        let ailes = super::rendre_elytres(super::texture_misty()).expect("élytres");
+        assert_eq!((ailes.width(), ailes.height()), (25, 22));
+        // pas transparentes
+        assert!(cape.pixels().filter(|p| p[3] > 0).count() > 100);
+        assert!(ailes.pixels().filter(|p| p[3] > 0).count() > 200);
+        if let Ok(d) = std::env::var("MISTY_APERCUS") {
+            image::imageops::resize(&cape, 100, 160, image::imageops::FilterType::Nearest)
+                .save(format!("{d}/cape.png"))
+                .unwrap();
+            image::imageops::resize(&ailes, 250, 220, image::imageops::FilterType::Nearest)
+                .save(format!("{d}/elytres.png"))
+                .unwrap();
+        }
+    }
+}

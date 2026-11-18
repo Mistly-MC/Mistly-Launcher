@@ -153,7 +153,7 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         .json
         .get("mainClass")
         .and_then(Value::as_str)
-        .ok_or_else(|| anyhow::anyhow!("mainClass manquante"))?;
+        .ok_or(crate::minecraft::InstallErreur::MainClassManquante)?;
     args.push(classe.to_string());
 
     match arguments

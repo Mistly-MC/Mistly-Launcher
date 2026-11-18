@@ -10,7 +10,8 @@
 //! et la WebView ne peuvent pas partager la même boucle d'événements.
 
 use crate::auth::coffre::{self, Coffre, Secrets};
-use crate::{systeme::http, systeme::loc, systeme::paths, systeme::reglages};
+use crate::auth::AuthErreur;
+use crate::{systeme::http, systeme::paths, systeme::reglages};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::RwLock;
@@ -232,7 +233,7 @@ pub fn comptes() -> Vec<CompteInfo> {
 }
 
 /// Choisit le compte à utiliser, puis s'y connecte.
-pub async fn activer(uuid: &str) -> anyhow::Result<Session> {
+pub async fn activer(uuid: &str) -> Result<Session, AuthErreur> {
     let mut f = lire_fichier();
     if f.comptes.iter().any(|c| c.uuid == uuid) {
         f.actif = uuid.to_string();
@@ -242,7 +243,7 @@ pub async fn activer(uuid: &str) -> anyhow::Result<Session> {
 }
 
 /// Ajoute un autre compte : ouvre toujours la fenêtre de connexion.
-pub async fn ajouter() -> anyhow::Result<Session> {
+pub async fn ajouter() -> Result<Session, AuthErreur> {
     let session = connexion_interactive().await?;
     *SESSION.write().unwrap() = Some(session.clone());
     reglages::modifier(|r| r.premium = true);
@@ -277,7 +278,7 @@ pub fn dossier_webview() -> std::path::PathBuf {
 }
 
 /// Connexion : session en cache si elle est encore valide, sinon renouvellement, sinon fenêtre de connexion.
-pub async fn connecter() -> anyhow::Result<Session> {
+pub async fn connecter() -> Result<Session, AuthErreur> {
     let maintenant = chrono::Utc::now().timestamp();
     let cache = compte_actif();
 
@@ -353,7 +354,7 @@ pub fn deconnecter() {
 }
 
 /// Déconnexion totale : supprime aussi le compte mis en cache.
-pub fn deconnexion_totale() -> anyhow::Result<()> {
+pub fn deconnexion_totale() -> Result<(), AuthErreur> {
     for c in lire_fichier().comptes {
         coffre::coffre().supprimer(&c.uuid);
     }
@@ -366,7 +367,7 @@ pub fn deconnexion_totale() -> anyhow::Result<()> {
 }
 
 /// Ouvre la fenêtre de connexion (sous-processus) et attend le code.
-async fn connexion_interactive() -> anyhow::Result<Session> {
+async fn connexion_interactive() -> Result<Session, AuthErreur> {
     let sortie = tokio::process::Command::new(paths::app_exe())
         .arg("--ms-login")
         .stdout(std::process::Stdio::piped())
@@ -381,15 +382,15 @@ async fn connexion_interactive() -> anyhow::Result<Session> {
         .map(str::to_string);
     let Some(code) = code else {
         if let Some(erreur) = texte.lines().find_map(|l| l.strip_prefix("ERREUR:")) {
-            anyhow::bail!("{}", erreur.trim());
+            return Err(AuthErreur::FenetreConnexion(erreur.trim().to_string()));
         }
-        anyhow::bail!(loc::t("Compte_Annule"));
+        return Err(AuthErreur::Annule);
     };
     let jetons = jeton_microsoft(&[("code", &code), ("grant_type", "authorization_code")]).await?;
     terminer(jetons).await
 }
 
-async fn renouveler(refresh_token: &str) -> anyhow::Result<Session> {
+async fn renouveler(refresh_token: &str) -> Result<Session, AuthErreur> {
     let jetons = jeton_microsoft(&[
         ("refresh_token", refresh_token),
         ("grant_type", "refresh_token"),
@@ -405,7 +406,7 @@ struct JetonsMs {
     refresh_token: String,
 }
 
-async fn jeton_microsoft(parametres: &[(&str, &str)]) -> anyhow::Result<JetonsMs> {
+async fn jeton_microsoft(parametres: &[(&str, &str)]) -> Result<JetonsMs, AuthErreur> {
     let mut formulaire: Vec<(&str, &str)> = vec![
         ("client_id", CLIENT_ID),
         ("redirect_uri", REDIRECT),
@@ -418,13 +419,15 @@ async fn jeton_microsoft(parametres: &[(&str, &str)]) -> anyhow::Result<JetonsMs
         .send()
         .await?;
     if !reponse.status().is_success() {
-        anyhow::bail!("Microsoft : {}", reponse.text().await.unwrap_or_default());
+        return Err(AuthErreur::Microsoft(
+            reponse.text().await.unwrap_or_default(),
+        ));
     }
     Ok(reponse.json().await?)
 }
 
 /// Étapes Xbox Live → XSTS → Minecraft → profil, puis mise en cache.
-async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
+async fn terminer(jetons: JetonsMs) -> Result<Session, AuthErreur> {
     let client = http::client();
 
     // Xbox Live. Selon le compte, le ticket doit être préfixé ("t=" / "d=") ou non.
@@ -446,7 +449,7 @@ async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
             break;
         }
     }
-    let xbl = xbl.ok_or_else(|| anyhow::anyhow!("Xbox Live : authentification refusée."))?;
+    let xbl = xbl.ok_or(AuthErreur::XboxLive)?;
     let jeton_xbl = xbl["Token"].as_str().unwrap_or_default();
 
     // XSTS
@@ -463,14 +466,7 @@ async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
         .await?;
     if !r.status().is_success() {
         let erreur: serde_json::Value = r.json().await.unwrap_or_default();
-        let message = match erreur["XErr"].as_i64() {
-            Some(2148916233) => loc::t("Compte_PasDeXbox"),
-            Some(2148916235) => loc::t("Compte_PaysInterdit"),
-            Some(2148916236) | Some(2148916237) => loc::t("Compte_VerifAge"),
-            Some(2148916238) => loc::t("Compte_Enfant"),
-            _ => format!("XSTS : {erreur}"),
-        };
-        anyhow::bail!(message);
+        return Err(AuthErreur::depuis_xsts(&erreur));
     }
     let xsts: serde_json::Value = r.json().await?;
     let jeton_xsts = xsts["Token"].as_str().unwrap_or_default();
@@ -489,7 +485,7 @@ async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
         .send()
         .await?;
     if !r.status().is_success() {
-        anyhow::bail!("Minecraft : {}", r.text().await.unwrap_or_default());
+        return Err(AuthErreur::Minecraft(r.text().await.unwrap_or_default()));
     }
     let mc: serde_json::Value = r.json().await?;
     let jeton_mc = mc["access_token"].as_str().unwrap_or_default().to_string();
@@ -502,7 +498,7 @@ async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
         .send()
         .await?;
     if r.status() == reqwest::StatusCode::NOT_FOUND {
-        anyhow::bail!(loc::t("Compte_PasDeJeu"));
+        return Err(AuthErreur::PasDeJeu);
     }
     let profil: serde_json::Value = r.error_for_status()?.json().await?;
     let session = Session {
