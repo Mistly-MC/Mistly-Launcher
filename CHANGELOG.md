@@ -1,4 +1,10 @@
 # Changelog
+## 0.3.9
+### Launcher
+- Security fix for Java4Shell (CVE-2026-114938), a flaw in Java that lets a server run code on your computer as soon as it shows up in your server list or you join it: every game now starts with Java's fast Base64 decoder turned off (-XX:-UseBASE64Intrinsics), the fix recommended until Java is patched. Nothing to do on your side: update the launcher and restart your games
+- Fixed: when Mojang updated a Java runtime, only the files that changed size were downloaded again, leaving a mix of old and new files (Java could then fail to load some of its own parts). Each file is now checked, and Java runtimes already updated that way are repaired at the next game
+### Mistly Client (in game)
+- Java4Shell: if the game was started without the protection (an older launcher, or another launcher) on a processor that is affected, the menu says so and a warning comes before the server list opens
 ## 0.3.8
 ### Launcher
 - The Start menu and desktop shortcuts are now called Mistly (existing "Misty" shortcuts are renamed), and Windows shows "Mistly Launcher" in the Task Manager and the file properties
