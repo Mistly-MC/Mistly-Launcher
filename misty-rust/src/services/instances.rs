@@ -189,7 +189,7 @@ pub fn creer(
 
 pub fn sauver(instance: &Instance) -> anyhow::Result<()> {
     fs::create_dir_all(instance.dossier())?;
-    fs::write(
+    super::fichiers::ecrire_atomique(
         instance.dossier().join(FICHIER),
         serde_json::to_string_pretty(instance)?,
     )?;

@@ -8,7 +8,8 @@ const CLE: &str = "listpseudo=";
 pub fn initialiser() {
     let _ = fs::create_dir_all(paths::data_dir());
     if !paths::profiles_file().exists() {
-        let _ = fs::write(paths::profiles_file(), format!("{CLE}Mistly\r\n"));
+        let _ =
+            super::fichiers::ecrire_atomique(paths::profiles_file(), format!("{CLE}Mistly\r\n"));
     }
 }
 
@@ -58,5 +59,5 @@ fn ecrire(pseudos: &[String]) {
         Some(i) => lignes[i] = nouvelle,
         None => lignes.push(nouvelle),
     }
-    let _ = fs::write(paths::profiles_file(), lignes.join("\r\n") + "\r\n");
+    let _ = super::fichiers::ecrire_atomique(paths::profiles_file(), lignes.join("\r\n") + "\r\n");
 }

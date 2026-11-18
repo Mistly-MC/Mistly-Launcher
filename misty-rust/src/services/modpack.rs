@@ -524,7 +524,7 @@ fn lire_fichiers_pack(instance: &Instance) -> Option<Vec<String>> {
 }
 
 fn ecrire_fichiers_pack(instance: &Instance, chemins: &[String]) {
-    let _ = std::fs::write(
+    let _ = super::fichiers::ecrire_atomique(
         instance.dossier().join(FICHIER_PACK),
         serde_json::to_string_pretty(chemins).unwrap_or_default(),
     );

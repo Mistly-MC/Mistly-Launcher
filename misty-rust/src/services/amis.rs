@@ -46,7 +46,7 @@ pub fn lire() -> Vec<Ami> {
 fn ecrire(amis: &[Ami]) {
     let _ = std::fs::create_dir_all(paths::data_dir());
     if let Ok(texte) = serde_json::to_string_pretty(amis) {
-        let _ = std::fs::write(fichier(), texte);
+        let _ = super::fichiers::ecrire_atomique(fichier(), texte);
     }
 }
 

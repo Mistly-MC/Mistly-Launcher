@@ -111,7 +111,7 @@ fn fusionner_premiere_fois(autre: &Path, reference: &Path, ecrire_autre: bool) {
         (Some(a), Some(b)) => {
             if let Some(fusion) = nbt::fusionner_serveurs(&a, &b) {
                 if fusion != a {
-                    let _ = fs::write(&s_ref, &fusion);
+                    let _ = super::fichiers::ecrire_atomique(&s_ref, &fusion);
                 }
                 if ecrire_autre {
                     let _ = fs::copy(&s_ref, &s_autre);

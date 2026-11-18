@@ -571,7 +571,7 @@ pub fn editeur() -> Option<String> {
 }
 
 pub fn definir_editeur(chemin: &str) {
-    let _ = fs::write(fichier_editeur(), chemin);
+    let _ = super::fichiers::ecrire_atomique(fichier_editeur(), chemin);
 }
 
 /// Toutes les textures PNG du template, ex. "block/stone.png".

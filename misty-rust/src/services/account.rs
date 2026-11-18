@@ -95,7 +95,7 @@ fn lire_fichier() -> Fichier {
 }
 
 fn ecrire_fichier(f: &Fichier) {
-    let _ = std::fs::write(
+    let _ = super::fichiers::ecrire_atomique(
         fichier_cache(),
         serde_json::to_string_pretty(f).unwrap_or_default(),
     );

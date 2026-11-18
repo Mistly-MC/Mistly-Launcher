@@ -1174,7 +1174,7 @@ fn lire_meta(instance: &Instance) -> Vec<ContenuMeta> {
 
 fn ecrire_meta(instance: &Instance, metas: &[ContenuMeta]) -> anyhow::Result<()> {
     fs::create_dir_all(instance.dossier())?;
-    fs::write(
+    super::fichiers::ecrire_atomique(
         instance.dossier().join(FICHIER_META),
         serde_json::to_string_pretty(metas)?,
     )?;

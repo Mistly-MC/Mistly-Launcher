@@ -130,7 +130,7 @@ fn ecrire_lignes(lignes: &[String]) {
     let mut texte = lignes.join("\r\n");
     texte.push_str("\r\n");
     let chemin = paths::data_file();
-    let ecrit = fs::write(&chemin, texte).is_ok();
+    let ecrit = super::fichiers::ecrire_atomique(&chemin, texte).is_ok();
     // le cache suit ce qui vient d'être écrit ; en cas d'échec, il sera relu sur le disque
     let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
     *cache = match (ecrit, empreinte(&chemin)) {

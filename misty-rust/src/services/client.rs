@@ -636,7 +636,7 @@ pub fn ecrire_lien() {
     if fs::read_to_string(&chemin).is_ok_and(|actuel| actuel == contenu.to_string()) {
         return;
     }
-    let _ = fs::write(chemin, contenu.to_string());
+    let _ = super::fichiers::ecrire_atomique(chemin, contenu.to_string());
 }
 
 #[cfg(test)]

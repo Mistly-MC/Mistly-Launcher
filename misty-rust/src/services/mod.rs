@@ -11,6 +11,7 @@ pub mod curseforge;
 pub mod discord;
 pub mod download;
 pub mod export;
+pub mod fichiers;
 pub mod horizon;
 pub mod http;
 pub mod instances;
