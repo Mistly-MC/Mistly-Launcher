@@ -53,6 +53,8 @@ misty-rust/
                        modpacks, skins, storage, updates, settings, Discord…)
 ```
 
+The version comes from `misty-rust/Cargo.toml` only: the app and `installer/build.ps1` both read it there, and the release tag (without `v`) must match it.
+
 User data lives in `%LOCALAPPDATA%\Misty\` (`data.txt` settings, `msa.json` Microsoft account, `instances/<id>/` profiles, plus versions, libraries, assets and Java). When a key is added to or removed from `data.txt`, bump `DATA_VERSION` in `app_info.rs` and add the key to `services/settings.rs`.
 
 ## 📄 License

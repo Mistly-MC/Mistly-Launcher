@@ -9,7 +9,7 @@
                                     (c'est ce zip que télécharge la mise à jour automatique)
       - Misty-Setup-<version>.exe   l'installateur (nécessite Inno Setup 6.3+)
 
-    La version est lue dans misty-rust\src\services\app_info.rs (const VERSION).
+    La version est lue dans misty-rust\Cargo.toml (seule source de la version).
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File installer\build.ps1
@@ -26,8 +26,9 @@ $racine = Split-Path -Parent $PSScriptRoot
 $projet = Join-Path $racine "misty-rust"
 
 # ── Version ──
-$appInfo = Get-Content (Join-Path $projet "src\services\app_info.rs") -Raw
-if ($appInfo -notmatch 'pub const VERSION: &str = "([^"]+)"') { throw "Version introuvable dans app_info.rs" }
+# Cargo.toml est la seule source de la version (app_info.rs la lit avec env!("CARGO_PKG_VERSION"))
+$cargo = Get-Content (Join-Path $projet "Cargo.toml") -Raw
+if ($cargo -notmatch '(?m)^version = "([^"]+)"') { throw "Version introuvable dans Cargo.toml" }
 $version = $Matches[1]
 Write-Host "Misty $version" -ForegroundColor Cyan
 
