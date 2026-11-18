@@ -56,9 +56,35 @@ pub const TAG: &str = "tag";
 
 /// Ordre des clés dans le fichier.
 const CLES: &[&str] = &[
-    VERSION_DATA, LAST_PSEUDO, LAST_VERSION, RAM, PREMIUM, RACCOURCI, SUPPR,
-    DERNIER_PROFIL, RICH_PRESENCE, LANGUE, THEME, FLOU, SAISON, FOND_FLOU, HORIZON_BUILD, TELECHARGEMENTS,
-    CONSOLE, TELEMETRIE, TELEMETRIE_ID, MAJ_PRERELEASE, MISTY_CLIENT, COSMETIQUE, CHAPEAU, MISTY_CHOISI, MISTY_VERSION, PARTAGE, BARRE_MASQUEE, MODE_COMPTE, TAG,
+    VERSION_DATA,
+    LAST_PSEUDO,
+    LAST_VERSION,
+    RAM,
+    PREMIUM,
+    RACCOURCI,
+    SUPPR,
+    DERNIER_PROFIL,
+    RICH_PRESENCE,
+    LANGUE,
+    THEME,
+    FLOU,
+    SAISON,
+    FOND_FLOU,
+    HORIZON_BUILD,
+    TELECHARGEMENTS,
+    CONSOLE,
+    TELEMETRIE,
+    TELEMETRIE_ID,
+    MAJ_PRERELEASE,
+    MISTY_CLIENT,
+    COSMETIQUE,
+    CHAPEAU,
+    MISTY_CHOISI,
+    MISTY_VERSION,
+    PARTAGE,
+    BARRE_MASQUEE,
+    MODE_COMPTE,
+    TAG,
 ];
 
 /// data.txt gardé en mémoire : les réglages sont lus des dizaines de fois (à chaque statut
@@ -92,7 +118,11 @@ fn lire_lignes() -> Option<Vec<String>> {
     }
     let texte = fs::read_to_string(&chemin).ok()?;
     let lignes: Vec<String> = texte.lines().map(str::to_string).collect();
-    *cache = Some(Cache { chemin, empreinte: actuelle, lignes: lignes.clone() });
+    *cache = Some(Cache {
+        chemin,
+        empreinte: actuelle,
+        lignes: lignes.clone(),
+    });
     Some(lignes)
 }
 
@@ -104,7 +134,11 @@ fn ecrire_lignes(lignes: &[String]) {
     // le cache suit ce qui vient d'être écrit ; en cas d'échec, il sera relu sur le disque
     let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
     *cache = match (ecrit, empreinte(&chemin)) {
-        (true, Some(e)) => Some(Cache { chemin, empreinte: e, lignes: lignes.to_vec() }),
+        (true, Some(e)) => Some(Cache {
+            chemin,
+            empreinte: e,
+            lignes: lignes.to_vec(),
+        }),
         _ => None,
     };
 }
@@ -132,7 +166,10 @@ mod tests_cache {
         let chemin = dossier.join("data.txt");
         std::fs::write(&chemin, "a=1\r\n").unwrap();
         let e1 = super::empreinte(&chemin).unwrap();
-        assert_eq!(lignes(&std::fs::read_to_string(&chemin).unwrap()), vec!["a=1"]);
+        assert_eq!(
+            lignes(&std::fs::read_to_string(&chemin).unwrap()),
+            vec!["a=1"]
+        );
         // contenu plus long : l'empreinte change même si la date a la même seconde
         std::fs::write(&chemin, "a=1\r\nb=2\r\n").unwrap();
         assert_ne!(super::empreinte(&chemin).unwrap(), e1);
@@ -152,7 +189,9 @@ pub fn get_bool(cle: &str, defaut: bool) -> bool {
 
 /// Modifie une clé. Ne fait rien si data.txt n'existe pas.
 pub fn set(cle: &str, valeur: &str) {
-    let Some(mut lignes) = lire_lignes() else { return };
+    let Some(mut lignes) = lire_lignes() else {
+        return;
+    };
     let prefixe = format!("{cle}=");
     let mut trouvee = false;
     for ligne in lignes.iter_mut() {
@@ -200,7 +239,11 @@ fn ecrire(mut valeurs: HashMap<String, String>) {
 
 /// Téléchargements simultanés (2 à 32, 16 par défaut).
 pub fn telechargements() -> usize {
-    get(TELECHARGEMENTS).trim().parse::<usize>().unwrap_or(16).clamp(2, 32)
+    get(TELECHARGEMENTS)
+        .trim()
+        .parse::<usize>()
+        .unwrap_or(16)
+        .clamp(2, 32)
 }
 
 /// Fête en cours, 3 jours avant et après : 1 Halloween (31 octobre), 2 Noël (25 décembre), 0 sinon.
@@ -225,12 +268,20 @@ pub fn fond_flou() -> u32 {
 
 /// Thème choisi (0 brume, 1 nuit, 2 comme Windows).
 pub fn theme() -> i32 {
-    get(THEME).trim().parse::<i32>().ok().filter(|t| (0..=2).contains(t)).unwrap_or(0)
+    get(THEME)
+        .trim()
+        .parse::<i32>()
+        .ok()
+        .filter(|t| (0..=2).contains(t))
+        .unwrap_or(0)
 }
 
 /// RAM choisie pour le jeu, en Mo.
 pub fn ram_mo() -> u32 {
-    get(RAM).trim().parse().unwrap_or(app_info::RAM_PAR_DEFAUT_MO)
+    get(RAM)
+        .trim()
+        .parse()
+        .unwrap_or(app_info::RAM_PAR_DEFAUT_MO)
 }
 
 #[cfg(test)]

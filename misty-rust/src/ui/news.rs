@@ -28,7 +28,12 @@ struct News {
 pub fn installer(app: &Rc<App>) {
     let a = app.clone();
     app.ui.global::<HomeState>().on_news_open(move |i| {
-        let url = a.news_urls.borrow().get(i.max(0) as usize).cloned().unwrap_or_default();
+        let url = a
+            .news_urls
+            .borrow()
+            .get(i.max(0) as usize)
+            .cloned()
+            .unwrap_or_default();
         if url.is_empty() {
             super::nav_clicked(&a, super::page::NOTES);
         } else {
@@ -42,7 +47,9 @@ pub fn charger(app: &Rc<App>) {
     afficher(app, vec![depuis_notes_integrees()]);
     let a = app.clone();
     lancer(async move {
-        let Ok(news) = a.bg(depuis_github()).await else { return };
+        let Ok(news) = a.bg(depuis_github()).await else {
+            return;
+        };
         if news.is_empty() {
             return;
         }
@@ -86,9 +93,17 @@ fn afficher(app: &App, news: Vec<News>) {
 async fn telecharger_image(app: &App, url: String) -> Option<Image> {
     let tampon = app
         .bg(async move {
-            let reponse = http::client().get(&url).send().await.ok()?.error_for_status().ok()?;
+            let reponse = http::client()
+                .get(&url)
+                .send()
+                .await
+                .ok()?
+                .error_for_status()
+                .ok()?;
             let octets = reponse.bytes().await.ok()?;
-            tokio::task::spawn_blocking(move || super::images::decoder(&octets, 720)).await.ok()?
+            tokio::task::spawn_blocking(move || super::images::decoder(&octets, 720))
+                .await
+                .ok()?
         })
         .await;
     tampon.map(Image::from_rgba8)
@@ -102,19 +117,35 @@ async fn depuis_github() -> anyhow::Result<Vec<News>> {
     .await?;
     // l'API ne les renvoie pas toujours dans l'ordre de publication (préversions) : la plus récente d'abord
     let mut releases: Vec<&serde_json::Value> = docs.iter().collect();
-    releases.sort_by(|a, b| b["published_at"].as_str().unwrap_or("").cmp(a["published_at"].as_str().unwrap_or("")));
-    Ok(releases.into_iter().filter_map(depuis_release).take(NOMBRE).collect())
+    releases.sort_by(|a, b| {
+        b["published_at"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(a["published_at"].as_str().unwrap_or(""))
+    });
+    Ok(releases
+        .into_iter()
+        .filter_map(depuis_release)
+        .take(NOMBRE)
+        .collect())
 }
 
 fn depuis_release(doc: &serde_json::Value) -> Option<News> {
     if doc["draft"].as_bool() == Some(true) {
         return None;
     }
-    let tag = doc["tag_name"].as_str().unwrap_or("").trim_start_matches('v').to_string();
+    let tag = doc["tag_name"]
+        .as_str()
+        .unwrap_or("")
+        .trim_start_matches('v')
+        .to_string();
     if tag.is_empty() {
         return None;
     }
-    let nom = doc["name"].as_str().map(str::trim).filter(|n| !n.is_empty() && *n != tag);
+    let nom = doc["name"]
+        .as_str()
+        .map(str::trim)
+        .filter(|n| !n.is_empty() && *n != tag);
     let titre = match nom {
         Some(n) => n.to_string(),
         None => format!("Mistly {tag}"),
@@ -149,14 +180,23 @@ fn depuis_notes_integrees() -> News {
             texte = premiere_ligne(ligne);
         }
     }
-    News { titre, texte, date: String::new(), url: String::new(), image: String::new() }
+    News {
+        titre,
+        texte,
+        date: String::new(),
+        url: String::new(),
+        image: String::new(),
+    }
 }
 
 /// Lien de la première image d'un texte markdown (`![…](lien)` ou `<img src="lien">`).
 fn premiere_image(markdown: &str) -> String {
     static RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     let re = RE.get_or_init(|| {
-        regex::Regex::new(r#"!\[[^\]]*\]\((https://[^)\s]+)[^)]*\)|<img[^>]*\ssrc="(https://[^"]+)""#).expect("regex image")
+        regex::Regex::new(
+            r#"!\[[^\]]*\]\((https://[^)\s]+)[^)]*\)|<img[^>]*\ssrc="(https://[^"]+)""#,
+        )
+        .expect("regex image")
     });
     re.captures(markdown)
         .and_then(|c| c.get(1).or_else(|| c.get(2)))
@@ -168,7 +208,12 @@ fn premiere_image(markdown: &str) -> String {
 fn premiere_ligne(markdown: &str) -> String {
     markdown
         .lines()
-        .map(|l| l.trim().trim_start_matches(['-', '*', '#', '>', ' ']).replace("**", "").replace('`', ""))
+        .map(|l| {
+            l.trim()
+                .trim_start_matches(['-', '*', '#', '>', ' '])
+                .replace("**", "")
+                .replace('`', "")
+        })
         .find(|l| l.chars().filter(|c| c.is_alphanumeric()).count() > 3)
         .unwrap_or_default()
 }
@@ -184,14 +229,26 @@ pub(super) fn date_courte(d: chrono::NaiveDate) -> String {
 mod tests {
     #[test]
     fn premiere_ligne_sans_markdown() {
-        assert_eq!(super::premiere_ligne("## Nouveautés\n\n- **Skins** : aperçu 3D"), "Nouveautés");
-        assert_eq!(super::premiere_ligne("\n- \n- Options en fenêtre"), "Options en fenêtre");
+        assert_eq!(
+            super::premiere_ligne("## Nouveautés\n\n- **Skins** : aperçu 3D"),
+            "Nouveautés"
+        );
+        assert_eq!(
+            super::premiere_ligne("\n- \n- Options en fenêtre"),
+            "Options en fenêtre"
+        );
     }
 
     #[test]
     fn premiere_image_markdown_ou_html() {
-        assert_eq!(super::premiere_image("Texte\n![capture](https://ex.com/a.png \"t\")"), "https://ex.com/a.png");
-        assert_eq!(super::premiere_image(r#"<img width="600" src="https://ex.com/b.jpg" />"#), "https://ex.com/b.jpg");
+        assert_eq!(
+            super::premiere_image("Texte\n![capture](https://ex.com/a.png \"t\")"),
+            "https://ex.com/a.png"
+        );
+        assert_eq!(
+            super::premiere_image(r#"<img width="600" src="https://ex.com/b.jpg" />"#),
+            "https://ex.com/b.jpg"
+        );
         assert_eq!(super::premiere_image("pas d'image"), "");
     }
 }

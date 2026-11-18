@@ -32,8 +32,15 @@ pub struct ProjetDistant {
 
 /// Tris proposés par la plateforme : (clé API, libellé traduit).
 pub fn tris(source: &str) -> Vec<(String, String)> {
-    let liste = if source == CURSEFORGE { curseforge::TRIS } else { modrinth::TRIS };
-    liste.iter().map(|(cle, libelle)| (cle.to_string(), loc::t(libelle))).collect()
+    let liste = if source == CURSEFORGE {
+        curseforge::TRIS
+    } else {
+        modrinth::TRIS
+    };
+    liste
+        .iter()
+        .map(|(cle, libelle)| (cle.to_string(), loc::t(libelle)))
+        .collect()
 }
 
 /// `instance` : profil cible (filtre version + loader), ou None pour les modpacks.
@@ -50,7 +57,11 @@ pub async fn rechercher(
         // Sur CurseForge, les mods Quilt sont presque tous publiés comme mods Fabric
         let loader = match instance {
             Some(i) if type_ == MOD => {
-                let l = if i.loader == loaders::QUILT { loaders::FABRIC } else { i.loader.as_str() };
+                let l = if i.loader == loaders::QUILT {
+                    loaders::FABRIC
+                } else {
+                    i.loader.as_str()
+                };
                 curseforge::type_loader(l)
             }
             _ => None,
@@ -65,7 +76,10 @@ pub async fn rechercher(
             limite,
         )
         .await?;
-        return Ok((mods.into_iter().map(curseforge::vers_projet).collect(), total));
+        return Ok((
+            mods.into_iter().map(curseforge::vers_projet).collect(),
+            total,
+        ));
     }
 
     let categories = instance.and_then(|i| content::categories_recherche(i, type_));
@@ -79,5 +93,12 @@ pub async fn rechercher(
         limite,
     )
     .await?;
-    Ok((reponse.hits.into_iter().map(modrinth::vers_projet).collect(), reponse.total_hits))
+    Ok((
+        reponse
+            .hits
+            .into_iter()
+            .map(modrinth::vers_projet)
+            .collect(),
+        reponse.total_hits,
+    ))
 }

@@ -134,7 +134,11 @@ impl Flou {
 
 impl Masque {
     fn new(l: i32, h: i32) -> Self {
-        Masque { l, h, alpha: vec![0; (l * h) as usize] }
+        Masque {
+            l,
+            h,
+            alpha: vec![0; (l * h) as usize],
+        }
     }
     fn remplir(&mut self, x: i32, y: i32, l: i32, h: i32, a: u8) {
         for yy in y.max(0)..(y + h).min(self.h) {
@@ -146,7 +150,12 @@ impl Masque {
     fn tampon(&self) -> Tampon {
         let mut tampon = Tampon::new(self.l as u32, self.h as u32);
         for (p, a) in tampon.make_mut_slice().iter_mut().zip(&self.alpha) {
-            *p = Rgba8Pixel { r: 255, g: 255, b: 255, a: *a };
+            *p = Rgba8Pixel {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: *a,
+            };
         }
         tampon
     }
@@ -165,7 +174,11 @@ impl Masque {
                 }
                 for dy in 0..facteur {
                     for dx in 0..facteur {
-                        img.put_pixel((marge + x * facteur + dx) as u32, (marge + y * facteur + dy) as u32, image::Luma([a]));
+                        img.put_pixel(
+                            (marge + x * facteur + dx) as u32,
+                            (marge + y * facteur + dy) as u32,
+                            image::Luma([a]),
+                        );
                     }
                 }
             }
@@ -173,7 +186,12 @@ impl Masque {
         let floue = image::imageops::blur(&img, flou.sigma);
         let mut tampon = Tampon::new(l as u32, h as u32);
         for (p, a) in tampon.make_mut_slice().iter_mut().zip(floue.as_raw()) {
-            *p = Rgba8Pixel { r: 255, g: 255, b: 255, a: *a };
+            *p = Rgba8Pixel {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: *a,
+            };
         }
         tampon
     }
@@ -186,7 +204,8 @@ fn crete(rng: &mut Rng, base: f32, amp: f32, freq: f32) -> Vec<i32> {
     (0..COLS)
         .map(|c| {
             let x = c as f32 * freq;
-            let vague = 0.55 * (x + p1).sin() + 0.3 * (x * 2.3 + p2).sin() + 0.15 * (x * 5.1 + p3).sin();
+            let vague =
+                0.55 * (x + p1).sin() + 0.3 * (x * 2.3 + p2).sin() + 0.15 * (x * 5.1 + p3).sin();
             if rng.float() < 0.35 {
                 jitter = (jitter + rng.range(-1, 2)).clamp(-1, 1);
             }
@@ -215,7 +234,9 @@ fn nappe(rng: &mut Rng) -> Masque {
 /// Génère le paysage. `niveau_flou` : 0 (net) à 10 (très flou).
 pub fn generer(niveau_flou: u32) -> Scene {
     // Les masques floutés sont agrandis à 2 px de la scène par pixel : sigma en pixels agrandis
-    let flou = Flou { sigma: niveau_flou.min(10) as f32 * 0.85 };
+    let flou = Flou {
+        sigma: niveau_flou.min(10) as f32 * 0.85,
+    };
     // Échelle des calques floutés : une case (8 px de scène) = 4 pixels agrandis
     const F: i32 = 4;
     let marge = flou.marge();
@@ -225,7 +246,10 @@ pub fn generer(niveau_flou: u32) -> Scene {
     let mut rng = Rng(7 | 1);
 
     // Étoiles (4 pixels d'image par case, comme le site : 2 px pour les petites, 4 px pour les grandes)
-    let (mut etoiles, mut scintillantes) = (Masque::new(COLS * 4, ROWS * 4), Masque::new(COLS * 4, ROWS * 4));
+    let (mut etoiles, mut scintillantes) = (
+        Masque::new(COLS * 4, ROWS * 4),
+        Masque::new(COLS * 4, ROWS * 4),
+    );
     for _ in 0..90 {
         let (x, y) = (rng.range(0, COLS) * 4, rng.range(0, 26) * 4);
         let taille = if rng.float() < 0.2 { 2 } else { 1 };
@@ -236,7 +260,9 @@ pub fn generer(niveau_flou: u32) -> Scene {
         }
     }
     // Les étoiles floutées restent visibles : flou plus léger, sinon elles disparaissent
-    let flou_etoiles = Flou { sigma: flou.sigma * 0.5 };
+    let flou_etoiles = Flou {
+        sigma: flou.sigma * 0.5,
+    };
 
     // Lune : un disque de cases, quelques cratères plus sombres (moins opaques)
     let cases = LUNE_R / P;
@@ -248,14 +274,25 @@ pub fn generer(niveau_flou: u32) -> Scene {
                 let cratere = [(-2, -1), (-1, -1), (-2, 0), (2, 2), (1, -3), (3, -1)]
                     .iter()
                     .any(|&(x, y)| cx == x * cases / 5 && cy == y * cases / 5);
-                lune.remplir(cx + cases, cy + cases, 1, 1, if cratere { 200 } else { 255 });
+                lune.remplir(
+                    cx + cases,
+                    cy + cases,
+                    1,
+                    1,
+                    if cratere { 200 } else { 255 },
+                );
             }
         }
     }
     let (mx, my) = ((LUNE_X * W as f32) as i32 / P * P, 13 * P);
 
     // Crêtes de l'arrière vers l'avant, avec des sapins sur les deux plus proches
-    let couches: [(f32, f32, f32); 4] = [(30.0, 8.0, 0.045), (37.0, 7.0, 0.07), (44.0, 5.0, 0.09), (50.0, 3.0, 0.12)];
+    let couches: [(f32, f32, f32); 4] = [
+        (30.0, 8.0, 0.045),
+        (37.0, 7.0, 0.07),
+        (44.0, 5.0, 0.09),
+        (50.0, 3.0, 0.12),
+    ];
     let mut cretes = Vec::new();
     let mut nappes = Vec::new();
     for (i, (base, amp, freq)) in couches.iter().enumerate() {
@@ -289,7 +326,11 @@ pub fn generer(niveau_flou: u32) -> Scene {
             let retard = rng.range(0, duree);
             let op = opacite * (0.7 + rng.float() * 0.6);
             let forme = nappe(&mut rng);
-            let (dx, dl) = if flou.actif() { (marge_scene, 2.0 * marge_scene) } else { (0.0, 0.0) };
+            let (dx, dl) = if flou.actif() {
+                (marge_scene, 2.0 * marge_scene)
+            } else {
+                (0.0, 0.0)
+            };
             nappes.push(Nappe {
                 image: forme.tampon_flou(flou, F, marge),
                 x: x as f32 - dx,
@@ -326,7 +367,12 @@ mod tests {
         assert_eq!(net.cretes.len(), 4);
         assert_eq!(net.nappes.len(), flou.nappes.len());
         // la lune floutée est plus grande (marge) mais reste centrée au même endroit
-        let centre = |s: &super::Scene| (s.lune_x + s.lune_taille / 2.0, s.lune_y + s.lune_taille / 2.0);
+        let centre = |s: &super::Scene| {
+            (
+                s.lune_x + s.lune_taille / 2.0,
+                s.lune_y + s.lune_taille / 2.0,
+            )
+        };
         assert!((centre(&net).0 - centre(&flou).0).abs() < 0.01);
         assert!(flou.lune_taille > net.lune_taille);
     }
@@ -358,16 +404,31 @@ mod export_mod {
     #[ignore]
     fn exporter_paysage_du_mod() {
         let scene = generer(0);
-        let dossier = std::path::Path::new("../misty-client/src/main/resources/assets/misty/textures/gui/scene");
+        let dossier = std::path::Path::new(
+            "../misty-client/src/main/resources/assets/misty/textures/gui/scene",
+        );
         std::fs::create_dir_all(dossier).unwrap();
         // couleurs du thème nuit du launcher (ui/scene.slint)
-        let cretes = [[0x24, 0x34, 0x5A], [0x1A, 0x27, 0x48], [0x12, 0x1C, 0x36], [0x0D, 0x15, 0x28]];
+        let cretes = [
+            [0x24, 0x34, 0x5A],
+            [0x1A, 0x27, 0x48],
+            [0x12, 0x1C, 0x36],
+            [0x0D, 0x15, 0x28],
+        ];
         for (i, c) in scene.cretes.iter().enumerate() {
-            png(c, cretes[i], true).save(dossier.join(format!("ridge{i}.png"))).unwrap();
+            png(c, cretes[i], true)
+                .save(dossier.join(format!("ridge{i}.png")))
+                .unwrap();
         }
-        png(&scene.etoiles, [0xDB, 0xE7, 0xFF], true).save(dossier.join("stars.png")).unwrap();
-        png(&scene.etoiles_scintillantes, [0xFF, 0xFF, 0xFF], true).save(dossier.join("twinkle.png")).unwrap();
-        png(&scene.lune, [0xEA, 0xF1, 0xFF], false).save(dossier.join("moon.png")).unwrap();
+        png(&scene.etoiles, [0xDB, 0xE7, 0xFF], true)
+            .save(dossier.join("stars.png"))
+            .unwrap();
+        png(&scene.etoiles_scintillantes, [0xFF, 0xFF, 0xFF], true)
+            .save(dossier.join("twinkle.png"))
+            .unwrap();
+        png(&scene.lune, [0xEA, 0xF1, 0xFF], false)
+            .save(dossier.join("moon.png"))
+            .unwrap();
 
         // Le même paysage en données, pour l'écran de chargement : à ce moment-là, le jeu ne peut pas
         // encore lire les textures du mod, alors il est dessiné en rectangles (voir SceneData.java).
@@ -409,7 +470,18 @@ mod export_mod {
             v.join(" ")
         };
         let grille = |t: &Tampon| -> String {
-            t.as_slice().iter().map(|p| if p.a == 0 { '0' } else if p.a < 255 { '2' } else { '1' }).collect()
+            t.as_slice()
+                .iter()
+                .map(|p| {
+                    if p.a == 0 {
+                        '0'
+                    } else if p.a < 255 {
+                        '2'
+                    } else {
+                        '1'
+                    }
+                })
+                .collect()
         };
         let java = format!(
             "package online.mistylauncher.client.menu;
@@ -441,7 +513,11 @@ final class SceneData {{
             grille(&scene.lune)
         );
         // les données contiennent parfois un antislash ('A' + 27) : échappé pour la chaîne Java
-        std::fs::write("../misty-client/src/main/java/online/mistylauncher/client/menu/SceneData.java", java.replace('\\', "\\\\")).unwrap();
+        std::fs::write(
+            "../misty-client/src/main/java/online/mistylauncher/client/menu/SceneData.java",
+            java.replace('\\', "\\\\"),
+        )
+        .unwrap();
         println!(
             "crêtes {}x{} · étoiles {}x{} · lune {}x{} à ({}, {}) taille {}",
             scene.cretes[0].width(),

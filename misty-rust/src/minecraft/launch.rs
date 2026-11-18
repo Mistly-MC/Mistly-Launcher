@@ -31,7 +31,11 @@ pub struct Options {
 pub fn lancer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyhow::Result<Child> {
     use std::process::Stdio;
     crate::services::system_info::avant_processus();
-    Ok(preparer(dirs, v, options)?.stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::null()).spawn()?)
+    Ok(preparer(dirs, v, options)?
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdin(Stdio::null())
+        .spawn()?)
 }
 
 /// Prépare les natives et construit la commande, sans la lancer.
@@ -59,7 +63,10 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
     let valeurs: HashMap<&str, String> = HashMap::from([
         ("auth_player_name", j.pseudo.clone()),
         ("version_name", v.id.clone()),
-        ("game_directory", options.dossier_jeu.to_string_lossy().to_string()),
+        (
+            "game_directory",
+            options.dossier_jeu.to_string_lossy().to_string(),
+        ),
         ("assets_root", dirs.assets().to_string_lossy().to_string()),
         ("game_assets", v.game_assets.to_string_lossy().to_string()),
         ("assets_index_name", v.assets_index.clone()),
@@ -70,13 +77,23 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         ("clientid", String::new()),
         ("user_type", j.type_compte.clone()),
         ("user_properties", "{}".into()),
-        ("version_type", v.json.get("type").and_then(Value::as_str).unwrap_or("release").to_string()),
+        (
+            "version_type",
+            v.json
+                .get("type")
+                .and_then(Value::as_str)
+                .unwrap_or("release")
+                .to_string(),
+        ),
         ("natives_directory", natives.to_string_lossy().to_string()),
         ("launcher_name", "Mistly".into()),
         ("launcher_version", app_info::VERSION.into()),
         ("classpath", classpath.join(";")),
         ("classpath_separator", ";".into()),
-        ("library_directory", dirs.libraries().to_string_lossy().to_string()),
+        (
+            "library_directory",
+            dirs.libraries().to_string_lossy().to_string(),
+        ),
     ]);
     let remplacer = |texte: &str| -> String {
         let mut resultat = texte.to_string();
@@ -84,7 +101,9 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         let mut pos = 0;
         while let Some(i) = resultat[pos..].find("${") {
             let debut = pos + i;
-            let Some(fin) = resultat[debut..].find('}') else { break };
+            let Some(fin) = resultat[debut..].find('}') else {
+                break;
+            };
             let cle = resultat[debut + 2..debut + fin].to_string();
             let valeur = valeurs.get(cle.as_str()).cloned().unwrap_or_default();
             resultat.replace_range(debut..debut + fin + 1, &valeur);
@@ -105,12 +124,18 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         "-Dminecraft.launcher.brand=misty".into(),
         format!("-Dminecraft.launcher.version={}", app_info::VERSION),
         // Lu par Misty Client (le mod) pour trouver client.json : voir services::client
-        format!("-Dmisty.launcher.dir={}", paths::data_dir().to_string_lossy()),
+        format!(
+            "-Dmisty.launcher.dir={}",
+            paths::data_dir().to_string_lossy()
+        ),
     ];
     args.extend(protection_base64(version::java_requis(&v.json).1).map(String::from));
 
     let arguments = v.json.get("arguments");
-    match arguments.and_then(|a| a.get("jvm")).and_then(Value::as_array) {
+    match arguments
+        .and_then(|a| a.get("jvm"))
+        .and_then(Value::as_array)
+    {
         Some(jvm) => args.extend(lire_arguments(jvm).iter().map(|a| remplacer(a))),
         None => {
             // Anciennes versions : arguments Java par défaut
@@ -124,13 +149,24 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         args.push(argument.replace("${path}", &chemin.to_string_lossy()));
     }
 
-    let classe = v.json.get("mainClass").and_then(Value::as_str).ok_or_else(|| anyhow::anyhow!("mainClass manquante"))?;
+    let classe = v
+        .json
+        .get("mainClass")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("mainClass manquante"))?;
     args.push(classe.to_string());
 
-    match arguments.and_then(|a| a.get("game")).and_then(Value::as_array) {
+    match arguments
+        .and_then(|a| a.get("game"))
+        .and_then(Value::as_array)
+    {
         Some(game) => args.extend(lire_arguments(game).iter().map(|a| remplacer(a))),
         None => {
-            let ligne = v.json.get("minecraftArguments").and_then(Value::as_str).unwrap_or_default();
+            let ligne = v
+                .json
+                .get("minecraftArguments")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             args.extend(ligne.split_whitespace().map(remplacer));
         }
     }
@@ -162,7 +198,9 @@ fn lire_arguments(liste: &[Value]) -> Vec<String> {
                 }
                 match o.get("value") {
                     Some(Value::String(s)) => resultat.push(s.clone()),
-                    Some(Value::Array(a)) => resultat.extend(a.iter().filter_map(|v| v.as_str().map(str::to_string))),
+                    Some(Value::Array(a)) => {
+                        resultat.extend(a.iter().filter_map(|v| v.as_str().map(str::to_string)))
+                    }
                     _ => {}
                 }
             }

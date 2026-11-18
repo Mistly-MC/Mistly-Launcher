@@ -32,7 +32,10 @@ pub async fn fichier(url: &str, destination: &Path, sha1: Option<&str>) -> anyho
         let obtenu = hex::encode(hasher.finalize());
         if !obtenu.eq_ignore_ascii_case(attendu) {
             let _ = tokio::fs::remove_file(&temporaire).await;
-            let nom = destination.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            let nom = destination
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
             anyhow::bail!(loc::tf("Erreur_Corrompu", &[&nom]));
         }
     }
@@ -61,8 +64,17 @@ pub fn sha1_fichier(chemin: &Path) -> std::io::Result<String> {
 
 /// Remplace les caractères interdits dans un nom de fichier Windows.
 pub fn nom_fichier_sur(nom: &str) -> String {
-    let nom = Path::new(nom).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let nom = Path::new(nom)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
     nom.chars()
-        .map(|c| if matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') || c.is_control() { '_' } else { c })
+        .map(|c| {
+            if matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') || c.is_control() {
+                '_'
+            } else {
+                c
+            }
+        })
         .collect()
 }

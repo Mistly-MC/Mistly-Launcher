@@ -27,7 +27,9 @@ pub struct McDirs {
 
 impl McDirs {
     pub fn misty() -> Self {
-        McDirs { root: crate::services::paths::data_dir() }
+        McDirs {
+            root: crate::services::paths::data_dir(),
+        }
     }
     pub fn versions(&self) -> PathBuf {
         self.root.join("versions")
@@ -64,7 +66,9 @@ pub fn maven_path(nom: &str) -> Option<String> {
     }
     let (groupe, artefact, version) = (parties[0].replace('.', "/"), parties[1], parties[2]);
     let classifieur = parties.get(3).map(|c| format!("-{c}")).unwrap_or_default();
-    Some(format!("{groupe}/{artefact}/{version}/{artefact}-{version}{classifieur}.{ext}"))
+    Some(format!(
+        "{groupe}/{artefact}/{version}/{artefact}-{version}{classifieur}.{ext}"
+    ))
 }
 
 /// Exécution d'une commande sans fenêtre de console.

@@ -74,7 +74,10 @@ pub struct VersionModrinth {
 
 impl VersionModrinth {
     pub fn fichier_principal(&self) -> Option<&FichierModrinth> {
-        self.files.iter().find(|f| f.primary).or_else(|| self.files.first())
+        self.files
+            .iter()
+            .find(|f| f.primary)
+            .or_else(|| self.files.first())
     }
 }
 
@@ -152,7 +155,11 @@ pub async fn rechercher(
 }
 
 /// Versions d'un projet, les plus récentes d'abord.
-pub async fn versions(projet: &str, loaders: Option<&[&str]>, version_mc: Option<&str>) -> anyhow::Result<Vec<VersionModrinth>> {
+pub async fn versions(
+    projet: &str,
+    loaders: Option<&[&str]>,
+    version_mc: Option<&str>,
+) -> anyhow::Result<Vec<VersionModrinth>> {
     let mut parametres = Vec::new();
     if let Some(l) = loaders.filter(|l| !l.is_empty()) {
         parametres.push(format!("loaders={}", json_url(&l)));
@@ -169,7 +176,11 @@ pub async fn versions(projet: &str, loaders: Option<&[&str]>, version_mc: Option
 }
 
 pub async fn version(version_id: &str) -> anyhow::Result<VersionModrinth> {
-    http::get_json(&format!("{BASE}version/{}", urlencoding::encode(version_id))).await
+    http::get_json(&format!(
+        "{BASE}version/{}",
+        urlencoding::encode(version_id)
+    ))
+    .await
 }
 
 pub async fn projets(ids: &[String]) -> anyhow::Result<Vec<ProjetDetail>> {
@@ -183,7 +194,9 @@ pub async fn projets(ids: &[String]) -> anyhow::Result<Vec<ProjetDetail>> {
 }
 
 /// Identifie des fichiers par leur SHA-1. Renvoie hash → version.
-pub async fn versions_par_hash(sha1: &[String]) -> anyhow::Result<HashMap<String, VersionModrinth>> {
+pub async fn versions_par_hash(
+    sha1: &[String],
+) -> anyhow::Result<HashMap<String, VersionModrinth>> {
     if sha1.is_empty() {
         return Ok(HashMap::new());
     }
@@ -199,7 +212,11 @@ pub async fn versions_par_hash(sha1: &[String]) -> anyhow::Result<HashMap<String
 
 /// Dernière version compatible (loaders + version de Minecraft) de chaque fichier, par SHA-1.
 /// Renvoie hash du fichier installé → version la plus récente.
-pub async fn dernieres_versions(sha1: &[String], loaders: &[&str], version_mc: &str) -> anyhow::Result<HashMap<String, VersionModrinth>> {
+pub async fn dernieres_versions(
+    sha1: &[String],
+    loaders: &[&str],
+    version_mc: &str,
+) -> anyhow::Result<HashMap<String, VersionModrinth>> {
     if sha1.is_empty() {
         return Ok(HashMap::new());
     }

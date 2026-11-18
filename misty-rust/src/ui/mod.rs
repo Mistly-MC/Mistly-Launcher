@@ -6,6 +6,7 @@
 //! - le travail lourd (réseau, fichiers) part sur le runtime tokio avec `bg(...)`, et on attend le résultat ;
 //! - chaque page a son module, avec son état dans un `RefCell`.
 
+pub mod amis;
 pub mod browser;
 pub mod changelog;
 pub mod console;
@@ -15,7 +16,6 @@ pub mod home;
 pub mod images;
 pub mod instance;
 pub mod news;
-pub mod amis;
 pub mod packs;
 pub mod picker;
 pub mod profiles;
@@ -107,7 +107,10 @@ impl App {
     }
 
     /// Fonction de progression qui affiche le texte avec `afficher` (sur le thread de l'interface).
-    pub fn progression(&self, afficher: impl Fn(&MainWindow, String) + Send + Sync + Clone + 'static) -> Progress {
+    pub fn progression(
+        &self,
+        afficher: impl Fn(&MainWindow, String) + Send + Sync + Clone + 'static,
+    ) -> Progress {
         let faible = self.ui.as_weak();
         Arc::new(move |texte: String| {
             let afficher = afficher.clone();
@@ -123,7 +126,9 @@ pub fn lancer(f: impl Future<Output = ()> + 'static) {
 
 /// Vec<String> → modèle Slint de textes.
 pub fn modele_textes(textes: &[String]) -> ModelRc<SharedString> {
-    ModelRc::new(VecModel::from(textes.iter().map(SharedString::from).collect::<Vec<_>>()))
+    ModelRc::new(VecModel::from(
+        textes.iter().map(SharedString::from).collect::<Vec<_>>(),
+    ))
 }
 
 /// Vec<T> → modèle Slint.
@@ -148,7 +153,11 @@ pub fn installer(app: &Rc<App>) {
     ui.global::<Tr>().on_lookup(|cle| loc::t(&cle).into());
     ui.global::<Assets>().set_logo(images::logo_nuage());
     // version sous la barre latérale : « v0.3.8 » puis « beta.3 » sur sa propre ligne (la barre est étroite)
-    ui.global::<AppState>().set_version_text(format!("v{}", crate::services::app_info::VERSION).replacen('-', "\n", 1).into());
+    ui.global::<AppState>().set_version_text(
+        format!("v{}", crate::services::app_info::VERSION)
+            .replacen('-', "\n", 1)
+            .into(),
+    );
 
     // Paysage du site en fond (net tout de suite, puis flouté si l'option est réglée)
     afficher_paysage(app, scene::generer(0));
@@ -168,11 +177,14 @@ pub fn installer(app: &Rc<App>) {
 
     // Fenêtre
     let a = app.clone();
-    ui.global::<AppState>().on_drag(move || fenetre(&a, |w| {
-        let _ = w.drag_window();
-    }));
+    ui.global::<AppState>().on_drag(move || {
+        fenetre(&a, |w| {
+            let _ = w.drag_window();
+        })
+    });
     let a = app.clone();
-    ui.global::<AppState>().on_minimize(move || fenetre(&a, |w| w.set_minimized(true)));
+    ui.global::<AppState>()
+        .on_minimize(move || fenetre(&a, |w| w.set_minimized(true)));
     let a = app.clone();
     ui.global::<AppState>().on_toggle_maximize(move || {
         fenetre(&a, |w| w.set_maximized(!w.is_maximized()));
@@ -183,37 +195,46 @@ pub fn installer(app: &Rc<App>) {
     let a = Rc::downgrade(app);
     let passages = std::cell::Cell::new(0u32);
     let minuterie = slint::Timer::default();
-    minuterie.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(300), move || {
-        if let Some(a) = a.upgrade() {
-            suivre_agrandissement(&a);
-            suivre_decor(&a);
-            maj_discord(&a, false);
-            // thème « Comme Windows » : suit Windows quand on le change pendant que Misty est
-            // ouvert. Lu dans le registre : toutes les 3 secondes, pas à chaque passage.
-            passages.set(passages.get().wrapping_add(1));
-            if passages.get() % 10 == 0 {
-                let sombre = system_info::windows_sombre();
-                let theme = a.ui.global::<crate::Theme>();
-                if theme.get_system_dark() != sombre {
-                    theme.set_system_dark(sombre);
+    minuterie.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(300),
+        move || {
+            if let Some(a) = a.upgrade() {
+                suivre_agrandissement(&a);
+                suivre_decor(&a);
+                maj_discord(&a, false);
+                // thème « Comme Windows » : suit Windows quand on le change pendant que Misty est
+                // ouvert. Lu dans le registre : toutes les 3 secondes, pas à chaque passage.
+                passages.set(passages.get().wrapping_add(1));
+                if passages.get() % 10 == 0 {
+                    let sombre = system_info::windows_sombre();
+                    let theme = a.ui.global::<crate::Theme>();
+                    if theme.get_system_dark() != sombre {
+                        theme.set_system_dark(sombre);
+                    }
                 }
             }
-        }
-    });
+        },
+    );
     std::mem::forget(minuterie);
 
     // Apparence enregistrée
     let theme = ui.global::<crate::Theme>();
     theme.set_system_dark(system_info::windows_sombre());
     theme.set_mode(crate::services::settings::theme());
-    theme.set_blur(crate::services::settings::get_bool(crate::services::settings::FLOU, true));
+    theme.set_blur(crate::services::settings::get_bool(
+        crate::services::settings::FLOU,
+        true,
+    ));
     appliquer_saison(app);
     ui.global::<AppState>().on_close(|| {
         let _ = slint::quit_event_loop();
     });
-    ui.global::<AppState>().on_open_data_folder(|| system_info::ouvrir_dossier(&paths::data_dir()));
+    ui.global::<AppState>()
+        .on_open_data_folder(|| system_info::ouvrir_dossier(&paths::data_dir()));
     let a = app.clone();
-    ui.global::<AppState>().on_nav_clicked(move |i| nav_clicked(&a, i));
+    ui.global::<AppState>()
+        .on_nav_clicked(move |i| nav_clicked(&a, i));
 
     dialogs::installer(app);
     home::installer(app);
@@ -243,8 +264,17 @@ fn afficher_paysage(app: &App, paysage: scene::Scene) {
     etat.set_moon_y(p.lune_y);
     etat.set_moon_size(p.lune_taille);
     // une liste de nappes par crête : l'interface ne crée que celles qu'elle dessine
-    let par_crete: Vec<ModelRc<crate::ScenePuff>> =
-        (0..n_cretes).map(|i| modele(p.nappes.iter().filter(|n| n.layer == i as i32).cloned().collect())).collect();
+    let par_crete: Vec<ModelRc<crate::ScenePuff>> = (0..n_cretes)
+        .map(|i| {
+            modele(
+                p.nappes
+                    .iter()
+                    .filter(|n| n.layer == i as i32)
+                    .cloned()
+                    .collect(),
+            )
+        })
+        .collect();
     etat.set_scene_puffs(modele(par_crete));
 }
 
@@ -270,7 +300,8 @@ pub fn appliquer_flou_fond(app: &Rc<App>, niveau: u32) {
 /// En développement, MISTY_EVENT=1 ou 2 force une saison pour la tester.
 pub fn appliquer_saison(app: &App) {
     #[cfg_attr(not(debug_assertions), allow(unused_mut))]
-    let mut saison = if crate::services::settings::get_bool(crate::services::settings::SAISON, true) {
+    let mut saison = if crate::services::settings::get_bool(crate::services::settings::SAISON, true)
+    {
         crate::services::settings::saison_du_jour()
     } else {
         0
@@ -331,7 +362,9 @@ fn suivre_agrandissement(app: &App) {
 fn suivre_decor(app: &App) {
     let capture = cfg!(debug_assertions) && std::env::var_os("MISTY_CAPTURE").is_some();
     let mut regarde = true;
-    fenetre(app, |w| regarde = w.has_focus() && !w.is_minimized().unwrap_or(false));
+    fenetre(app, |w| {
+        regarde = w.has_focus() && !w.is_minimized().unwrap_or(false)
+    });
     let en_jeu = journal::partie_en_cours();
     let anime = capture || (regarde && !en_jeu);
     let etat = app.ui.global::<AppState>();
@@ -361,11 +394,26 @@ fn fenetre(app: &App, f: impl FnOnce(&slint::winit_030::winit::window::Window)) 
 /// Démarrage (après l'affichage de la fenêtre) : migration, mises à jour, accueil.
 pub async fn demarrer(app: Rc<App>) {
     // Ancien dossier C:\TEXT
-    match app.bloquant(crate::services::update::migrer_ancien_dossier).await {
-        Ok(true) => dialogs::info(&app, &loc::t("Demarrage_Migre"), &loc::t("Demarrage_Migre_Texte")).await,
+    match app
+        .bloquant(crate::services::update::migrer_ancien_dossier)
+        .await
+    {
+        Ok(true) => {
+            dialogs::info(
+                &app,
+                &loc::t("Demarrage_Migre"),
+                &loc::t("Demarrage_Migre_Texte"),
+            )
+            .await
+        }
         Ok(false) => {}
         Err(e) => {
-            dialogs::erreur(&app, &loc::t("Demarrage_MigrationImpossible"), &loc::tf("Demarrage_MigrationImpossible_Texte", &[&e])).await
+            dialogs::erreur(
+                &app,
+                &loc::t("Demarrage_MigrationImpossible"),
+                &loc::tf("Demarrage_MigrationImpossible_Texte", &[&e]),
+            )
+            .await
         }
     }
 
@@ -376,10 +424,22 @@ pub async fn demarrer(app: Rc<App>) {
     verifier_mise_a_jour(&app, false).await;
     match app.bg(crate::services::update::finaliser()).await {
         Ok(true) => {
-            dialogs::info(&app, &loc::t("Maj_Terminee"), &loc::tf("Maj_Terminee_Texte", &[&crate::services::app_info::VERSION])).await
+            dialogs::info(
+                &app,
+                &loc::t("Maj_Terminee"),
+                &loc::tf("Maj_Terminee_Texte", &[&crate::services::app_info::VERSION]),
+            )
+            .await
         }
         Ok(false) => {}
-        Err(e) => dialogs::erreur(&app, &loc::t("Maj_Nettoyage"), &loc::tf("Maj_Nettoyage_Texte", &[&e])).await,
+        Err(e) => {
+            dialogs::erreur(
+                &app,
+                &loc::t("Maj_Nettoyage"),
+                &loc::tf("Maj_Nettoyage_Texte", &[&e]),
+            )
+            .await
+        }
     }
     // lanceur fixe, et raccourcis (épingles de la barre des tâches comprises) redirigés vers lui
     std::thread::spawn(|| {
@@ -422,7 +482,12 @@ async fn verifier_mise_a_jour(app: &Rc<App>, manuel: bool) {
         Ok(Some(r)) => r,
         Ok(None) => {
             if manuel {
-                dialogs::info(app, &loc::t("Maj_AJour"), &loc::tf("Maj_AJour_Texte", &[&crate::services::app_info::VERSION])).await;
+                dialogs::info(
+                    app,
+                    &loc::t("Maj_AJour"),
+                    &loc::tf("Maj_AJour_Texte", &[&crate::services::app_info::VERSION]),
+                )
+                .await;
             }
             return;
         }
@@ -437,9 +502,19 @@ async fn verifier_mise_a_jour(app: &Rc<App>, manuel: bool) {
         app,
         &loc::t("Maj_Disponible"),
         &if release.prerelease {
-            format!("{}\n\n{}", loc::tf("Maj_Disponible_Texte", &[&release.version, &crate::services::app_info::VERSION]), loc::t("Maj_PreRelease_Texte"))
+            format!(
+                "{}\n\n{}",
+                loc::tf(
+                    "Maj_Disponible_Texte",
+                    &[&release.version, &crate::services::app_info::VERSION]
+                ),
+                loc::t("Maj_PreRelease_Texte")
+            )
         } else {
-            loc::tf("Maj_Disponible_Texte", &[&release.version, &crate::services::app_info::VERSION])
+            loc::tf(
+                "Maj_Disponible_Texte",
+                &[&release.version, &crate::services::app_info::VERSION],
+            )
         },
         Some(&loc::t("Maj_Installer")),
         Some(&loc::t("Commun_PlusTard")),
@@ -464,17 +539,31 @@ async fn verifier_mise_a_jour(app: &Rc<App>, manuel: bool) {
         let (progres, texte) = match etape {
             Etape::Telechargement { recu, total, site } => {
                 let mo = |o: u64| format!("{:.1}", o as f64 / 1_048_576.0);
-                let source = loc::t(if site { "Maj_Source_Site" } else { "Maj_Source_GitHub" });
-                if total > 0 {
-                    (recu as f32 / total as f32, loc::tf("Maj_Telechargement", &[&mo(recu), &mo(total), &source]))
+                let source = loc::t(if site {
+                    "Maj_Source_Site"
                 } else {
-                    (-1.0, loc::tf("Maj_Telechargement_Inconnu", &[&mo(recu), &source]))
+                    "Maj_Source_GitHub"
+                });
+                if total > 0 {
+                    (
+                        recu as f32 / total as f32,
+                        loc::tf("Maj_Telechargement", &[&mo(recu), &mo(total), &source]),
+                    )
+                } else {
+                    (
+                        -1.0,
+                        loc::tf("Maj_Telechargement_Inconnu", &[&mo(recu), &source]),
+                    )
                 }
             }
             Etape::Extraction => (1.0, loc::t("Maj_Extraction")),
             Etape::Lancement => (1.0, loc::t("Maj_Lancement")),
         };
-        let cle = if progres < 0.0 { -1 } else { (progres * 100.0) as i64 };
+        let cle = if progres < 0.0 {
+            -1
+        } else {
+            (progres * 100.0) as i64
+        };
         if cle >= 0 && cle < 100 && dernier.swap(cle, std::sync::atomic::Ordering::Relaxed) == cle {
             return;
         }
@@ -486,13 +575,22 @@ async fn verifier_mise_a_jour(app: &Rc<App>, manuel: bool) {
     };
     let cible = release.version.clone();
     crate::services::journal::info(&format!("Mise à jour vers {cible}"));
-    match app.bg(async move { crate::services::update::installer(&release, avancement).await }).await {
+    match app
+        .bg(async move { crate::services::update::installer(&release, avancement).await })
+        .await
+    {
         Ok(()) => {
-            crate::services::telemetry::evenement("update", serde_json::json!({ "to": cible, "ok": true }));
+            crate::services::telemetry::evenement(
+                "update",
+                serde_json::json!({ "to": cible, "ok": true }),
+            );
             let _ = slint::quit_event_loop();
         }
         Err(e) => {
-            crate::services::telemetry::evenement("update", serde_json::json!({ "to": cible, "ok": false, "error": format!("{e:#}") }));
+            crate::services::telemetry::evenement(
+                "update",
+                serde_json::json!({ "to": cible, "ok": false, "error": format!("{e:#}") }),
+            );
             app.ui.global::<AppState>().set_updating(false);
             dialogs::erreur(app, &loc::t("Maj_Impossible"), &format!("{e:#}")).await
         }

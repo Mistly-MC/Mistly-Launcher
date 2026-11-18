@@ -14,10 +14,16 @@ pub fn creer(dossier: &Path) -> anyhow::Result<()> {
     }
     supprimer(dossier);
 
-    let mut lnk = mslnk::ShellLink::new(super::lanceur::cible()).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-    lnk.set_working_dir(super::lanceur::cible().parent().map(|d| d.to_string_lossy().to_string()));
+    let mut lnk =
+        mslnk::ShellLink::new(super::lanceur::cible()).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    lnk.set_working_dir(
+        super::lanceur::cible()
+            .parent()
+            .map(|d| d.to_string_lossy().to_string()),
+    );
     lnk.set_icon_location(Some(super::lanceur::icone().to_string_lossy().to_string()));
-    lnk.create_lnk(dossier.join(NOM_RACCOURCI)).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    lnk.create_lnk(dossier.join(NOM_RACCOURCI))
+        .map_err(|e| anyhow::anyhow!("{e:?}"))?;
     Ok(())
 }
 

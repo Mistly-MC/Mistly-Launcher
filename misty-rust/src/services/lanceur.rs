@@ -36,14 +36,17 @@ pub fn chemin() -> Option<PathBuf> {
 
 /// Ce que les raccourcis doivent viser : le lanceur s'il existe, sinon l'exe actuel.
 pub fn cible() -> PathBuf {
-    chemin().filter(|c| c.exists()).unwrap_or_else(paths::app_exe)
+    chemin()
+        .filter(|c| c.exists())
+        .unwrap_or_else(paths::app_exe)
 }
 
 /// Icône des raccourcis : l'icône personnalisée (copiée à côté du lanceur, pour qu'elle survive aux
 /// mises à jour), sinon celle de l'exe visé.
 pub fn icone() -> PathBuf {
     let fixe = racine().map(|r| r.join("Icon.ico")).filter(|i| i.exists());
-    fixe.or_else(|| Some(paths::custom_icon()).filter(|i| i.exists())).unwrap_or_else(cible)
+    fixe.or_else(|| Some(paths::custom_icon()).filter(|i| i.exists()))
+        .unwrap_or_else(cible)
 }
 
 /// La version la plus récente installée à côté de `dossier` : (version, exe).
@@ -66,12 +69,18 @@ pub fn relayer() -> bool {
     if racine().is_some() {
         return false; // une vraie version
     }
-    let Some((_, exe)) = plus_recente(&paths::app_dir()) else { return false };
+    let Some((_, exe)) = plus_recente(&paths::app_dir()) else {
+        return false;
+    };
     if exe == paths::app_exe() {
         return false;
     }
     let dossier = exe.parent().map(Path::to_path_buf).unwrap_or_default();
-    std::process::Command::new(&exe).args(std::env::args_os().skip(1)).current_dir(dossier).spawn().is_ok()
+    std::process::Command::new(&exe)
+        .args(std::env::args_os().skip(1))
+        .current_dir(dossier)
+        .spawn()
+        .is_ok()
 }
 
 /// Identifiant d'application du processus, avant la création de la fenêtre.
@@ -79,7 +88,9 @@ pub fn relayer() -> bool {
 pub fn identifier_processus() {
     use windows::core::HSTRING;
     // SAFETY : chaîne valide le temps de l'appel ; à faire avant d'afficher la moindre fenêtre.
-    let _ = unsafe { windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(&HSTRING::from(AUMID)) };
+    let _ = unsafe {
+        windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(&HSTRING::from(AUMID))
+    };
 }
 
 #[cfg(not(windows))]
@@ -88,7 +99,9 @@ pub fn identifier_processus() {}
 /// Crée (ou met à jour) le lanceur fixe à partir de l'exe actuel. `forcer` : après une mise à jour,
 /// le lanceur est remplacé même s'il existe déjà.
 pub fn installer(forcer: bool) {
-    let (Some(lanceur), Some(racine)) = (chemin(), racine()) else { return };
+    let (Some(lanceur), Some(racine)) = (chemin(), racine()) else {
+        return;
+    };
     let exe = paths::app_exe();
     if paths::custom_icon().exists() {
         let _ = std::fs::copy(paths::custom_icon(), racine.join("Icon.ico"));
@@ -119,7 +132,11 @@ mod proprietes {
     use windows::Win32::UI::Shell::SHStrDupW;
 
     /// Écrit une chaîne dans un magasin de propriétés (sans l'enregistrer).
-    pub fn ecrire(magasin: &IPropertyStore, cle: &PROPERTYKEY, valeur: &str) -> windows::core::Result<()> {
+    pub fn ecrire(
+        magasin: &IPropertyStore,
+        cle: &PROPERTYKEY,
+        valeur: &str,
+    ) -> windows::core::Result<()> {
         // SAFETY : PROPVARIANT VT_LPWSTR avec une chaîne allouée par SHStrDupW (CoTaskMem), libérée
         // par PropVariantClear après SetValue (qui en fait sa propre copie).
         unsafe {
@@ -138,7 +155,15 @@ mod proprietes {
         // SAFETY : la variante renvoyée est lue selon son type, puis libérée.
         unsafe {
             let mut variante = magasin.GetValue(cle).ok()?;
-            let texte = ((*variante.Anonymous.Anonymous).vt == VT_LPWSTR).then(|| (*variante.Anonymous.Anonymous).Anonymous.pwszVal.to_string().ok()).flatten();
+            let texte = ((*variante.Anonymous.Anonymous).vt == VT_LPWSTR)
+                .then(|| {
+                    (*variante.Anonymous.Anonymous)
+                        .Anonymous
+                        .pwszVal
+                        .to_string()
+                        .ok()
+                })
+                .flatten();
             let _ = PropVariantClear(&mut variante);
             texte
         }
@@ -151,20 +176,39 @@ mod proprietes {
 pub fn marquer_fenetre(hwnd: isize) {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::Storage::EnhancedStorage::{
-        PKEY_AppUserModel_ID, PKEY_AppUserModel_RelaunchCommand, PKEY_AppUserModel_RelaunchDisplayNameResource, PKEY_AppUserModel_RelaunchIconResource,
+        PKEY_AppUserModel_ID, PKEY_AppUserModel_RelaunchCommand,
+        PKEY_AppUserModel_RelaunchDisplayNameResource, PKEY_AppUserModel_RelaunchIconResource,
     };
-    use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
+    use windows::Win32::UI::Shell::PropertiesSystem::{
+        IPropertyStore, SHGetPropertyStoreForWindow,
+    };
 
-    let Some(lanceur) = chemin().filter(|c| c.exists()) else { return };
+    let Some(lanceur) = chemin().filter(|c| c.exists()) else {
+        return;
+    };
     let lanceur = lanceur.to_string_lossy().to_string();
     // SAFETY : HWND de la fenêtre affichée ; le magasin est un objet COM libéré à la fin du bloc.
     unsafe {
-        let Ok(magasin) = SHGetPropertyStoreForWindow::<IPropertyStore>(HWND(hwnd as _)) else { return };
+        let Ok(magasin) = SHGetPropertyStoreForWindow::<IPropertyStore>(HWND(hwnd as _)) else {
+            return;
+        };
         // l'identifiant d'abord : sans lui, Windows ignore les propriétés de relance
         let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_ID, AUMID);
-        let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_RelaunchCommand, &format!("\"{lanceur}\""));
-        let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_RelaunchDisplayNameResource, "Mistly");
-        let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_RelaunchIconResource, &format!("{lanceur},0"));
+        let _ = proprietes::ecrire(
+            &magasin,
+            &PKEY_AppUserModel_RelaunchCommand,
+            &format!("\"{lanceur}\""),
+        );
+        let _ = proprietes::ecrire(
+            &magasin,
+            &PKEY_AppUserModel_RelaunchDisplayNameResource,
+            "Mistly",
+        );
+        let _ = proprietes::ecrire(
+            &magasin,
+            &PKEY_AppUserModel_RelaunchIconResource,
+            &format!("{lanceur},0"),
+        );
     }
 }
 
@@ -178,11 +222,18 @@ pub fn marquer_fenetre(_hwnd: isize) {}
 pub fn rediriger_raccourcis() {
     use windows::core::{Interface, HSTRING, PCWSTR};
     use windows::Win32::Storage::EnhancedStorage::PKEY_AppUserModel_ID;
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READWRITE};
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER,
+        COINIT_APARTMENTTHREADED, STGM_READWRITE,
+    };
     use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
-    use windows::Win32::UI::Shell::{IShellLinkW, SHChangeNotify, ShellLink, SHCNE_UPDATEITEM, SHCNF_PATHW};
+    use windows::Win32::UI::Shell::{
+        IShellLinkW, SHChangeNotify, ShellLink, SHCNE_UPDATEITEM, SHCNF_PATHW,
+    };
 
-    let (Some(racine), Some(lanceur)) = (racine(), chemin().filter(|c| c.exists())) else { return };
+    let (Some(racine), Some(lanceur)) = (racine(), chemin().filter(|c| c.exists())) else {
+        return;
+    };
     let racine_min = racine.to_string_lossy().to_lowercase();
     let lanceur_min = lanceur.to_string_lossy().to_lowercase();
     let icone = icone();
@@ -197,7 +248,12 @@ pub fn rediriger_raccourcis() {
         let ql = d.join(r"Microsoft\Internet Explorer\Quick Launch");
         let menu = d.join(r"Microsoft\Windows\Start Menu\Programs");
         renommables.push(menu.clone());
-        dossiers.extend([menu, ql.join(r"User Pinned\TaskBar"), ql.join(r"User Pinned\StartMenu"), ql]);
+        dossiers.extend([
+            menu,
+            ql.join(r"User Pinned\TaskBar"),
+            ql.join(r"User Pinned\StartMenu"),
+            ql,
+        ]);
     }
     if let Some(d) = dirs::desktop_dir() {
         renommables.push(d.clone());
@@ -210,15 +266,29 @@ pub fn rediriger_raccourcis() {
     unsafe {
         let com = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
         for dossier in dossiers {
-            let Ok(lecture) = std::fs::read_dir(&dossier) else { continue };
+            let Ok(lecture) = std::fs::read_dir(&dossier) else {
+                continue;
+            };
             for fichier in lecture.flatten().map(|e| e.path()) {
-                if !fichier.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk")) {
+                if !fichier
+                    .extension()
+                    .is_some_and(|e| e.eq_ignore_ascii_case("lnk"))
+                {
                     continue;
                 }
-                let Ok(lien) = CoCreateInstance::<_, IShellLinkW>(&ShellLink, None, CLSCTX_INPROC_SERVER) else { continue };
-                let Ok(persistant) = lien.cast::<IPersistFile>() else { continue };
+                let Ok(lien) =
+                    CoCreateInstance::<_, IShellLinkW>(&ShellLink, None, CLSCTX_INPROC_SERVER)
+                else {
+                    continue;
+                };
+                let Ok(persistant) = lien.cast::<IPersistFile>() else {
+                    continue;
+                };
                 let nom = HSTRING::from(fichier.as_os_str());
-                if persistant.Load(PCWSTR(nom.as_ptr()), STGM_READWRITE).is_err() {
+                if persistant
+                    .Load(PCWSTR(nom.as_ptr()), STGM_READWRITE)
+                    .is_err()
+                {
                     continue;
                 }
                 let mut tampon = [0u16; 1024];
@@ -227,20 +297,32 @@ pub fn rediriger_raccourcis() {
                 }
                 let longueur = tampon.iter().position(|&c| c == 0).unwrap_or(tampon.len());
                 let cible = String::from_utf16_lossy(&tampon[..longueur]).to_lowercase();
-                let vise_misty = cible == lanceur_min || cible.strip_prefix(&racine_min).is_some_and(|r| r.trim_start_matches('\\').starts_with("misty-"));
+                let vise_misty = cible == lanceur_min
+                    || cible
+                        .strip_prefix(&racine_min)
+                        .is_some_and(|r| r.trim_start_matches('\\').starts_with("misty-"));
                 if !vise_misty {
                     continue;
                 }
-                if renommables.contains(&dossier) && fichier.file_stem().is_some_and(|n| n.eq_ignore_ascii_case("Misty")) {
+                if renommables.contains(&dossier)
+                    && fichier
+                        .file_stem()
+                        .is_some_and(|n| n.eq_ignore_ascii_case("Misty"))
+                {
                     a_renommer.push(fichier.clone());
                 }
                 let deja_bon = cible == lanceur_min
-                    && lien.cast::<IPropertyStore>().ok().and_then(|m| proprietes::lire(&m, &PKEY_AppUserModel_ID)).is_some_and(|v| v == AUMID);
+                    && lien
+                        .cast::<IPropertyStore>()
+                        .ok()
+                        .and_then(|m| proprietes::lire(&m, &PKEY_AppUserModel_ID))
+                        .is_some_and(|v| v == AUMID);
                 if deja_bon {
                     continue;
                 }
                 let _ = lien.SetPath(PCWSTR(HSTRING::from(lanceur.as_os_str()).as_ptr()));
-                let _ = lien.SetWorkingDirectory(PCWSTR(HSTRING::from(racine.as_os_str()).as_ptr()));
+                let _ =
+                    lien.SetWorkingDirectory(PCWSTR(HSTRING::from(racine.as_os_str()).as_ptr()));
                 let _ = lien.SetIconLocation(PCWSTR(HSTRING::from(icone.as_os_str()).as_ptr()), 0);
                 if let Ok(magasin) = lien.cast::<IPropertyStore>() {
                     let _ = proprietes::ecrire(&magasin, &PKEY_AppUserModel_ID, AUMID);

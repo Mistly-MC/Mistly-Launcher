@@ -4,7 +4,9 @@ use super::{dialogs, images, lancer, modele, modele_textes, App};
 use crate::minecraft::{install, launch, loaders, FileProgress, McDirs};
 use crate::services::horizon;
 use crate::services::instances::{self, Instance};
-use crate::services::{account, content, discord, loc, pseudos, settings, journal, telemetry, client};
+use crate::services::{
+    account, client, content, discord, journal, loc, pseudos, settings, telemetry,
+};
 use crate::{AppState, HomeState};
 use slint::ComponentHandle;
 use std::rc::Rc;
@@ -214,7 +216,10 @@ pub fn installer(app: &Rc<App>) {
         h(&a).set_horizon_selected(false);
         misty_quitter(&a);
         let profil = a.home.borrow().profils.get(i as usize).cloned().flatten();
-        settings::set(settings::DERNIER_PROFIL, profil.as_ref().map(|p| p.id.as_str()).unwrap_or(""));
+        settings::set(
+            settings::DERNIER_PROFIL,
+            profil.as_ref().map(|p| p.id.as_str()).unwrap_or(""),
+        );
         a.home.borrow_mut().profil = profil;
         maj_mode_profil(&a);
     });
@@ -259,7 +264,13 @@ pub fn installer(app: &Rc<App>) {
         let a = a.clone();
         lancer(async move { horizon_jouer(&a).await });
     });
-    s.on_horizon_link(|i| crate::services::system_info::ouvrir(if i == 0 { horizon::SITE } else { horizon::GITHUB }));
+    s.on_horizon_link(|i| {
+        crate::services::system_info::ouvrir(if i == 0 {
+            horizon::SITE
+        } else {
+            horizon::GITHUB
+        })
+    });
 
     // Fenêtre de choix de version
     let a = app.clone();
@@ -285,7 +296,13 @@ pub fn installer(app: &Rc<App>) {
     let a = app.clone();
     s.on_mode_selected(move |i| {
         if a.home.borrow().profil.is_none() {
-            let mode = a.home.borrow().modes.get(i as usize).cloned().unwrap_or_else(|| loaders::VANILLA.into());
+            let mode = a
+                .home
+                .borrow()
+                .modes
+                .get(i as usize)
+                .cloned()
+                .unwrap_or_else(|| loaders::VANILLA.into());
             // Misty, c'est Fabric : un autre loader revient à une version normale
             if mode != loaders::FABRIC {
                 misty_quitter(&a);
@@ -328,7 +345,11 @@ fn statut(app: &App, texte: &str) {
 /// Appelé une fois au démarrage, après la préparation des fichiers de config.
 /// Pseudo Minecraft valide : lettres, chiffres et _ seulement, 16 caractères au plus.
 fn nettoyer_pseudo(texte: &str) -> String {
-    texte.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '_').take(16).collect()
+    texte
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
+        .take(16)
+        .collect()
 }
 
 /// Au démarrage, tant qu'aucune façon de jouer n'a été choisie : l'écran Premium | Hors ligne.
@@ -363,7 +384,11 @@ fn suivre_en_ligne(app: &Rc<App>) {
     };
     lire();
     let minuterie = slint::Timer::default();
-    minuterie.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(60), lire);
+    minuterie.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_secs(60),
+        lire,
+    );
     std::mem::forget(minuterie);
 }
 
@@ -384,7 +409,9 @@ pub async fn initialiser(app: &Rc<App>) {
 
     // Mistly Client : la liste des jars de sa dernière release GitHub, lue pendant le chargement
     // des versions (au plus 10 s : sans Internet, la liste gardée sert)
-    let maj_client = app.rt.spawn(async { tokio::time::timeout(std::time::Duration::from_secs(10), client::actualiser()).await });
+    let maj_client = app.rt.spawn(async {
+        tokio::time::timeout(std::time::Duration::from_secs(10), client::actualiser()).await
+    });
 
     statut(app, &loc::t("Home_ChargementVersions"));
     charger_versions(app).await;
@@ -394,8 +421,12 @@ pub async fn initialiser(app: &Rc<App>) {
         _ => {}
     }
     // tout premier démarrage (rien de choisi avant) : Misty Client, sur sa version la plus récente
-    let premier = settings::get(settings::LAST_VERSION).is_empty() && settings::get(settings::MISTY_CHOISI).is_empty();
-    if (premier || settings::get_bool(settings::MISTY_CHOISI, false)) && client::disponible() && app.home.borrow().profil.is_none() {
+    let premier = settings::get(settings::LAST_VERSION).is_empty()
+        && settings::get(settings::MISTY_CHOISI).is_empty();
+    if (premier || settings::get_bool(settings::MISTY_CHOISI, false))
+        && client::disponible()
+        && app.home.borrow().profil.is_none()
+    {
         misty_choisir(app, version_misty());
     } else {
         charger_derniere_version(app);
@@ -437,7 +468,11 @@ pub fn comptes_hors_ligne_changes(app: &Rc<App>) {
 fn charger_pseudos(app: &Rc<App>) {
     let liste = pseudos::lire();
     let dernier = settings::get(settings::LAST_PSEUDO);
-    let index = liste.iter().position(|p| *p == dernier).map(|i| i as i32).unwrap_or(if liste.is_empty() { -1 } else { 0 });
+    let index = liste
+        .iter()
+        .position(|p| *p == dernier)
+        .map(|i| i as i32)
+        .unwrap_or(if liste.is_empty() { -1 } else { 0 });
     h(app).set_accounts(modele_textes(&liste));
     h(app).set_account_index(index);
     app.home.borrow_mut().pseudos = liste;
@@ -453,13 +488,20 @@ fn maj_liste_comptes(app: &Rc<App>) {
     let mut noms: Vec<String> = ms.iter().map(|c| c.pseudo.clone()).collect();
     for p in &hors_ligne {
         if ms.iter().any(|c| c.pseudo.eq_ignore_ascii_case(p)) {
-            noms.push(format!("{p} ({})", loc::t("Home_Compte_HorsLigne").to_lowercase()));
+            noms.push(format!(
+                "{p} ({})",
+                loc::t("Home_Compte_HorsLigne").to_lowercase()
+            ));
         } else {
             noms.push(p.clone());
         }
     }
     let index = match account::session() {
-        Some(s) => ms.iter().position(|c| c.uuid == s.uuid).map(|i| i as i32).unwrap_or(-1),
+        Some(s) => ms
+            .iter()
+            .position(|c| c.uuid == s.uuid)
+            .map(|i| i as i32)
+            .unwrap_or(-1),
         None if hors_ligne.is_empty() => -1,
         None => ms.len() as i32 + h(app).get_account_index().max(0),
     };
@@ -518,7 +560,13 @@ fn maj_compte(app: &Rc<App>) {
     let courant = session.as_ref().map(|s| s.uuid.clone()).unwrap_or_default();
     h(app).set_premium_name(session.map(|s| s.pseudo).unwrap_or_default().into());
     let comptes = account::comptes();
-    h(app).set_ms_index(comptes.iter().position(|c| c.uuid == courant).map(|i| i as i32).unwrap_or(-1));
+    h(app).set_ms_index(
+        comptes
+            .iter()
+            .position(|c| c.uuid == courant)
+            .map(|i| i as i32)
+            .unwrap_or(-1),
+    );
     let noms: Vec<String> = comptes.into_iter().map(|c| c.pseudo).collect();
     h(app).set_ms_names(modele_textes(&noms));
     maj_liste_comptes(app);
@@ -558,7 +606,9 @@ fn maj_avatar(app: &Rc<App>) {
                     if p.skin_url.is_empty() {
                         return None;
                     }
-                    let png = crate::services::skins::telecharger(&p.skin_url).await.ok()?;
+                    let png = crate::services::skins::telecharger(&p.skin_url)
+                        .await
+                        .ok()?;
                     crate::services::skins::rendre_tete(&png)
                 })
                 .await;
@@ -571,7 +621,10 @@ fn maj_avatar(app: &Rc<App>) {
             }
             return;
         }
-        let url = format!("https://mc-heads.net/avatar/{}/64", urlencoding::encode(&pseudo));
+        let url = format!(
+            "https://mc-heads.net/avatar/{}/64",
+            urlencoding::encode(&pseudo)
+        );
         let image = images::depuis_url(&a, &url).await;
         if pseudo_actuel(&a) != pseudo {
             return; // le compte a changé entre-temps
@@ -584,15 +637,28 @@ fn maj_avatar(app: &Rc<App>) {
 // ───────────────────────── Profils ─────────────────────────
 
 fn charger_profils(app: &Rc<App>) {
-    let id_voulu = app.home.borrow().profil.as_ref().map(|p| p.id.clone()).unwrap_or_else(|| settings::get(settings::DERNIER_PROFIL));
+    let id_voulu = app
+        .home
+        .borrow()
+        .profil
+        .as_ref()
+        .map(|p| p.id.clone())
+        .unwrap_or_else(|| settings::get(settings::DERNIER_PROFIL));
 
     let mut profils: Vec<Option<Instance>> = vec![None];
     profils.extend(instances::lister().into_iter().map(Some));
     let noms: Vec<String> = profils
         .iter()
-        .map(|p| p.as_ref().map(|i| i.nom.clone()).unwrap_or_else(|| loc::t("Home_JeuRapide")))
+        .map(|p| {
+            p.as_ref()
+                .map(|i| i.nom.clone())
+                .unwrap_or_else(|| loc::t("Home_JeuRapide"))
+        })
         .collect();
-    let index = profils.iter().position(|p| p.as_ref().is_some_and(|i| i.id == id_voulu)).unwrap_or(0);
+    let index = profils
+        .iter()
+        .position(|p| p.as_ref().is_some_and(|i| i.id == id_voulu))
+        .unwrap_or(0);
 
     h(app).set_profiles(modele_textes(&noms));
     h(app).set_profile_index(index as i32);
@@ -616,7 +682,9 @@ fn charger_profils(app: &Rc<App>) {
                 has_icon: icone.is_some(),
                 icon: icone.unwrap_or_default(),
                 art: super::picker::illustration(&super::picker::cle_groupe(
-                    &p.as_ref().map(|i| i.version_mc.clone()).unwrap_or_else(|| settings::get(settings::LAST_VERSION)),
+                    &p.as_ref()
+                        .map(|i| i.version_mc.clone())
+                        .unwrap_or_else(|| settings::get(settings::LAST_VERSION)),
                     0,
                 )),
             }
@@ -626,11 +694,19 @@ fn charger_profils(app: &Rc<App>) {
     // icônes distantes (modpacks sans icon.png) : chargées ensuite, sans bloquer la liste
     for (i, p) in profils.iter().enumerate() {
         let Some(instance) = p else { continue };
-        let Some(url) = instance.icone_url.clone().filter(|_| !instance.chemin_icone().exists()) else { continue };
+        let Some(url) = instance
+            .icone_url
+            .clone()
+            .filter(|_| !instance.chemin_icone().exists())
+        else {
+            continue;
+        };
         let (a, nom) = (app.clone(), instance.nom.clone());
         lancer(async move {
             use slint::Model;
-            let Some(image) = images::depuis_url(&a, &url).await else { return };
+            let Some(image) = images::depuis_url(&a, &url).await else {
+                return;
+            };
             let liste = h(&a).get_profile_items();
             // la liste a pu changer entre-temps : on vérifie que c'est toujours ce profil
             if let Some(mut item) = liste.row_data(i).filter(|item| item.name.as_str() == nom) {
@@ -652,14 +728,22 @@ fn charger_profils(app: &Rc<App>) {
 fn maj_mode_profil(app: &Rc<App>) {
     let (profil, version, modes_charges, installation, jeu) = {
         let e = app.home.borrow();
-        (e.profil.clone(), e.version_choisie.clone(), e.modes_charges, e.installation_en_cours, e.jeux_en_cours > 0)
+        (
+            e.profil.clone(),
+            e.version_choisie.clone(),
+            e.modes_charges,
+            e.installation_en_cours,
+            e.jeux_en_cours > 0,
+        )
     };
     let s = h(app);
     s.set_quick(profil.is_none());
 
     match &profil {
         Some(p) => {
-            s.set_card_label(format!("{} · {}", loc::t("Home_Profil"), p.nom.to_uppercase()).into());
+            s.set_card_label(
+                format!("{} · {}", loc::t("Home_Profil"), p.nom.to_uppercase()).into(),
+            );
             s.set_card_version(p.version_mc.clone().into());
             s.set_card_loader(p.loader.to_uppercase().into());
             s.set_summary(resume_contenu(p).into());
@@ -692,8 +776,18 @@ fn maj_mode_profil(app: &Rc<App>) {
         }
         None => {
             s.set_card_label(loc::t("Home_Version_Selected").into());
-            s.set_card_version(if version.is_empty() { "—".into() } else { version.into() });
-            let mode = app.home.borrow().modes.get(s.get_mode_index().max(0) as usize).cloned().unwrap_or_else(|| loaders::VANILLA.into());
+            s.set_card_version(if version.is_empty() {
+                "—".into()
+            } else {
+                version.into()
+            });
+            let mode = app
+                .home
+                .borrow()
+                .modes
+                .get(s.get_mode_index().max(0) as usize)
+                .cloned()
+                .unwrap_or_else(|| loaders::VANILLA.into());
             s.set_card_loader(mode.to_uppercase().into());
             s.set_has_card_icon(false);
         }
@@ -720,7 +814,11 @@ fn resume_contenu(instance: &Instance) -> String {
     if compte.is_empty() {
         return loc::t("Home_AucunContenu");
     }
-    compte.iter().map(|(t, n)| format!("{n} {}", content::libelle_nombre(t, *n))).collect::<Vec<_>>().join(" · ")
+    compte
+        .iter()
+        .map(|(t, n)| format!("{n} {}", content::libelle_nombre(t, *n)))
+        .collect::<Vec<_>>()
+        .join(" · ")
 }
 
 /// Sélectionne un profil et lance la partie (depuis la page Profils).
@@ -754,7 +852,11 @@ async fn charger_versions(app: &Rc<App>) {
                             _ => return None,
                         };
                         let annee = v.release_time.get(..4).unwrap_or("").to_string();
-                        Some(super::picker::Entree { id: v.id, kind, annee })
+                        Some(super::picker::Entree {
+                            id: v.id,
+                            kind,
+                            annee,
+                        })
                     })
                     .collect();
                 app.home.borrow_mut().toutes = toutes;
@@ -763,7 +865,12 @@ async fn charger_versions(app: &Rc<App>) {
         }
         Err(e) => {
             statut(app, &loc::t("Home_VersionsImpossible"));
-            dialogs::erreur(app, &loc::t("Home_VersionsIndisponibles"), &loc::tf("Home_VersionsErreur", &[&e])).await;
+            dialogs::erreur(
+                app,
+                &loc::t("Home_VersionsIndisponibles"),
+                &loc::tf("Home_VersionsErreur", &[&e]),
+            )
+            .await;
         }
     }
 }
@@ -773,7 +880,12 @@ async fn charger_versions(app: &Rc<App>) {
 fn filtrer_versions(app: &App) {
     use super::picker;
     let s = h(app);
-    let mut types = [s.get_picker_release(), s.get_picker_snapshot(), s.get_picker_beta(), s.get_picker_alpha()];
+    let mut types = [
+        s.get_picker_release(),
+        s.get_picker_snapshot(),
+        s.get_picker_beta(),
+        s.get_picker_alpha(),
+    ];
     // aucun type coché : les releases reviennent (une liste vide n'aurait rien à proposer)
     if !types.iter().any(|&t| t) {
         s.set_picker_release(true);
@@ -785,7 +897,9 @@ fn filtrer_versions(app: &App) {
         let e = app.home.borrow();
         let mut groupes: Vec<(String, Vec<picker::Entree>)> = Vec::new();
         for v in e.toutes.iter().filter(|v| {
-            types[v.kind as usize] && picker::compatible(&v.id, loader) && (recherche.is_empty() || v.id.to_lowercase().contains(&recherche))
+            types[v.kind as usize]
+                && picker::compatible(&v.id, loader)
+                && (recherche.is_empty() || v.id.to_lowercase().contains(&recherche))
         }) {
             let cle = picker::cle_groupe(&v.id, v.kind);
             match groupes.iter_mut().find(|(c, _)| *c == cle) {
@@ -806,21 +920,46 @@ fn filtrer_versions(app: &App) {
         .iter()
         .map(|(cle, liste)| {
             let (titre, nom) = picker::titre_groupe(cle);
-            let annees: Vec<&str> = liste.iter().map(|v| v.annee.as_str()).filter(|a| !a.is_empty()).collect();
-            let (min, max) = (annees.iter().min().copied().unwrap_or(""), annees.iter().max().copied().unwrap_or(""));
+            let annees: Vec<&str> = liste
+                .iter()
+                .map(|v| v.annee.as_str())
+                .filter(|a| !a.is_empty())
+                .collect();
+            let (min, max) = (
+                annees.iter().min().copied().unwrap_or(""),
+                annees.iter().max().copied().unwrap_or(""),
+            );
             crate::VersionGroup {
                 key: cle.clone().into(),
                 title: titre.into(),
                 name: nom.into(),
                 art: picker::illustration(cle),
-                count: if liste.len() == 1 { loc::t("Ver_Nombre1") } else { loc::tf("Ver_Nombre", &[&liste.len()]) }.into(),
-                years: if min == max { min.to_string() } else { format!("{min} – {max}") }.into(),
+                count: if liste.len() == 1 {
+                    loc::t("Ver_Nombre1")
+                } else {
+                    loc::tf("Ver_Nombre", &[&liste.len()])
+                }
+                .into(),
+                years: if min == max {
+                    min.to_string()
+                } else {
+                    format!("{min} – {max}")
+                }
+                .into(),
             }
         })
         .collect();
     let sous: Vec<crate::VersionItem> = groupes
         .get(choisi)
-        .map(|(_, liste)| liste.iter().map(|v| crate::VersionItem { id: v.id.clone().into(), kind: v.kind }).collect())
+        .map(|(_, liste)| {
+            liste
+                .iter()
+                .map(|v| crate::VersionItem {
+                    id: v.id.clone().into(),
+                    kind: v.kind,
+                })
+                .collect()
+        })
         .unwrap_or_default();
     {
         let mut e = app.home.borrow_mut();
@@ -830,7 +969,11 @@ fn filtrer_versions(app: &App) {
         }
     }
     s.set_picker_groups(modele(cartes));
-    s.set_picker_group(if groupes.is_empty() { -1 } else { choisi as i32 });
+    s.set_picker_group(if groupes.is_empty() {
+        -1
+    } else {
+        choisi as i32
+    });
     s.set_picker_sub(modele(sous));
 }
 
@@ -839,7 +982,8 @@ fn filtrer_versions(app: &App) {
 async fn version_choisie_par_id(app: &Rc<App>, id: String) {
     h(app).set_horizon_selected(false);
     misty_quitter(app);
-    app.home.borrow_mut().loader_voulu = super::picker::nom_loader(h(app).get_picker_loader()).map(str::to_string);
+    app.home.borrow_mut().loader_voulu =
+        super::picker::nom_loader(h(app).get_picker_loader()).map(str::to_string);
     aller_a_version(app, id).await;
 }
 
@@ -871,7 +1015,10 @@ fn charger_derniere_version(app: &Rc<App>) {
     let derniere = settings::get(settings::LAST_VERSION);
     let index = {
         let e = app.home.borrow();
-        e.versions.iter().position(|v| *v == derniere).or(if e.versions.is_empty() { None } else { Some(0) }) // la plus récente
+        e.versions
+            .iter()
+            .position(|v| *v == derniere)
+            .or(if e.versions.is_empty() { None } else { Some(0) }) // la plus récente
     };
     if let Some(i) = index {
         h(app).set_version_index(i as i32);
@@ -888,7 +1035,12 @@ async fn recharger_versions(app: &Rc<App>) {
     }
     charger_versions(app).await;
 
-    let index = app.home.borrow().versions.iter().position(|v| *v == actuelle);
+    let index = app
+        .home
+        .borrow()
+        .versions
+        .iter()
+        .position(|v| *v == actuelle);
     match index {
         Some(i) => h(app).set_version_index(i as i32),
         None => {
@@ -902,7 +1054,9 @@ async fn recharger_versions(app: &Rc<App>) {
 }
 
 async fn version_choisie(app: &Rc<App>, i: i32) {
-    let Some(version) = app.home.borrow().versions.get(i.max(0) as usize).cloned() else { return };
+    let Some(version) = app.home.borrow().versions.get(i.max(0) as usize).cloned() else {
+        return;
+    };
     {
         let mut e = app.home.borrow_mut();
         e.modes_charges = false;
@@ -922,7 +1076,9 @@ async fn version_choisie(app: &Rc<App>, i: i32) {
     }
 
     let v = version.clone();
-    let modes = app.bg(async move { loaders::modes_disponibles(&v).await }).await;
+    let modes = app
+        .bg(async move { loaders::modes_disponibles(&v).await })
+        .await;
 
     // L'utilisateur a changé de version pendant le chargement : on laisse la nouvelle sélection gérer
     if app.home.borrow().version_choisie != version {
@@ -931,7 +1087,9 @@ async fn version_choisie(app: &Rc<App>, i: i32) {
     h(app).set_modes(modele_textes(&modes));
     // loader filtré dans la fenêtre de choix : présélectionné s'il existe pour cette version
     let voulu = app.home.borrow_mut().loader_voulu.take();
-    let index = voulu.and_then(|l| modes.iter().position(|m| *m == l)).unwrap_or(0);
+    let index = voulu
+        .and_then(|l| modes.iter().position(|m| *m == l))
+        .unwrap_or(0);
     h(app).set_mode_index(index as i32);
     if index > 0 && app.home.borrow().profil.is_none() {
         h(app).set_card_loader(modes[index].to_uppercase().into());
@@ -951,15 +1109,30 @@ async fn version_choisie(app: &Rc<App>, i: i32) {
 // ───────────────────────── Lancement ─────────────────────────
 
 async fn jouer(app: &Rc<App>) {
-    let misty = h(app).get_misty_selected() && app.home.borrow().profil.is_none() && client::disponible();
+    let misty =
+        h(app).get_misty_selected() && app.home.borrow().profil.is_none() && client::disponible();
     let (instance, version, mode) = if misty {
-        (None, h(app).get_misty_mc().to_string(), loaders::FABRIC.to_string())
+        (
+            None,
+            h(app).get_misty_mc().to_string(),
+            loaders::FABRIC.to_string(),
+        )
     } else {
         let e = app.home.borrow();
-        let mode_rapide = e.modes.get(h(app).get_mode_index().max(0) as usize).cloned().unwrap_or_else(|| loaders::VANILLA.into());
+        let mode_rapide = e
+            .modes
+            .get(h(app).get_mode_index().max(0) as usize)
+            .cloned()
+            .unwrap_or_else(|| loaders::VANILLA.into());
         let instance = e.profil.clone();
-        let version = instance.as_ref().map(|i| i.version_mc.clone()).unwrap_or_else(|| e.version_choisie.clone());
-        let mode = instance.as_ref().map(|i| i.loader.clone()).unwrap_or(mode_rapide);
+        let version = instance
+            .as_ref()
+            .map(|i| i.version_mc.clone())
+            .unwrap_or_else(|| e.version_choisie.clone());
+        let mode = instance
+            .as_ref()
+            .map(|i| i.loader.clone())
+            .unwrap_or(mode_rapide);
         (instance, version, mode)
     };
     if version.is_empty() || app.home.borrow().installation_en_cours {
@@ -984,11 +1157,16 @@ async fn jouer(app: &Rc<App>) {
     // Téléchargement de la version et du loader (annulable)
     let an = debut_annulable(app);
     let progression = progression_fichiers(app);
-    let (v, m, lv) = (version.clone(), mode.clone(), instance.as_ref().and_then(|i| i.loader_version.clone()));
+    let (v, m, lv) = (
+        version.clone(),
+        mode.clone(),
+        instance.as_ref().and_then(|i| i.loader_version.clone()),
+    );
     let resultat = an
         .tache(app, async move {
             let dirs = McDirs::misty();
-            let nom_version = loaders::installer(&dirs, &v, &m, lv.as_deref(), progression.clone()).await?;
+            let nom_version =
+                loaders::installer(&dirs, &v, &m, lv.as_deref(), progression.clone()).await?;
             install::installer(&dirs, &nom_version, progression).await
         })
         .await;
@@ -1006,7 +1184,12 @@ async fn jouer(app: &Rc<App>) {
         }
         Err(e) => {
             statut(app, &loc::t("Home_EchecTelechargement"));
-            dialogs::erreur(app, &loc::t("Home_TelechargementImpossible"), &format!("{e:#}")).await;
+            dialogs::erreur(
+                app,
+                &loc::t("Home_TelechargementImpossible"),
+                &format!("{e:#}"),
+            )
+            .await;
         }
     }
 
@@ -1022,21 +1205,44 @@ async fn jouer(app: &Rc<App>) {
 /// Le compte choisi maintenant : la session Microsoft, sinon le pseudo hors ligne.
 fn joueur_actuel(app: &App) -> launch::Joueur {
     match account::session() {
-        Some(s) => launch::Joueur { pseudo: s.pseudo, uuid: s.uuid, jeton: s.jeton, xuid: s.xuid, type_compte: "msa".into() },
+        Some(s) => launch::Joueur {
+            pseudo: s.pseudo,
+            uuid: s.uuid,
+            jeton: s.jeton,
+            xuid: s.xuid,
+            type_compte: "msa".into(),
+        },
         None => {
             let pseudo = pseudo_actuel(app);
-            launch::Joueur { uuid: account::uuid_hors_ligne(&pseudo), pseudo, jeton: "0".into(), xuid: String::new(), type_compte: "legacy".into() }
+            launch::Joueur {
+                uuid: account::uuid_hors_ligne(&pseudo),
+                pseudo,
+                jeton: "0".into(),
+                xuid: String::new(),
+                type_compte: "legacy".into(),
+            }
         }
     }
 }
 
-async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install::VersionInstallee, instance: Option<Instance>, joueur: launch::Joueur, misty: bool) {
+async fn lancer_jeu(
+    app: &Rc<App>,
+    version: &str,
+    mode: &str,
+    installee: install::VersionInstallee,
+    instance: Option<Instance>,
+    joueur: launch::Joueur,
+    misty: bool,
+) {
     let pseudo_joueur = joueur.pseudo.clone();
     // Un profil a son propre dossier de jeu (mods, options, mondes) ; le jeu rapide utilise le dossier principal
     let options = launch::Options {
         joueur,
         ram_mo: settings::ram_mo(),
-        dossier_jeu: instance.as_ref().map(|i| i.dossier()).unwrap_or_else(crate::services::paths::data_dir),
+        dossier_jeu: instance
+            .as_ref()
+            .map(|i| i.dossier())
+            .unwrap_or_else(crate::services::paths::data_dir),
     };
 
     let titre = match &instance {
@@ -1046,7 +1252,11 @@ async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install
     };
     // Misty Client : posé dans les mods du profil s'il le supporte, retiré sinon (toujours posé
     // quand on lance la version Misty)
-    let voulu = misty || instance.as_ref().map(client::voulu).unwrap_or_else(client::active);
+    let voulu = misty
+        || instance
+            .as_ref()
+            .map(client::voulu)
+            .unwrap_or_else(client::active);
     // le jar de cette version, téléchargé depuis GitHub la première fois
     // une nouvelle release du mod a pu sortir depuis le démarrage du launcher
     if voulu && app.bg(client::actualiser_si_ancien()).await {
@@ -1055,7 +1265,11 @@ async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install
     let jar = if voulu && client::compatible(version, mode) {
         statut(app, &loc::t("Home_TelechargementClient"));
         let v = version.to_string();
-        match app.bg(async move { client::telecharger(&v).await }).await.and_then(|chemin| Ok(std::fs::read(chemin)?)) {
+        match app
+            .bg(async move { client::telecharger(&v).await })
+            .await
+            .and_then(|chemin| Ok(std::fs::read(chemin)?))
+        {
             Ok(octets) => Some(octets),
             Err(e) => {
                 journal::info(&format!("Mistly Client non téléchargé ({e:#}) : la partie démarre sans le mettre à jour"));
@@ -1074,7 +1288,9 @@ async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install
     if super::console::auto() {
         super::console::ouvrir(app);
     }
-    let resultat = app.bloquant(move || launch::lancer(&McDirs::misty(), &installee, &options)).await;
+    let resultat = app
+        .bloquant(move || launch::lancer(&McDirs::misty(), &installee, &options))
+        .await;
     let mut processus = match resultat {
         Ok(p) => p,
         Err(e) => {
@@ -1086,16 +1302,32 @@ async fn lancer_jeu(app: &Rc<App>, version: &str, mode: &str, installee: install
         }
     };
     let fils = journal::suivre(partie, &mut processus, None);
-    telemetry::evenement("game_start", serde_json::json!({ "minecraft": version, "loader": mode, "profile": instance.is_some() }));
+    telemetry::evenement(
+        "game_start",
+        serde_json::json!({ "minecraft": version, "loader": mode, "profile": instance.is_some() }),
+    );
     let (v_tel, m_tel, pseudo_tel) = (version.to_string(), mode.to_string(), pseudo_joueur.clone());
 
     let detail = match &instance {
         Some(i) => format!("{mode} · {}", i.nom),
         None => mode.to_string(),
     };
-    discord::definir(discord::Statut::EnJeu { version: version.to_string(), mode: detail, pseudo: pseudo_joueur });
+    discord::definir(discord::Statut::EnJeu {
+        version: version.to_string(),
+        mode: detail,
+        pseudo: pseudo_joueur,
+    });
     app.home.borrow_mut().jeux_en_cours += 1;
-    statut(app, &loc::tf("Home_Lance", &[&instance.as_ref().map(|i| i.nom.clone()).unwrap_or_else(|| format!("Minecraft {version}"))]));
+    statut(
+        app,
+        &loc::tf(
+            "Home_Lance",
+            &[&instance
+                .as_ref()
+                .map(|i| i.nom.clone())
+                .unwrap_or_else(|| format!("Minecraft {version}"))],
+        ),
+    );
 
     if let Some(mut i) = instance {
         i.dernier_lancement = Some(chrono::Local::now());
@@ -1152,7 +1384,10 @@ fn progression_fichiers(app: &Rc<App>) -> FileProgress {
         if total == 0 {
             return;
         }
-        let maintenant = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+        let maintenant = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
         if fait < total && maintenant.saturating_sub(derniere.load(Ordering::Relaxed)) < 50 {
             return;
         }
@@ -1161,7 +1396,12 @@ fn progression_fichiers(app: &Rc<App>) -> FileProgress {
         let texte = loc::tf("Home_Telechargement", &[&nom]);
         let _ = faible.upgrade_in_event_loop(move |ui| {
             if let Some(a) = crate::APP.with(|a| a.borrow().clone()) {
-                if a.home.borrow().annulation.as_ref().is_some_and(|an| an.annulee()) {
+                if a.home
+                    .borrow()
+                    .annulation
+                    .as_ref()
+                    .is_some_and(|an| an.annulee())
+                {
                     return;
                 }
                 afficher_progression(&a, pourcentage, &texte);
@@ -1264,15 +1504,31 @@ async fn horizon_rafraichir(app: &Rc<App>) {
 /// Télécharge le build choisi s'il n'est pas encore là (au lancement, comme une version de
 /// Minecraft : choisir un build ne télécharge rien). L'avancement s'affiche dans la barre du bas et
 /// sur la puce du build. Renvoie son dossier.
-async fn horizon_telecharger(app: &Rc<App>, an: &Annulation, tag: &str) -> anyhow::Result<std::path::PathBuf> {
+async fn horizon_telecharger(
+    app: &Rc<App>,
+    an: &Annulation,
+    tag: &str,
+) -> anyhow::Result<std::path::PathBuf> {
     if let Some(dossier) = horizon::dossier_build(tag) {
         return Ok(dossier);
     }
     // la liste des builds n'est pas encore chargée (build choisi lors d'un lancement précédent)
-    if !app.home.borrow().horizon_builds.iter().any(|b| b.tag == tag) {
+    if !app
+        .home
+        .borrow()
+        .horizon_builds
+        .iter()
+        .any(|b| b.tag == tag)
+    {
         horizon_rafraichir(app).await;
     }
-    let build = app.home.borrow().horizon_builds.iter().find(|b| b.tag == tag).cloned();
+    let build = app
+        .home
+        .borrow()
+        .horizon_builds
+        .iter()
+        .find(|b| b.tag == tag)
+        .cloned();
     let build = build.ok_or_else(|| anyhow::anyhow!(loc::tf("Hz_BuildIntrouvable", &[&tag])))?;
     let s = h(app);
     s.set_horizon_busy(true);
@@ -1302,11 +1558,20 @@ async fn horizon_telecharger(app: &Rc<App>, an: &Annulation, tag: &str) -> anyho
     s.set_horizon_busy_tag("".into());
     horizon_afficher(app);
     resultat?;
-    horizon::dossier_build(tag).ok_or_else(|| anyhow::anyhow!(loc::tf("Hz_BuildIntrouvable", &[&tag])))
+    horizon::dossier_build(tag)
+        .ok_or_else(|| anyhow::anyhow!(loc::tf("Hz_BuildIntrouvable", &[&tag])))
 }
 
 async fn horizon_supprimer(app: &Rc<App>, tag: String) {
-    let ok = dialogs::confirmer(app, &loc::t("Hz_Supprimer"), &tag, Some(&loc::t("Commun_Supprimer")), None, true).await;
+    let ok = dialogs::confirmer(
+        app,
+        &loc::t("Hz_Supprimer"),
+        &tag,
+        Some(&loc::t("Commun_Supprimer")),
+        None,
+        true,
+    )
+    .await;
     if !ok {
         return;
     }
@@ -1325,7 +1590,9 @@ fn maj_misty_client(app: &App) {
     s.set_misty_versions(modele_textes(&versions));
     let misty = version_misty();
     s.set_misty_mc(misty.as_str().into());
-    s.set_misty_art(super::picker::illustration(&super::picker::cle_groupe(&misty, 0)));
+    s.set_misty_art(super::picker::illustration(&super::picker::cle_groupe(
+        &misty, 0,
+    )));
     let reglages = app.ui.global::<crate::SettingsState>();
     reglages.set_misty_client_available(client::disponible());
     reglages.set_misty_client_mc(client::versions_texte().into());
@@ -1352,7 +1619,9 @@ fn misty_choisir(app: &Rc<App>, version: String) {
     }
     let s = h(app);
     s.set_misty_mc(version.as_str().into());
-    s.set_misty_art(super::picker::illustration(&super::picker::cle_groupe(&version, 0)));
+    s.set_misty_art(super::picker::illustration(&super::picker::cle_groupe(
+        &version, 0,
+    )));
     settings::set(settings::MISTY_VERSION, &version);
     s.set_horizon_selected(false);
     s.set_misty_selected(true);
@@ -1404,8 +1673,15 @@ fn horizon_ouvrir_panneau(app: &App) {
 async fn horizon_jouer(app: &Rc<App>) {
     // compte Microsoft : session en ligne (avec un jeton qui tiendra la partie) ; sinon hors ligne,
     // sous le pseudo choisi
-    let compte = if account::session().is_some() { app.bg(account::session_pour_jouer()).await } else { None };
-    let pseudo = compte.as_ref().map(|c| c.pseudo.clone()).unwrap_or_else(|| pseudo_actuel(app));
+    let compte = if account::session().is_some() {
+        app.bg(account::session_pour_jouer()).await
+    } else {
+        None
+    };
+    let pseudo = compte
+        .as_ref()
+        .map(|c| c.pseudo.clone())
+        .unwrap_or_else(|| pseudo_actuel(app));
     let tag = h(app).get_horizon_build().to_string();
     if tag.is_empty() {
         horizon_ouvrir_panneau(app);

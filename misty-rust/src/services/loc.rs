@@ -65,19 +65,29 @@ pub fn charger(code: &str) {
     } else {
         DEFAUT
     };
-    let etat = Etat { code: code.to_string(), textes: lire(code), secours: lire(DEFAUT) };
+    let etat = Etat {
+        code: code.to_string(),
+        textes: lire(code),
+        secours: lire(DEFAUT),
+    };
     *ETAT.write().unwrap() = Some(etat);
 }
 
 /// Code de la langue actuelle ("fr", "en"…).
 pub fn code() -> String {
-    ETAT.read().unwrap().as_ref().map(|e| e.code.clone()).unwrap_or_else(|| DEFAUT.to_string())
+    ETAT.read()
+        .unwrap()
+        .as_ref()
+        .map(|e| e.code.clone())
+        .unwrap_or_else(|| DEFAUT.to_string())
 }
 
 /// Texte traduit.
 pub fn t(cle: &str) -> String {
     let etat = ETAT.read().unwrap();
-    let Some(etat) = etat.as_ref() else { return cle.to_string() };
+    let Some(etat) = etat.as_ref() else {
+        return cle.to_string();
+    };
     etat.textes
         .get(cle)
         .or_else(|| etat.secours.get(cle))
@@ -103,7 +113,10 @@ pub fn disponibles() -> Vec<LangueInfo> {
             LangueInfo {
                 code: code.to_string(),
                 nom: d.get("_nom").cloned().unwrap_or_else(|| code.to_string()),
-                pays: d.get("_drapeau").cloned().unwrap_or_else(|| code.to_string()),
+                pays: d
+                    .get("_drapeau")
+                    .cloned()
+                    .unwrap_or_else(|| code.to_string()),
             }
         })
         .collect();

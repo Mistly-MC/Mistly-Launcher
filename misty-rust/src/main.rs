@@ -54,7 +54,10 @@ fn main() {
     // Le launcher attend surtout le réseau et le disque : 2 à 4 fils suffisent, au lieu d'un par
     // cœur (16 ou plus sur les processeurs récents). Les calculs longs passent par
     // `spawn_blocking`, dont les fils sont créés à la demande puis rendus.
-    let fils = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(2, 4);
+    let fils = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .clamp(2, 4);
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(fils)
         .max_blocking_threads(64)
@@ -64,7 +67,11 @@ fn main() {
 
     let _ = std::fs::create_dir_all(services::paths::data_dir());
     services::journal::capturer_paniques();
-    services::journal::info(&format!("Démarrage de Misty {} ({})", services::app_info::VERSION, services::system_info::version_windows()));
+    services::journal::info(&format!(
+        "Démarrage de Misty {} ({})",
+        services::app_info::VERSION,
+        services::system_info::version_windows()
+    ));
     services::telemetry::init(runtime.handle().clone());
     services::presence::demarrer(runtime.handle());
     services::musique::demarrer();
@@ -101,7 +108,11 @@ fn main() {
 #[cfg(debug_assertions)]
 fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
     use slint::winit_030::WinitWindowAccessor;
-    app.ui.window().with_winit_window(|w| w.set_outer_position(slint::winit_030::winit::dpi::PhysicalPosition::new(-6000, -6000)));
+    app.ui.window().with_winit_window(|w| {
+        w.set_outer_position(slint::winit_030::winit::dpi::PhysicalPosition::new(
+            -6000, -6000,
+        ))
+    });
     let _ = std::fs::create_dir_all(&dossier);
 
     async fn attendre(ms: u64) {
@@ -113,9 +124,13 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
     }
     let photo = |app: &ui::App, nom: &str, dossier: &std::path::Path| {
         // Windows réduit parfois la fenêtre posée hors de l'écran : la photo ferait 160 × 28
-        app.ui.window().with_winit_window(|w| w.set_minimized(false));
+        app.ui
+            .window()
+            .with_winit_window(|w| w.set_minimized(false));
         if let Ok(b) = app.ui.window().take_snapshot() {
-            if let Some(img) = image::RgbaImage::from_raw(b.width(), b.height(), b.as_bytes().to_vec()) {
+            if let Some(img) =
+                image::RgbaImage::from_raw(b.width(), b.height(), b.as_bytes().to_vec())
+            {
                 let _ = img.save(dossier.join(format!("{nom}.png")));
             }
         }
@@ -152,7 +167,11 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
                 app.ui.global::<DialogState>().invoke_cancel();
             }
             let theme = app.ui.global::<Theme>();
-            for (mode, taille, suffixe) in [(0, None, "clair"), (1, None, "sombre"), (0, Some((1040.0, 680.0)), "etroit")] {
+            for (mode, taille, suffixe) in [
+                (0, None, "clair"),
+                (1, None, "sombre"),
+                (0, Some((1040.0, 680.0)), "etroit"),
+            ] {
                 theme.set_mode(mode);
                 if let Some((l, h)) = taille {
                     app.ui.window().set_size(slint::LogicalSize::new(l, h));
@@ -208,7 +227,9 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
             if app.ui.global::<DialogState>().get_visible() {
                 app.ui.global::<DialogState>().invoke_cancel();
             }
-            app.ui.window().set_size(slint::LogicalSize::new(1040.0, 680.0));
+            app.ui
+                .window()
+                .set_size(slint::LogicalSize::new(1040.0, 680.0));
             attendre(1000).await;
             let accueil = app.ui.global::<HomeState>();
             accueil.set_picker_tab(0);
@@ -268,7 +289,11 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
             if app.ui.global::<DialogState>().get_visible() {
                 app.ui.global::<DialogState>().invoke_cancel();
             }
-            for (mode, taille, suffixe) in [(0, None, "clair"), (1, None, "sombre"), (0, Some((1040.0, 680.0)), "etroit")] {
+            for (mode, taille, suffixe) in [
+                (0, None, "clair"),
+                (1, None, "sombre"),
+                (0, Some((1040.0, 680.0)), "etroit"),
+            ] {
                 app.ui.global::<Theme>().set_mode(mode);
                 if let Some((l, h)) = taille {
                     app.ui.window().set_size(slint::LogicalSize::new(l, h));
@@ -357,7 +382,12 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
             st.set_anim(0);
             st.set_elytra(false);
             st.invoke_elytra_toggled();
-            for (cat, nom) in [(0, "0j-cadre-capes"), (2, "0k-cadre-chapeaux"), (5, "0l-cadre-compagnons"), (7, "0m-cadre-tags")] {
+            for (cat, nom) in [
+                (0, "0j-cadre-capes"),
+                (2, "0k-cadre-chapeaux"),
+                (5, "0l-cadre-compagnons"),
+                (7, "0m-cadre-tags"),
+            ] {
                 st.set_category(cat);
                 st.set_focus(true);
                 st.set_focus_count(st.get_focus_count() + 1);
@@ -367,7 +397,9 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
             st.set_focus(false);
             // la grille des cosmétiques (capes, chapeaux), dans une fenêtre assez haute pour la voir
             let taille = app.ui.window().size();
-            app.ui.window().set_size(slint::LogicalSize::new(1180.0, 1180.0));
+            app.ui
+                .window()
+                .set_size(slint::LogicalSize::new(1180.0, 1180.0));
             for (cat, nom) in [(0, "0n-grille-capes"), (2, "0o-grille-chapeaux")] {
                 st.set_category(cat);
                 attendre(1500).await;
@@ -423,8 +455,17 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
             photo(&app, &format!("0-accueil-{suffixe}"), &dossier);
         }
         // MISTY_CAPTURE_SOMBRE : les autres pages aussi en thème sombre
-        theme.set_mode(if std::env::var("MISTY_CAPTURE_SOMBRE").is_ok() { 1 } else { mode_avant });
-        for (page, nom) in [(1, "1-profils"), (3, "3-notes"), (4, "4-packs"), (8, "7-amis")] {
+        theme.set_mode(if std::env::var("MISTY_CAPTURE_SOMBRE").is_ok() {
+            1
+        } else {
+            mode_avant
+        });
+        for (page, nom) in [
+            (1, "1-profils"),
+            (3, "3-notes"),
+            (4, "4-packs"),
+            (8, "7-amis"),
+        ] {
             match page {
                 1 => ui::profiles::rafraichir(&app),
                 4 => ui::packs::rafraichir(&app),
@@ -446,7 +487,10 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
         }
         // Données de démonstration (MISTY_DATA_DIR) : pas d'éditeur, il téléchargerait le jeu pour ses textures
         let demo = std::env::var_os("MISTY_DATA_DIR").is_some();
-        if let Some(p) = services::packs::lister().into_iter().find(|p| !demo && !p.version_mc.is_empty()) {
+        if let Some(p) = services::packs::lister()
+            .into_iter()
+            .find(|p| !demo && !p.version_mc.is_empty())
+        {
             ui::editor::ouvrir(&app, p);
             attendre(5000).await;
             app.ui.global::<EditorState>().invoke_select(0);
@@ -456,7 +500,9 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
         // Fenêtre agrandie : la mise en page doit suivre
         app.ui.global::<AppState>().set_page(0);
         app.ui.global::<AppState>().set_nav(0);
-        app.ui.window().set_size(slint::LogicalSize::new(1600.0, 960.0));
+        app.ui
+            .window()
+            .set_size(slint::LogicalSize::new(1600.0, 960.0));
         attendre(1500).await;
         photo(&app, "8-grand-accueil", &dossier);
         ui::settings::ouvrir(&app);
@@ -496,8 +542,12 @@ fn preparer_fenetre(app: &ui::App) {
 #[cfg(windows)]
 fn coins_arrondis(w: &slint::winit_030::winit::window::Window) {
     use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-    use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND};
-    let Ok(handle) = w.window_handle() else { return };
+    use windows_sys::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
+    };
+    let Ok(handle) = w.window_handle() else {
+        return;
+    };
     if let RawWindowHandle::Win32(h) = handle.as_raw() {
         let preference = DWMWCP_ROUND;
         // SAFETY : HWND valide (fenêtre affichée) et pointeur vers une valeur de 4 octets, comme l'exige l'API.

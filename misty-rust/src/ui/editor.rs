@@ -121,7 +121,9 @@ pub fn installer(app: &Rc<App>) {
     });
     let a = app.clone();
     st.on_export(move || {
-        let Some(p) = a.editor.borrow().pack.clone() else { return };
+        let Some(p) = a.editor.borrow().pack.clone() else {
+            return;
+        };
         enregistrer_si_besoin(&a);
         let a = a.clone();
         lancer(async move {
@@ -139,7 +141,13 @@ pub fn installer(app: &Rc<App>) {
     });
     let a = app.clone();
     st.on_category_changed(move |i| {
-        let tag = a.editor.borrow().tags.get(i as usize).cloned().unwrap_or_default();
+        let tag = a
+            .editor
+            .borrow()
+            .tags
+            .get(i as usize)
+            .cloned()
+            .unwrap_or_default();
         a.editor.borrow_mut().categorie = tag;
         s(&a).set_search("".into());
         afficher_textures(&a);
@@ -175,7 +183,15 @@ pub fn installer(app: &Rc<App>) {
             return;
         }
         let st = s(&a);
-        set_couleur(&a, [st.get_red() as u8, st.get_green() as u8, st.get_blue() as u8], true);
+        set_couleur(
+            &a,
+            [
+                st.get_red() as u8,
+                st.get_green() as u8,
+                st.get_blue() as u8,
+            ],
+            true,
+        );
     });
     let a = app.clone();
     st.on_hex_changed(move |texte| {
@@ -241,15 +257,25 @@ async fn charger(app: &Rc<App>, p: PackInfo) {
     st.set_textures(modele(Vec::new()));
     st.set_search("".into());
     st.set_info(format!("MINECRAFT {}", p.version_mc).into());
-    message(app, &loc::tf("Editeur_ChargementTemplate", &[&p.version_mc]));
+    message(
+        app,
+        &loc::tf("Editeur_ChargementTemplate", &[&p.version_mc]),
+    );
 
     let progression = app.progression(move |ui, texte| {
-        if crate::APP.with(|a| a.borrow().as_ref().map(|a| a.editor.borrow().chargement_pack)) == Some(moi) {
+        if crate::APP.with(|a| {
+            a.borrow()
+                .as_ref()
+                .map(|a| a.editor.borrow().chargement_pack)
+        }) == Some(moi)
+        {
             ui.global::<EditorState>().set_message(texte.into());
         }
     });
     let version = p.version_mc.clone();
-    let resultat = app.bg(async move { packs::template(&version, progression).await }).await;
+    let resultat = app
+        .bg(async move { packs::template(&version, progression).await })
+        .await;
     if app.editor.borrow().chargement_pack != moi {
         return; // un autre pack a été ouvert entre-temps
     }
@@ -257,7 +283,12 @@ async fn charger(app: &Rc<App>, p: PackInfo) {
         Ok((d, _)) => d,
         Err(e) => {
             message(app, "");
-            dialogs::erreur(app, &loc::t("Editeur_TemplateIndisponible"), &format!("{e:#}")).await;
+            dialogs::erreur(
+                app,
+                &loc::t("Editeur_TemplateIndisponible"),
+                &format!("{e:#}"),
+            )
+            .await;
             super::naviguer(app, super::page::PACKS);
             super::packs::rafraichir(app);
             return;
@@ -330,7 +361,14 @@ fn maj_icone(app: &App) {
 fn maj_info(app: &App) {
     let (version, total, modifiees) = {
         let e = app.editor.borrow();
-        (e.pack.as_ref().map(|p| p.version_mc.clone()).unwrap_or_default(), e.toutes.len(), e.toutes.iter().filter(|t| t.modifiee).count())
+        (
+            e.pack
+                .as_ref()
+                .map(|p| p.version_mc.clone())
+                .unwrap_or_default(),
+            e.toutes.len(),
+            e.toutes.iter().filter(|t| t.modifiee).count(),
+        )
     };
     maj_mode_perso(app, modifiees);
     s(app).set_info(loc::tf("Editeur_Info", &[&version, &total, &modifiees]).into());
@@ -367,11 +405,20 @@ fn construire_categories(app: &Rc<App>) {
     }
 
     // On garde la catégorie en cours si elle existe encore dans ce mode
-    let cible = if entrees.iter().any(|(t, _)| *t == categorie) { categorie } else { entrees[0].0.clone() };
+    let cible = if entrees.iter().any(|(t, _)| *t == categorie) {
+        categorie
+    } else {
+        entrees[0].0.clone()
+    };
     let items: Vec<CategoryItem> = entrees
         .iter()
         .map(|(t, n)| CategoryItem {
-            name: if t.is_empty() { loc::t("Editeur_Toutes") } else { loc::t(&format!("Cat_{t}")) }.into(),
+            name: if t.is_empty() {
+                loc::t("Editeur_Toutes")
+            } else {
+                loc::t(&format!("Cat_{t}"))
+            }
+            .into(),
             count: n.to_string().into(),
         })
         .collect();
@@ -392,9 +439,14 @@ fn afficher_textures(app: &Rc<App>) {
         let mut e = app.editor.borrow_mut();
         let source = (0..e.toutes.len()).filter(|&i| !e.perso || e.toutes[i].modifiee);
         let affichees: Vec<usize> = if filtre.is_empty() {
-            source.filter(|&i| e.categorie.is_empty() || e.toutes[i].categorie == e.categorie).collect()
+            source
+                .filter(|&i| e.categorie.is_empty() || e.toutes[i].categorie == e.categorie)
+                .collect()
         } else {
-            source.filter(|&i| e.toutes[i].chemin.to_lowercase().contains(&filtre)).take(400).collect()
+            source
+                .filter(|&i| e.toutes[i].chemin.to_lowercase().contains(&filtre))
+                .take(400)
+                .collect()
         };
         let items: Vec<TextureItem> = affichees
             .iter()
@@ -443,7 +495,9 @@ fn afficher_textures(app: &Rc<App>) {
         };
         for lot in a_charger.chunks(40) {
             let chemins: Vec<PathBuf> = lot.iter().map(|(_, _, c)| c.clone()).collect();
-            let tampons = a.bloquant(move || chemins.iter().map(|c| miniature(c)).collect::<Vec<_>>()).await;
+            let tampons = a
+                .bloquant(move || chemins.iter().map(|c| miniature(c)).collect::<Vec<_>>())
+                .await;
             if a.editor.borrow().generation != generation {
                 return; // une autre liste est affichée entre-temps
             }
@@ -464,20 +518,30 @@ fn afficher_textures(app: &Rc<App>) {
 fn miniature(chemin: &Path) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
     let img = image::open(chemin).ok()?.to_rgba8();
     let (l, h) = img.dimensions();
-    let img = if h > l && l > 0 && h % l == 0 { image::imageops::crop_imm(&img, 0, 0, l, l).to_image() } else { img };
+    let img = if h > l && l > 0 && h % l == 0 {
+        image::imageops::crop_imm(&img, 0, 0, l, l).to_image()
+    } else {
+        img
+    };
     Some(images::tampon(&img))
 }
 
 fn maj_selection(app: &App) {
     let e = app.editor.borrow();
-    let selection = e.courante.and_then(|c| e.affichees.iter().position(|&i| i == c)).map(|p| p as i32).unwrap_or(-1);
+    let selection = e
+        .courante
+        .and_then(|c| e.affichees.iter().position(|&i| i == c))
+        .map(|p| p as i32)
+        .unwrap_or(-1);
     s(app).set_selected(selection);
 }
 
 // ───────────────────────── Sélection d'une texture ─────────────────────────
 
 fn selectionner(app: &Rc<App>, ligne: usize) {
-    let Some(i) = app.editor.borrow().affichees.get(ligne).copied() else { return };
+    let Some(i) = app.editor.borrow().affichees.get(ligne).copied() else {
+        return;
+    };
     if app.editor.borrow().courante == Some(i) {
         return;
     }
@@ -488,14 +552,18 @@ fn selectionner(app: &Rc<App>, ligne: usize) {
 }
 
 fn ouvrir_texture(app: &Rc<App>, garder_zoom: bool) {
-    let Some(i) = app.editor.borrow().courante else { return };
+    let Some(i) = app.editor.borrow().courante else {
+        return;
+    };
     let fichier = app.editor.borrow().toutes[i].fichier().to_path_buf();
     let img = match image::open(&fichier) {
         Ok(img) => img.to_rgba8(),
         Err(e) => {
             fermer_texture(app);
             let a = app.clone();
-            lancer(async move { dialogs::erreur(&a, &loc::t("Editeur_TextureIllisible"), &e.to_string()).await });
+            lancer(async move {
+                dialogs::erreur(&a, &loc::t("Editeur_TextureIllisible"), &e.to_string()).await
+            });
             return;
         }
     };
@@ -570,7 +638,21 @@ fn damier(l: u32, h: u32) -> Image {
     for (n, p) in b.make_mut_slice().iter_mut().enumerate() {
         let (x, y) = (n % largeur, n / largeur);
         let fonce = ((x / 8) + (y / 8)) % 2 == 1;
-        *p = if fonce { Rgba8Pixel { r: 0xD5, g: 0xDD, b: 0xE8, a: 255 } } else { Rgba8Pixel { r: 0xF4, g: 0xF7, b: 0xFB, a: 255 } };
+        *p = if fonce {
+            Rgba8Pixel {
+                r: 0xD5,
+                g: 0xDD,
+                b: 0xE8,
+                a: 255,
+            }
+        } else {
+            Rgba8Pixel {
+                r: 0xF4,
+                g: 0xF7,
+                b: 0xFB,
+                a: 255,
+            }
+        };
     }
     Image::from_rgba8(b)
 }
@@ -582,7 +664,21 @@ fn grille(l: u32, h: u32, zoom: u32) -> Image {
     let zoom = zoom as usize;
     for (n, p) in b.make_mut_slice().iter_mut().enumerate() {
         let (x, y) = (n % largeur, n / largeur);
-        *p = if x % zoom == 0 || y % zoom == 0 { Rgba8Pixel { r: 0, g: 0, b: 0, a: 70 } } else { Rgba8Pixel { r: 0, g: 0, b: 0, a: 0 } };
+        *p = if x % zoom == 0 || y % zoom == 0 {
+            Rgba8Pixel {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 70,
+            }
+        } else {
+            Rgba8Pixel {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            }
+        };
     }
     Image::from_rgba8(b)
 }
@@ -608,7 +704,10 @@ fn pixel(app: &App, x: f32, y: f32) -> Option<(u32, u32)> {
     if e.zoom == 0 || x < 0.0 || y < 0.0 {
         return None;
     }
-    let (px, py) = ((x / e.zoom as f32).floor() as u32, (y / e.zoom as f32).floor() as u32);
+    let (px, py) = (
+        (x / e.zoom as f32).floor() as u32,
+        (y / e.zoom as f32).floor() as u32,
+    );
     (px < e.largeur && py < e.hauteur).then_some((px, py))
 }
 
@@ -625,7 +724,11 @@ fn pointeur_bas(app: &Rc<App>, x: f32, y: f32, droit: bool) {
     }
     {
         let mut e = app.editor.borrow_mut();
-        e.avant_trait = if e.outil == PIPETTE { None } else { Some(e.px.clone()) };
+        e.avant_trait = if e.outil == PIPETTE {
+            None
+        } else {
+            Some(e.px.clone())
+        };
         e.dessin = true;
         e.dernier = None;
     }
@@ -633,7 +736,9 @@ fn pointeur_bas(app: &Rc<App>, x: f32, y: f32, droit: bool) {
 }
 
 fn appliquer(app: &Rc<App>, x: f32, y: f32) {
-    let Some((px, py)) = pixel(app, x, y) else { return };
+    let Some((px, py)) = pixel(app, x, y) else {
+        return;
+    };
     let (outil, dernier) = {
         let e = app.editor.borrow();
         (e.outil, e.dernier)
@@ -662,7 +767,11 @@ fn appliquer(app: &Rc<App>, x: f32, y: f32) {
 
 fn peindre(e: &mut Etat, x: u32, y: u32) {
     let i = ((y * e.largeur + x) * 4) as usize;
-    let valeur = if e.outil == GOMME { [0, 0, 0, 0] } else { [e.couleur[0], e.couleur[1], e.couleur[2], 255] };
+    let valeur = if e.outil == GOMME {
+        [0, 0, 0, 0]
+    } else {
+        [e.couleur[0], e.couleur[1], e.couleur[2], 255]
+    };
     e.px[i..i + 4].copy_from_slice(&valeur);
 }
 
@@ -707,7 +816,9 @@ fn prendre(app: &Rc<App>, x: u32, y: u32, changer_outil: bool) {
 fn remplir(app: &App, x: u32, y: u32) {
     let mut e = app.editor.borrow_mut();
     let (l, h) = (e.largeur as usize, e.hauteur as usize);
-    let lire = |px: &[u8], n: usize| -> [u8; 4] { [px[n * 4], px[n * 4 + 1], px[n * 4 + 2], px[n * 4 + 3]] };
+    let lire = |px: &[u8], n: usize| -> [u8; 4] {
+        [px[n * 4], px[n * 4 + 1], px[n * 4 + 2], px[n * 4 + 3]]
+    };
     let depart = y as usize * l + x as usize;
     let cible = lire(&e.px, depart);
     let nouveau = [e.couleur[0], e.couleur[1], e.couleur[2], 255];
@@ -744,7 +855,9 @@ fn finir_trait(app: &Rc<App>) {
             return;
         }
         e.dessin = false;
-        let Some(avant) = e.avant_trait.take() else { return };
+        let Some(avant) = e.avant_trait.take() else {
+            return;
+        };
         if avant == e.px {
             return;
         }
@@ -782,7 +895,11 @@ fn hex(c: [u8; 3]) -> String {
 /// "#abc" = "#aabbcc"
 fn lire_hex(texte: &str) -> Option<[u8; 3]> {
     let h = texte.trim().trim_start_matches('#');
-    let h = if h.len() == 3 { h.chars().flat_map(|c| [c, c]).collect::<String>() } else { h.to_string() };
+    let h = if h.len() == 3 {
+        h.chars().flat_map(|c| [c, c]).collect::<String>()
+    } else {
+        h.to_string()
+    };
     if h.len() != 6 {
         return None;
     }
@@ -803,7 +920,11 @@ fn construire_palette(app: &App) {
             }
             let mut liste: Vec<([u8; 3], usize)> = compte.into_iter().collect();
             liste.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-            liste.into_iter().take(30).map(|(c, _)| couleur_slint(c)).collect()
+            liste
+                .into_iter()
+                .take(30)
+                .map(|(c, _)| couleur_slint(c))
+                .collect()
         }
     };
     s(app).set_palette(modele(couleurs));
@@ -903,20 +1024,34 @@ fn enregistrer(app: &Rc<App>) {
         if e.pack.is_none() || e.px.is_empty() {
             return;
         }
-        (i, e.toutes[i].chemin_pack.clone(), e.largeur, e.hauteur, e.px.clone())
+        (
+            i,
+            e.toutes[i].chemin_pack.clone(),
+            e.largeur,
+            e.hauteur,
+            e.px.clone(),
+        )
     };
 
     let resultat = (|| -> anyhow::Result<()> {
         if let Some(parent) = chemin.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let img = image::RgbaImage::from_raw(l, h, px).ok_or_else(|| anyhow::anyhow!("image invalide"))?;
+        let img = image::RgbaImage::from_raw(l, h, px)
+            .ok_or_else(|| anyhow::anyhow!("image invalide"))?;
         img.save_with_format(&chemin, image::ImageFormat::Png)?;
         Ok(())
     })();
     if let Err(e) = resultat {
         let a = app.clone();
-        lancer(async move { dialogs::erreur(&a, &loc::t("Editeur_EnregistrementImpossible"), &e.to_string()).await });
+        lancer(async move {
+            dialogs::erreur(
+                &a,
+                &loc::t("Editeur_EnregistrementImpossible"),
+                &e.to_string(),
+            )
+            .await
+        });
         return;
     }
 
@@ -941,7 +1076,9 @@ fn enregistrer(app: &Rc<App>) {
 fn maj_tuile(app: &App, i: usize) {
     let (ligne, m, t) = {
         let e = app.editor.borrow();
-        let Some(ligne) = e.affichees.iter().position(|&x| x == i) else { return };
+        let Some(ligne) = e.affichees.iter().position(|&x| x == i) else {
+            return;
+        };
         (ligne, e.modele.clone(), e.toutes[i].clone())
     };
     if let Some(m) = m {
@@ -1003,13 +1140,21 @@ async fn reinitialiser(app: &Rc<App>) {
 async fn editeur_externe(app: &Rc<App>) {
     let (i, dossier_pack, template, chemin) = {
         let e = app.editor.borrow();
-        let (Some(i), Some(p), Some(t)) = (e.courante, &e.pack, &e.dossier_template) else { return };
+        let (Some(i), Some(p), Some(t)) = (e.courante, &e.pack, &e.dossier_template) else {
+            return;
+        };
         (i, p.dossier.clone(), t.clone(), e.toutes[i].chemin.clone())
     };
 
     let mut editeur = packs::editeur().filter(|e| Path::new(e).exists());
     if editeur.is_none() {
-        if let Some(f) = dialogs::choisir_fichier(&loc::t("Editeur_ChoisirEditeur"), &loc::t("Editeur_FiltreExe"), &["exe"]).await {
+        if let Some(f) = dialogs::choisir_fichier(
+            &loc::t("Editeur_ChoisirEditeur"),
+            &loc::t("Editeur_FiltreExe"),
+            &["exe"],
+        )
+        .await
+        {
             let texte = f.to_string_lossy().to_string();
             packs::definir_editeur(&texte);
             editeur = Some(texte);
@@ -1017,7 +1162,12 @@ async fn editeur_externe(app: &Rc<App>) {
     }
 
     enregistrer_si_besoin(app);
-    match packs::modifier_texture(&dossier_pack, &template, &format!("{RACINE_TEXTURES}{chemin}"), editeur.as_deref()) {
+    match packs::modifier_texture(
+        &dossier_pack,
+        &template,
+        &format!("{RACINE_TEXTURES}{chemin}"),
+        editeur.as_deref(),
+    ) {
         Ok(()) => {
             let chemin_pack = {
                 let mut e = app.editor.borrow_mut();
@@ -1025,49 +1175,72 @@ async fn editeur_externe(app: &Rc<App>) {
                 e.externe = Some(i);
                 e.toutes[i].chemin_pack.clone()
             };
-            app.editor.borrow_mut().date_externe = std::fs::metadata(&chemin_pack).and_then(|m| m.modified()).ok();
+            app.editor.borrow_mut().date_externe = std::fs::metadata(&chemin_pack)
+                .and_then(|m| m.modified())
+                .ok();
             surveiller(app);
             maj_tuile(app, i);
             maj_titre(app);
             maj_info(app);
-            dialogs::info(app, &loc::t("Editeur_Externe"), &loc::t("Editeur_Externe_Texte")).await;
+            dialogs::info(
+                app,
+                &loc::t("Editeur_Externe"),
+                &loc::t("Editeur_Externe_Texte"),
+            )
+            .await;
         }
-        Err(e) => dialogs::erreur(app, &loc::t("Editeur_OuvertureImpossible"), &e.to_string()).await,
+        Err(e) => {
+            dialogs::erreur(app, &loc::t("Editeur_OuvertureImpossible"), &e.to_string()).await
+        }
     }
 }
 
 /// Vérifie chaque seconde si la texture ouverte dans l'éditeur externe a été enregistrée.
 fn surveiller(app: &Rc<App>) {
     let a = app.clone();
-    app.editor.borrow().surveillance.start(slint::TimerMode::Repeated, Duration::from_secs(1), move || {
-        let (i, chemin, avant) = {
-            let e = a.editor.borrow();
-            let Some(i) = e.externe else { return };
-            (i, e.toutes[i].chemin_pack.clone(), e.date_externe)
-        };
-        let date = std::fs::metadata(&chemin).and_then(|m| m.modified()).ok();
-        if date.is_none() || date == avant {
-            return;
-        }
-        let modifie = {
-            let mut e = a.editor.borrow_mut();
-            e.date_externe = date;
-            e.toutes[i].miniature = miniature(&chemin).map(Image::from_rgba8);
-            e.courante == Some(i) && e.modifie
-        };
-        maj_tuile(&a, i);
-        if a.editor.borrow().courante == Some(i) && !modifie {
-            ouvrir_texture(&a, true);
-        }
-    });
+    app.editor.borrow().surveillance.start(
+        slint::TimerMode::Repeated,
+        Duration::from_secs(1),
+        move || {
+            let (i, chemin, avant) = {
+                let e = a.editor.borrow();
+                let Some(i) = e.externe else { return };
+                (i, e.toutes[i].chemin_pack.clone(), e.date_externe)
+            };
+            let date = std::fs::metadata(&chemin).and_then(|m| m.modified()).ok();
+            if date.is_none() || date == avant {
+                return;
+            }
+            let modifie = {
+                let mut e = a.editor.borrow_mut();
+                e.date_externe = date;
+                e.toutes[i].miniature = miniature(&chemin).map(Image::from_rgba8);
+                e.courante == Some(i) && e.modifie
+            };
+            maj_tuile(&a, i);
+            if a.editor.borrow().courante == Some(i) && !modifie {
+                ouvrir_texture(&a, true);
+            }
+        },
+    );
 }
 
 async fn changer_icone(app: &Rc<App>) {
-    let Some(p) = app.editor.borrow().pack.clone() else { return };
-    let Some(fichier) = dialogs::choisir_fichier(&loc::t("Editeur_ChangerIcone"), "Images", &["png", "jpg", "jpeg", "bmp", "gif"]).await else {
+    let Some(p) = app.editor.borrow().pack.clone() else {
         return;
     };
-    let resultat = app.bloquant(move || packs::definir_icone(&p, &fichier)).await;
+    let Some(fichier) = dialogs::choisir_fichier(
+        &loc::t("Editeur_ChangerIcone"),
+        "Images",
+        &["png", "jpg", "jpeg", "bmp", "gif"],
+    )
+    .await
+    else {
+        return;
+    };
+    let resultat = app
+        .bloquant(move || packs::definir_icone(&p, &fichier))
+        .await;
     match resultat {
         Ok(()) => maj_icone(app),
         Err(e) => dialogs::erreur(app, &loc::t("Instance_ImageIllisible"), &e.to_string()).await,

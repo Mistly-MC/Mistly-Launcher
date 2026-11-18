@@ -3,8 +3,8 @@
 
 use super::{dialogs, images, lancer, maj_ligne, modele, modele_textes, App};
 use crate::minecraft::install;
-use crate::services::packs::{self, PackInfo};
 use crate::services::catalogue::ProjetDistant;
+use crate::services::packs::{self, PackInfo};
 use crate::services::{loc, system_info};
 use crate::{PackCard, PacksState};
 use slint::ComponentHandle;
@@ -61,7 +61,12 @@ pub fn installer(app: &Rc<App>) {
         let a = a.clone();
         lancer(async move {
             if p.version_mc.is_empty() {
-                dialogs::erreur(&a, &loc::t("Pack_VersionManquante"), &loc::t("Pack_VersionManquante_Texte")).await;
+                dialogs::erreur(
+                    &a,
+                    &loc::t("Pack_VersionManquante"),
+                    &loc::t("Pack_VersionManquante_Texte"),
+                )
+                .await;
                 return;
             }
             super::editor::ouvrir(&a, p);
@@ -96,7 +101,9 @@ pub fn rafraichir(app: &Rc<App>) {
             name: p.nom.clone().into(),
             description: sans_codes(&p.description).into(),
             version: p.version_mc.clone().into(),
-            count: format!("{} {}", p.nb_textures, loc::t("Pack_Modifiees")).to_uppercase().into(),
+            count: format!("{} {}", p.nb_textures, loc::t("Pack_Modifiees"))
+                .to_uppercase()
+                .into(),
             icon: images::vide(),
             has_icon: false,
             previews: modele(p.apercus.iter().filter_map(|f| apercu(f)).collect()),
@@ -125,7 +132,13 @@ fn apercu(fichier: &std::path::Path) -> Option<slint::Image> {
 
 /// Importe un .zip choisi par l'utilisateur.
 async fn importer(app: &Rc<App>) {
-    let Some(fichier) = dialogs::choisir_fichier(&loc::t("Pack_ImportDialogue"), &loc::t("Pack_ExportFiltre"), &["zip"]).await else {
+    let Some(fichier) = dialogs::choisir_fichier(
+        &loc::t("Pack_ImportDialogue"),
+        &loc::t("Pack_ExportFiltre"),
+        &["zip"],
+    )
+    .await
+    else {
         return;
     };
     match app.bloquant(move || packs::importer(&fichier)).await {
@@ -158,13 +171,24 @@ fn cle(p: &ProjetDistant) -> String {
 
 /// Vrai si le pack importé existe encore (il a pu être supprimé depuis la galerie).
 pub fn deja_importe(app: &App, p: &ProjetDistant) -> bool {
-    app.packs.borrow().importes.get(&cle(p)).is_some_and(|nom| packs::dossier_packs().join(nom).is_dir())
+    app.packs
+        .borrow()
+        .importes
+        .get(&cle(p))
+        .is_some_and(|nom| packs::dossier_packs().join(nom).is_dir())
 }
 
 /// Télécharge le pack choisi dans l'explorateur et l'ajoute aux packs, prêt à être modifié.
 pub async fn importer_distant(app: &Rc<App>, projet: ProjetDistant) {
-    let (source, id, titre) = (projet.source.clone(), projet.id.clone(), projet.titre.clone());
-    match app.bg(async move { packs::importer_distant(&source, &id, &titre).await }).await {
+    let (source, id, titre) = (
+        projet.source.clone(),
+        projet.id.clone(),
+        projet.titre.clone(),
+    );
+    match app
+        .bg(async move { packs::importer_distant(&source, &id, &titre).await })
+        .await
+    {
         Ok(nom) => {
             app.packs.borrow_mut().importes.insert(cle(&projet), nom);
             rafraichir(app);
@@ -190,7 +214,9 @@ async fn nouveau(app: &Rc<App>) {
                 st.set_version_index(if v.is_empty() { -1 } else { 0 });
                 app.packs.borrow_mut().versions = v;
             }
-            Err(e) => dialogs::erreur(app, &loc::t("Home_VersionsIndisponibles"), &e.to_string()).await,
+            Err(e) => {
+                dialogs::erreur(app, &loc::t("Home_VersionsIndisponibles"), &e.to_string()).await
+            }
         }
     }
 }
@@ -198,7 +224,12 @@ async fn nouveau(app: &Rc<App>) {
 async fn valider(app: &Rc<App>) {
     let st = s(app);
     let nom = st.get_create_name().trim().to_string();
-    let version = app.packs.borrow().versions.get(st.get_version_index().max(0) as usize).cloned();
+    let version = app
+        .packs
+        .borrow()
+        .versions
+        .get(st.get_version_index().max(0) as usize)
+        .cloned();
     let Some(version) = version.filter(|_| !nom.is_empty()) else {
         st.set_create_info(loc::t("Pack_Manquant").into());
         return;
@@ -206,7 +237,8 @@ async fn valider(app: &Rc<App>) {
     let description = st.get_create_desc().trim().to_string();
 
     st.set_create_enabled(false);
-    let progression = app.progression(|ui, texte| ui.global::<PacksState>().set_create_info(texte.into()));
+    let progression =
+        app.progression(|ui, texte| ui.global::<PacksState>().set_create_info(texte.into()));
     let v = version.clone();
     let resultat = app
         .bg(async move {
@@ -221,7 +253,13 @@ async fn valider(app: &Rc<App>) {
             st.set_creating(false);
             rafraichir(app);
             // On ouvre directement le nouveau pack dans l'éditeur
-            let p = app.packs.borrow().liste.iter().find(|p| p.dossier == dossier).cloned();
+            let p = app
+                .packs
+                .borrow()
+                .liste
+                .iter()
+                .find(|p| p.dossier == dossier)
+                .cloned();
             if let Some(p) = p {
                 super::editor::ouvrir(app, p);
             }
@@ -256,8 +294,13 @@ async fn supprimer(app: &Rc<App>, p: &PackInfo) {
 
 /// Exporte le pack en .zip (aussi utilisé par l'éditeur).
 pub async fn exporter(app: &Rc<App>, p: &PackInfo) {
-    let Some(destination) =
-        dialogs::enregistrer_fichier(&loc::t("Pack_ExportDialogue"), &format!("{}.zip", p.nom), &loc::t("Pack_ExportFiltre"), "zip").await
+    let Some(destination) = dialogs::enregistrer_fichier(
+        &loc::t("Pack_ExportDialogue"),
+        &format!("{}.zip", p.nom),
+        &loc::t("Pack_ExportFiltre"),
+        "zip",
+    )
+    .await
     else {
         return;
     };

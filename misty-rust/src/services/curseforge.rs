@@ -50,7 +50,9 @@ pub fn disponible() -> bool {
 
 fn client() -> anyhow::Result<&'static reqwest::Client> {
     static C: OnceLock<reqwest::Client> = OnceLock::new();
-    let Some(cle) = cle() else { anyhow::bail!(loc::t("Erreur_CleCF")) };
+    let Some(cle) = cle() else {
+        anyhow::bail!(loc::t("Erreur_CleCF"))
+    };
     Ok(C.get_or_init(|| {
         let mut entetes = reqwest::header::HeaderMap::new();
         if let Ok(v) = reqwest::header::HeaderValue::from_str(cle) {
@@ -172,13 +174,20 @@ fn vrai() -> bool {
 
 impl FichierCF {
     pub fn sha1(&self) -> Option<&str> {
-        self.hashes.iter().find(|h| h.algo == 1).map(|h| h.value.as_str())
+        self.hashes
+            .iter()
+            .find(|h| h.algo == 1)
+            .map(|h| h.value.as_str())
     }
 
     /// Côtés client / serveur au format Modrinth, d'après les étiquettes « Client » / « Server »
     /// que CurseForge ajoute aux versions du fichier ("unknown" si l'auteur n'a rien indiqué).
     pub fn environnement(&self) -> (String, String) {
-        let a = |nom: &str| self.game_versions.iter().any(|v| v.eq_ignore_ascii_case(nom));
+        let a = |nom: &str| {
+            self.game_versions
+                .iter()
+                .any(|v| v.eq_ignore_ascii_case(nom))
+        };
         let (client, serveur) = (a("Client"), a("Server"));
         if !client && !serveur {
             return ("unknown".into(), "unknown".into());
@@ -306,11 +315,24 @@ pub fn noms_loader(loader: &str) -> Vec<&str> {
 // ───────────────────────── Requêtes ─────────────────────────
 
 async fn get<T: DeserializeOwned>(url: &str) -> anyhow::Result<T> {
-    Ok(client()?.get(url).send().await?.error_for_status()?.json().await?)
+    Ok(client()?
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?)
 }
 
 async fn post<T: DeserializeOwned>(url: &str, corps: serde_json::Value) -> anyhow::Result<T> {
-    Ok(client()?.post(url).json(&corps).send().await?.error_for_status()?.json().await?)
+    Ok(client()?
+        .post(url)
+        .json(&corps)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?)
 }
 
 pub async fn rechercher(
@@ -338,7 +360,11 @@ pub async fn rechercher(
         url += &format!("&modLoaderType={l}");
     }
     let reponse: ReponseCF<Vec<ModCF>> = get(&url).await?;
-    let total = reponse.pagination.map(|p| p.total_count).unwrap_or(0).min(10_000);
+    let total = reponse
+        .pagination
+        .map(|p| p.total_count)
+        .unwrap_or(0)
+        .min(10_000);
     Ok((reponse.data, total))
 }
 
@@ -374,7 +400,11 @@ fn distincts(ids: &[i64]) -> Vec<i64> {
 pub async fn fichiers_par_ids(ids: &[i64]) -> anyhow::Result<Vec<FichierCF>> {
     let mut resultat = Vec::new();
     for paquet in distincts(ids).chunks(500) {
-        let r: ReponseCF<Vec<FichierCF>> = post(&format!("{BASE}mods/files"), serde_json::json!({ "fileIds": paquet })).await?;
+        let r: ReponseCF<Vec<FichierCF>> = post(
+            &format!("{BASE}mods/files"),
+            serde_json::json!({ "fileIds": paquet }),
+        )
+        .await?;
         resultat.extend(r.data);
     }
     Ok(resultat)
@@ -383,7 +413,11 @@ pub async fn fichiers_par_ids(ids: &[i64]) -> anyhow::Result<Vec<FichierCF>> {
 pub async fn mods(ids: &[i64]) -> anyhow::Result<Vec<ModCF>> {
     let mut resultat = Vec::new();
     for paquet in distincts(ids).chunks(500) {
-        let r: ReponseCF<Vec<ModCF>> = post(&format!("{BASE}mods"), serde_json::json!({ "modIds": paquet })).await?;
+        let r: ReponseCF<Vec<ModCF>> = post(
+            &format!("{BASE}mods"),
+            serde_json::json!({ "modIds": paquet }),
+        )
+        .await?;
         resultat.extend(r.data);
     }
     Ok(resultat)
@@ -397,14 +431,21 @@ pub async fn empreintes(empreintes: &[u32]) -> anyhow::Result<Vec<Correspondance
     if liste.is_empty() {
         return Ok(Vec::new());
     }
-    let r: ReponseCF<EmpreintesCF> =
-        post(&format!("{BASE}fingerprints/{ID_MINECRAFT}"), serde_json::json!({ "fingerprints": liste })).await?;
+    let r: ReponseCF<EmpreintesCF> = post(
+        &format!("{BASE}fingerprints/{ID_MINECRAFT}"),
+        serde_json::json!({ "fingerprints": liste }),
+    )
+    .await?;
     Ok(r.data.exact_matches)
 }
 
 /// Page du fichier sur le site CurseForge (pour un téléchargement manuel).
 pub fn page_fichier(m: Option<&ModCF>, mod_id: i64, file_id: i64) -> String {
-    match m.and_then(|m| m.links.as_ref()).and_then(|l| l.website_url.as_deref()).filter(|s| !s.is_empty()) {
+    match m
+        .and_then(|m| m.links.as_ref())
+        .and_then(|l| l.website_url.as_deref())
+        .filter(|s| !s.is_empty())
+    {
         Some(site) => format!("{}/files/{file_id}", site.trim_end_matches('/')),
         None => format!("https://www.curseforge.com/projects/{mod_id}"),
     }
@@ -413,7 +454,10 @@ pub fn page_fichier(m: Option<&ModCF>, mod_id: i64, file_id: i64) -> String {
 /// Empreinte CurseForge d'un fichier : MurmurHash2 (graine 1) calculé en ignorant
 /// les octets d'espacement (tabulation, retour chariot, saut de ligne, espace).
 pub fn empreinte(chemin: &std::path::Path) -> std::io::Result<u32> {
-    let octets: Vec<u8> = std::fs::read(chemin)?.into_iter().filter(|b| !matches!(b, 9 | 10 | 13 | 32)).collect();
+    let octets: Vec<u8> = std::fs::read(chemin)?
+        .into_iter()
+        .filter(|b| !matches!(b, 9 | 10 | 13 | 32))
+        .collect();
 
     const M: u32 = 0x5bd1_e995;
     const R: u32 = 24;
@@ -456,9 +500,16 @@ pub fn vers_projet(m: ModCF) -> ProjetDistant {
         id: m.id.to_string(),
         titre: m.name,
         description: m.summary,
-        auteur: m.authors.first().map(|a| a.name.clone()).unwrap_or_default(),
+        auteur: m
+            .authors
+            .first()
+            .map(|a| a.name.clone())
+            .unwrap_or_default(),
         telechargements: m.download_count as i64,
-        icone_url: m.logo.as_ref().and_then(|l| l.thumbnail_url.clone().or_else(|| l.url.clone())),
+        icone_url: m
+            .logo
+            .as_ref()
+            .and_then(|l| l.thumbnail_url.clone().or_else(|| l.url.clone())),
         categories: m.categories.into_iter().map(|c| c.name).collect(),
     }
 }

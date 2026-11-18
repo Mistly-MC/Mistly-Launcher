@@ -52,22 +52,49 @@ pub async fn versions_disponibles(projet: &ProjetDistant) -> anyhow::Result<Vec<
             if !f.is_available {
                 continue;
             }
-            let mc = f.game_versions.iter().find(|v| v.chars().next().is_some_and(|c| c.is_ascii_digit())).cloned().unwrap_or_default();
-            let nom = if f.display_name.is_empty() { f.file_name.clone() } else { f.display_name.clone() };
-            let libelle = if mc.is_empty() { nom } else { format!("{nom} · {mc}") };
-            liste.push(VersionPack { id: f.id.to_string(), libelle: format!("{libelle}{}", etiquette_type(&f.release_type.to_string())) });
+            let mc = f
+                .game_versions
+                .iter()
+                .find(|v| v.chars().next().is_some_and(|c| c.is_ascii_digit()))
+                .cloned()
+                .unwrap_or_default();
+            let nom = if f.display_name.is_empty() {
+                f.file_name.clone()
+            } else {
+                f.display_name.clone()
+            };
+            let libelle = if mc.is_empty() {
+                nom
+            } else {
+                format!("{nom} · {mc}")
+            };
+            liste.push(VersionPack {
+                id: f.id.to_string(),
+                libelle: format!("{libelle}{}", etiquette_type(&f.release_type.to_string())),
+            });
         }
     } else {
         for v in modrinth::versions(&projet.id, None, None).await? {
-            if !v.files.iter().any(|f| f.filename.to_lowercase().ends_with(".mrpack")) {
+            if !v
+                .files
+                .iter()
+                .any(|f| f.filename.to_lowercase().ends_with(".mrpack"))
+            {
                 continue;
             }
-            let nom = if v.version_number.is_empty() { v.name.clone() } else { v.version_number.clone() };
+            let nom = if v.version_number.is_empty() {
+                v.name.clone()
+            } else {
+                v.version_number.clone()
+            };
             let libelle = match v.game_versions.last() {
                 Some(mc) => format!("{nom} · {mc}"),
                 None => nom,
             };
-            liste.push(VersionPack { id: v.id.clone(), libelle: format!("{libelle}{}", etiquette_type(&v.version_type)) });
+            liste.push(VersionPack {
+                id: v.id.clone(),
+                libelle: format!("{libelle}{}", etiquette_type(&v.version_type)),
+            });
         }
     }
     liste.truncate(60);
@@ -75,14 +102,32 @@ pub async fn versions_disponibles(projet: &ProjetDistant) -> anyhow::Result<Vec<
 }
 
 /// `version_id` : version choisie (None = la dernière stable).
-pub async fn installer(projet: &ProjetDistant, version_id: Option<String>, progression: Progress) -> anyhow::Result<Resultat> {
+pub async fn installer(
+    projet: &ProjetDistant,
+    version_id: Option<String>,
+    progression: Progress,
+) -> anyhow::Result<Resultat> {
     let mut instance: Option<Instance> = None;
     let mut temporaire: Option<PathBuf> = None;
 
     let resultat = if projet.source == CURSEFORGE {
-        installer_curseforge(projet, version_id.as_deref(), &progression, &mut instance, &mut temporaire).await
+        installer_curseforge(
+            projet,
+            version_id.as_deref(),
+            &progression,
+            &mut instance,
+            &mut temporaire,
+        )
+        .await
     } else {
-        installer_modrinth(projet, version_id.as_deref(), &progression, &mut instance, &mut temporaire).await
+        installer_modrinth(
+            projet,
+            version_id.as_deref(),
+            &progression,
+            &mut instance,
+            &mut temporaire,
+        )
+        .await
     };
 
     if let Some(t) = temporaire {
@@ -138,11 +183,23 @@ impl Origine {
     /// Fichier importé : on cherche s'il est publié tel quel sur Modrinth (SHA-1) ou CurseForge
     /// (empreinte). Introuvable ou hors ligne : un simple profil, sans mise à jour possible.
     async fn reconnaitre(chemin: &Path, modrinth_format: bool) -> Self {
-        let titre = chemin.file_stem().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-        let mut o = Origine { titre, icone_url: None, projet: None, version_id: None, depuis_fichier: true };
+        let titre = chemin
+            .file_stem()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let mut o = Origine {
+            titre,
+            icone_url: None,
+            projet: None,
+            version_id: None,
+            depuis_fichier: true,
+        };
         let c = chemin.to_path_buf();
         if modrinth_format {
-            let Ok(Ok(h)) = tokio::task::spawn_blocking(move || download::sha1_fichier(&c)).await else { return o };
+            let Ok(Ok(h)) = tokio::task::spawn_blocking(move || download::sha1_fichier(&c)).await
+            else {
+                return o;
+            };
             if let Ok(trouve) = modrinth::versions_par_hash(std::slice::from_ref(&h)).await {
                 if let Some(v) = trouve.get(&h) {
                     o.projet = Some((MODRINTH.into(), v.project_id.clone()));
@@ -153,13 +210,19 @@ impl Origine {
                 }
             }
         } else if curseforge::disponible() {
-            let Ok(Ok(e)) = tokio::task::spawn_blocking(move || curseforge::empreinte(&c)).await else { return o };
+            let Ok(Ok(e)) = tokio::task::spawn_blocking(move || curseforge::empreinte(&c)).await
+            else {
+                return o;
+            };
             if let Ok(trouves) = curseforge::empreintes(&[e]).await {
                 if let Some(t) = trouves.first() {
                     o.projet = Some((CURSEFORGE.into(), t.id.to_string()));
                     o.version_id = Some(t.file.id.to_string());
                     if let Ok(m) = curseforge::mods(&[t.id]).await {
-                        o.icone_url = m.first().and_then(|m| m.logo.as_ref()).and_then(|l| l.thumbnail_url.clone());
+                        o.icone_url = m
+                            .first()
+                            .and_then(|m| m.logo.as_ref())
+                            .and_then(|l| l.thumbnail_url.clone());
                     }
                 }
             }
@@ -181,11 +244,22 @@ impl Origine {
 enum Cible<'a> {
     Nouveau(&'a Origine),
     /// Profil à mettre à jour, avec la version choisie et les fichiers de l'ancienne version
-    Existant { instance: Instance, version_id: String, anciens: Vec<String> },
+    Existant {
+        instance: Instance,
+        version_id: String,
+        anciens: Vec<String>,
+    },
 }
 
 /// Crée le profil, ou met à jour celui du pack (version de Minecraft, loader, version du pack).
-fn preparer_profil(cible: &Cible, titre: &str, version_mc: &str, loader: &str, version_loader: Option<String>, version_pack: String) -> anyhow::Result<Instance> {
+fn preparer_profil(
+    cible: &Cible,
+    titre: &str,
+    version_mc: &str,
+    loader: &str,
+    version_loader: Option<String>,
+    version_pack: String,
+) -> anyhow::Result<Instance> {
     match cible {
         Cible::Nouveau(origine) => {
             let mut instance = instances::creer(titre, version_mc, loader, version_loader)?;
@@ -199,7 +273,11 @@ fn preparer_profil(cible: &Cible, titre: &str, version_mc: &str, loader: &str, v
             instances::sauver(&instance)?;
             Ok(instance)
         }
-        Cible::Existant { instance, version_id, .. } => {
+        Cible::Existant {
+            instance,
+            version_id,
+            ..
+        } => {
             let mut instance = instance.clone();
             instance.version_mc = version_mc.to_string();
             instance.loader = loader.to_string();
@@ -225,9 +303,14 @@ pub async fn importer_fichier(chemin: &Path, progression: Progress) -> anyhow::R
     resultat
 }
 
-async fn importer_fichier_interne(chemin: &Path, progression: &Progress, sortie: &mut Option<Instance>) -> anyhow::Result<Resultat> {
+async fn importer_fichier_interne(
+    chemin: &Path,
+    progression: &Progress,
+    sortie: &mut Option<Instance>,
+) -> anyhow::Result<Resultat> {
     progression(loc::t("Progres_Modpack"));
-    let mut zip = zip::ZipArchive::new(std::fs::File::open(chemin)?).map_err(|_| anyhow::anyhow!(loc::t("Erreur_ModpackIllisible")))?;
+    let mut zip = zip::ZipArchive::new(std::fs::File::open(chemin)?)
+        .map_err(|_| anyhow::anyhow!(loc::t("Erreur_ModpackIllisible")))?;
     let modrinth_format = zip.by_name("modrinth.index.json").is_ok();
     if !modrinth_format && zip.by_name("manifest.json").is_err() {
         anyhow::bail!(loc::t("Erreur_ModpackFormat"));
@@ -235,9 +318,23 @@ async fn importer_fichier_interne(chemin: &Path, progression: &Progress, sortie:
     progression(loc::t("Progres_Reconnaissance"));
     let origine = Origine::reconnaitre(chemin, modrinth_format).await;
     if modrinth_format {
-        appliquer_modrinth(&mut zip, Cible::Nouveau(&origine), None, progression, sortie).await
+        appliquer_modrinth(
+            &mut zip,
+            Cible::Nouveau(&origine),
+            None,
+            progression,
+            sortie,
+        )
+        .await
     } else {
-        appliquer_curseforge(&mut zip, Cible::Nouveau(&origine), None, progression, sortie).await
+        appliquer_curseforge(
+            &mut zip,
+            Cible::Nouveau(&origine),
+            None,
+            progression,
+            sortie,
+        )
+        .await
     }
 }
 
@@ -249,9 +346,15 @@ pub async fn versions_du_profil(instance: &Instance) -> anyhow::Result<Vec<Versi
 }
 
 fn projet_du_profil(instance: &Instance) -> anyhow::Result<ProjetDistant> {
-    let id = instance.modpack_project_id.clone().ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_PasUnModpack")))?;
+    let id = instance
+        .modpack_project_id
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_PasUnModpack")))?;
     Ok(ProjetDistant {
-        source: instance.modpack_source.clone().unwrap_or_else(|| MODRINTH.into()),
+        source: instance
+            .modpack_source
+            .clone()
+            .unwrap_or_else(|| MODRINTH.into()),
         id,
         titre: instance.nom.clone(),
         icone_url: instance.icone_url.clone(),
@@ -268,43 +371,90 @@ pub async fn version_installee(instance: &Instance) -> Option<String> {
     let nom = instance.modpack_version.clone()?;
     let projet = projet_du_profil(instance).ok()?;
     if projet.source == CURSEFORGE {
-        let fichiers = curseforge::fichiers(projet.id.parse().ok()?, None).await.ok()?;
-        fichiers.iter().find(|f| f.display_name == nom || f.file_name == nom).map(|f| f.id.to_string())
+        let fichiers = curseforge::fichiers(projet.id.parse().ok()?, None)
+            .await
+            .ok()?;
+        fichiers
+            .iter()
+            .find(|f| f.display_name == nom || f.file_name == nom)
+            .map(|f| f.id.to_string())
     } else {
         let versions = modrinth::versions(&projet.id, None, None).await.ok()?;
-        versions.iter().find(|v| v.version_number == nom || v.id == nom).map(|v| v.id.clone())
+        versions
+            .iter()
+            .find(|v| v.version_number == nom || v.id == nom)
+            .map(|v| v.id.clone())
     }
 }
 
 /// Met le modpack d'un profil à la version `version_id` : les fichiers de l'ancienne version qui ne
 /// sont plus dans la nouvelle sont retirés, les nouveaux téléchargés, la configuration du pack
 /// remise. Les mondes, les options et ce que le joueur a ajouté lui-même restent.
-pub async fn mettre_a_jour(instance: &Instance, version_id: String, progression: Progress) -> anyhow::Result<Resultat> {
+pub async fn mettre_a_jour(
+    instance: &Instance,
+    version_id: String,
+    progression: Progress,
+) -> anyhow::Result<Resultat> {
     let projet = projet_du_profil(instance)?;
     // fichiers posés par la version actuelle
     progression(loc::t("Progres_AncienPack"));
     let anciens = match lire_fichiers_pack(instance) {
         Some(liste) => liste,
         None => match version_installee(instance).await {
-            Some(id) => fichiers_d_une_version(&projet, &id, instance).await.unwrap_or_default(),
+            Some(id) => fichiers_d_une_version(&projet, &id, instance)
+                .await
+                .unwrap_or_default(),
             None => Vec::new(),
         },
     };
-    let cible = Cible::Existant { instance: instance.clone(), version_id: version_id.clone(), anciens };
+    let cible = Cible::Existant {
+        instance: instance.clone(),
+        version_id: version_id.clone(),
+        anciens,
+    };
     let mut temporaire = None;
     let mut sortie = None;
     let resultat = if projet.source == CURSEFORGE {
-        let fichier = curseforge::fichiers_par_ids(&[version_id.parse()?]).await?.into_iter().next().ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_ModpackSansVersion")))?;
+        let fichier = curseforge::fichiers_par_ids(&[version_id.parse()?])
+            .await?
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_ModpackSansVersion")))?;
         let Some(url) = fichier.download_url.clone().filter(|u| !u.is_empty()) else {
             anyhow::bail!(loc::t("Erreur_ModpackCFInterdit"));
         };
-        let mut zip = telecharger_archive(&url, fichier.sha1(), &progression, &mut temporaire).await?;
-        appliquer_curseforge(&mut zip, cible, Some(fichier.display_name.clone()), &progression, &mut sortie).await
+        let mut zip =
+            telecharger_archive(&url, fichier.sha1(), &progression, &mut temporaire).await?;
+        appliquer_curseforge(
+            &mut zip,
+            cible,
+            Some(fichier.display_name.clone()),
+            &progression,
+            &mut sortie,
+        )
+        .await
     } else {
         let version = modrinth::version(&version_id).await?;
-        let f = version.files.iter().find(|f| f.filename.to_lowercase().ends_with(".mrpack")).ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_SansMrpack")))?;
-        let mut zip = telecharger_archive(&f.url, f.hashes.get("sha1").map(String::as_str), &progression, &mut temporaire).await?;
-        appliquer_modrinth(&mut zip, cible, Some(version.version_number.clone()), &progression, &mut sortie).await
+        let f = version
+            .files
+            .iter()
+            .find(|f| f.filename.to_lowercase().ends_with(".mrpack"))
+            .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_SansMrpack")))?;
+        let mut zip = telecharger_archive(
+            &f.url,
+            f.hashes.get("sha1").map(String::as_str),
+            &progression,
+            &mut temporaire,
+        )
+        .await?;
+        appliquer_modrinth(
+            &mut zip,
+            cible,
+            Some(version.version_number.clone()),
+            &progression,
+            &mut sortie,
+        )
+        .await
     };
     if let Some(t) = temporaire {
         let _ = std::fs::remove_file(t);
@@ -313,21 +463,47 @@ pub async fn mettre_a_jour(instance: &Instance, version_id: String, progression:
 }
 
 /// Chemins des fichiers d'une version du pack (sans rien installer), pour savoir quoi retirer.
-async fn fichiers_d_une_version(projet: &ProjetDistant, version_id: &str, instance: &Instance) -> anyhow::Result<Vec<String>> {
+async fn fichiers_d_une_version(
+    projet: &ProjetDistant,
+    version_id: &str,
+    instance: &Instance,
+) -> anyhow::Result<Vec<String>> {
     let mut temporaire = None;
     let progression: Progress = std::sync::Arc::new(|_| {});
     let resultat = async {
         if projet.source == CURSEFORGE {
-            let fichier = curseforge::fichiers_par_ids(&[version_id.parse()?]).await?.into_iter().next().ok_or_else(|| anyhow::anyhow!("?"))?;
-            let url = fichier.download_url.clone().filter(|u| !u.is_empty()).ok_or_else(|| anyhow::anyhow!("?"))?;
-            let mut zip = telecharger_archive(&url, fichier.sha1(), &progression, &mut temporaire).await?;
+            let fichier = curseforge::fichiers_par_ids(&[version_id.parse()?])
+                .await?
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow::anyhow!("?"))?;
+            let url = fichier
+                .download_url
+                .clone()
+                .filter(|u| !u.is_empty())
+                .ok_or_else(|| anyhow::anyhow!("?"))?;
+            let mut zip =
+                telecharger_archive(&url, fichier.sha1(), &progression, &mut temporaire).await?;
             let manifeste: curseforge::ManifestCF = lire_json(&mut zip, "manifest.json")?;
             let liste = fichiers_curseforge(&manifeste, instance).await?;
-            Ok(liste.into_iter().map(|f| content::relatif(instance, &f.destination)).collect())
+            Ok(liste
+                .into_iter()
+                .map(|f| content::relatif(instance, &f.destination))
+                .collect())
         } else {
             let version = modrinth::version(version_id).await?;
-            let f = version.files.iter().find(|f| f.filename.to_lowercase().ends_with(".mrpack")).ok_or_else(|| anyhow::anyhow!("?"))?;
-            let mut zip = telecharger_archive(&f.url, f.hashes.get("sha1").map(String::as_str), &progression, &mut temporaire).await?;
+            let f = version
+                .files
+                .iter()
+                .find(|f| f.filename.to_lowercase().ends_with(".mrpack"))
+                .ok_or_else(|| anyhow::anyhow!("?"))?;
+            let mut zip = telecharger_archive(
+                &f.url,
+                f.hashes.get("sha1").map(String::as_str),
+                &progression,
+                &mut temporaire,
+            )
+            .await?;
             let index: modrinth::IndexModpack = lire_json(&mut zip, "modrinth.index.json")?;
             Ok(index.files.iter().map(|f| f.path.clone()).collect())
         }
@@ -348,18 +524,26 @@ fn lire_fichiers_pack(instance: &Instance) -> Option<Vec<String>> {
 }
 
 fn ecrire_fichiers_pack(instance: &Instance, chemins: &[String]) {
-    let _ = std::fs::write(instance.dossier().join(FICHIER_PACK), serde_json::to_string_pretty(chemins).unwrap_or_default());
+    let _ = std::fs::write(
+        instance.dossier().join(FICHIER_PACK),
+        serde_json::to_string_pretty(chemins).unwrap_or_default(),
+    );
 }
 
 /// Mise à jour : retire les fichiers de l'ancienne version qui ne sont plus dans la nouvelle
 /// (y compris ceux que le joueur avait désactivés).
 fn retirer_anciens(instance: &Instance, anciens: &[String], nouveaux: &[String]) {
-    let gardes: std::collections::HashSet<String> = nouveaux.iter().map(|c| c.replace('\\', "/").to_lowercase()).collect();
+    let gardes: std::collections::HashSet<String> = nouveaux
+        .iter()
+        .map(|c| c.replace('\\', "/").to_lowercase())
+        .collect();
     for ancien in anciens {
         if gardes.contains(&ancien.replace('\\', "/").to_lowercase()) {
             continue;
         }
-        let Ok(chemin) = chemin_sur(&instance.dossier(), ancien) else { continue };
+        let Ok(chemin) = chemin_sur(&instance.dossier(), ancien) else {
+            continue;
+        };
         let _ = std::fs::remove_file(&chemin);
         let mut desactive = chemin.into_os_string();
         desactive.push(content::SUFFIXE_DESACTIVE);
@@ -373,9 +557,15 @@ fn destination_utile(destination: &Path, sha1: Option<&str>) -> Option<PathBuf> 
     let mut desactive = destination.as_os_str().to_owned();
     desactive.push(content::SUFFIXE_DESACTIVE);
     let desactive = PathBuf::from(desactive);
-    let cible = if desactive.exists() && !destination.exists() { desactive } else { destination.to_path_buf() };
+    let cible = if desactive.exists() && !destination.exists() {
+        desactive
+    } else {
+        destination.to_path_buf()
+    };
     if let Some(attendu) = sha1.filter(|s| !s.is_empty()) {
-        if cible.exists() && download::sha1_fichier(&cible).is_ok_and(|h| h.eq_ignore_ascii_case(attendu)) {
+        if cible.exists()
+            && download::sha1_fichier(&cible).is_ok_and(|h| h.eq_ignore_ascii_case(attendu))
+        {
             return None;
         }
     }
@@ -396,7 +586,11 @@ async fn installer_modrinth(
     let version = versions
         .iter()
         .find(|v| version_id == Some(v.id.as_str()))
-        .or_else(|| versions.iter().find(|v| version_id.is_none() && v.version_type == "release"))
+        .or_else(|| {
+            versions
+                .iter()
+                .find(|v| version_id.is_none() && v.version_type == "release")
+        })
         .or_else(|| versions.first())
         .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_ModpackSansVersion")))?;
     let fichier = version
@@ -405,9 +599,22 @@ async fn installer_modrinth(
         .find(|f| f.filename.to_lowercase().ends_with(".mrpack"))
         .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_SansMrpack")))?;
 
-    let mut zip = telecharger_archive(&fichier.url, fichier.hashes.get("sha1").map(String::as_str), progression, temporaire).await?;
+    let mut zip = telecharger_archive(
+        &fichier.url,
+        fichier.hashes.get("sha1").map(String::as_str),
+        progression,
+        temporaire,
+    )
+    .await?;
     let origine = Origine::catalogue(projet, Some(version.id.clone()));
-    appliquer_modrinth(&mut zip, Cible::Nouveau(&origine), Some(version.version_number.clone()), progression, sortie).await
+    appliquer_modrinth(
+        &mut zip,
+        Cible::Nouveau(&origine),
+        Some(version.version_number.clone()),
+        progression,
+        sortie,
+    )
+    .await
 }
 
 /// Applique l'archive .mrpack déjà ouverte au profil visé, puis télécharge ses fichiers.
@@ -432,14 +639,30 @@ async fn appliquer_modrinth(
         Cible::Nouveau(o) => o.titre_avec(&index.name),
         Cible::Existant { instance, .. } => instance.nom.clone(),
     };
-    let instance = preparer_profil(&cible, &titre, &version_mc, loader, version_loader, version_pack)?;
+    let instance = preparer_profil(
+        &cible,
+        &titre,
+        &version_mc,
+        loader,
+        version_loader,
+        version_pack,
+    )?;
     if matches!(cible, Cible::Nouveau(_)) {
         *sortie = Some(instance.clone());
     }
 
     // Fichiers à télécharger (sauf ceux réservés au serveur)
-    let fichiers: Vec<&modrinth::FichierModpack> =
-        index.files.iter().filter(|f| f.env.as_ref().and_then(|e| e.get("client")).map(String::as_str) != Some("unsupported")).collect();
+    let fichiers: Vec<&modrinth::FichierModpack> = index
+        .files
+        .iter()
+        .filter(|f| {
+            f.env
+                .as_ref()
+                .and_then(|e| e.get("client"))
+                .map(String::as_str)
+                != Some("unsupported")
+        })
+        .collect();
     let chemins: Vec<String> = fichiers.iter().map(|f| f.path.clone()).collect();
     if let Cible::Existant { anciens, .. } = &cible {
         retirer_anciens(&instance, anciens, &chemins);
@@ -452,17 +675,21 @@ async fn appliquer_modrinth(
             taches.push((f.downloads.clone(), destination, sha1, f.path.clone()));
         }
     }
-    en_parallele(taches, progression, |(urls, destination, sha1, chemin)| async move {
-        let mut derniere = None;
-        for url in &urls {
-            match download::fichier(url, &destination, sha1.as_deref()).await {
-                Ok(()) => return Ok(()),
-                Err(e) => derniere = Some(e),
+    en_parallele(
+        taches,
+        progression,
+        |(urls, destination, sha1, chemin)| async move {
+            let mut derniere = None;
+            for url in &urls {
+                match download::fichier(url, &destination, sha1.as_deref()).await {
+                    Ok(()) => return Ok(()),
+                    Err(e) => derniere = Some(e),
+                }
             }
-        }
-        let detail = derniere.map(|e| format!("\n{e}")).unwrap_or_default();
-        anyhow::bail!("{}{detail}", loc::tf("Erreur_Telechargement", &[&chemin]))
-    })
+            let detail = derniere.map(|e| format!("\n{e}")).unwrap_or_default();
+            anyhow::bail!("{}{detail}", loc::tf("Erreur_Telechargement", &[&chemin]))
+        },
+    )
     .await?;
 
     progression(loc::t("Progres_Config"));
@@ -470,7 +697,10 @@ async fn appliquer_modrinth(
     extraire(zip, "client-overrides/", &instance.dossier())?;
     ecrire_fichiers_pack(&instance, &chemins);
 
-    Ok(Resultat { instance, bloques: Vec::new() })
+    Ok(Resultat {
+        instance,
+        bloques: Vec::new(),
+    })
 }
 
 fn loader_modrinth(dependances: &HashMap<String, String>) -> (&'static str, Option<String>) {
@@ -503,7 +733,11 @@ async fn installer_curseforge(
     let fichier_pack = fichiers_pack
         .iter()
         .find(|f| version_id == Some(f.id.to_string().as_str()))
-        .or_else(|| fichiers_pack.iter().find(|f| version_id.is_none() && f.release_type == 1 && f.is_available))
+        .or_else(|| {
+            fichiers_pack
+                .iter()
+                .find(|f| version_id.is_none() && f.release_type == 1 && f.is_available)
+        })
         .or_else(|| fichiers_pack.first())
         .ok_or_else(|| anyhow::anyhow!(loc::t("Erreur_ModpackSansVersion")))?;
     let Some(url) = fichier_pack.download_url.clone().filter(|u| !u.is_empty()) else {
@@ -512,7 +746,14 @@ async fn installer_curseforge(
 
     let mut zip = telecharger_archive(&url, fichier_pack.sha1(), progression, temporaire).await?;
     let origine = Origine::catalogue(projet, Some(fichier_pack.id.to_string()));
-    appliquer_curseforge(&mut zip, Cible::Nouveau(&origine), Some(fichier_pack.display_name.clone()), progression, sortie).await
+    appliquer_curseforge(
+        &mut zip,
+        Cible::Nouveau(&origine),
+        Some(fichier_pack.display_name.clone()),
+        progression,
+        sortie,
+    )
+    .await
 }
 
 /// Un fichier d'un modpack CurseForge, résolu (adresse, destination, infos).
@@ -526,28 +767,50 @@ struct FichierPackCF {
 }
 
 /// Résout les fichiers requis du manifeste (URL, nom, type, icône).
-async fn fichiers_curseforge(manifeste: &curseforge::ManifestCF, instance: &Instance) -> anyhow::Result<Vec<FichierPackCF>> {
-    let requis: Vec<&curseforge::FichierManifestCF> = manifeste.files.iter().filter(|f| f.required).collect();
-    let fichiers: HashMap<i64, curseforge::FichierCF> = curseforge::fichiers_par_ids(&requis.iter().map(|f| f.file_id).collect::<Vec<_>>())
-        .await?
-        .into_iter()
-        .map(|f| (f.id, f))
-        .collect();
-    let mods: HashMap<i64, curseforge::ModCF> = curseforge::mods(&requis.iter().map(|f| f.project_id).collect::<Vec<_>>())
-        .await?
-        .into_iter()
-        .map(|m| (m.id, m))
-        .collect();
+async fn fichiers_curseforge(
+    manifeste: &curseforge::ManifestCF,
+    instance: &Instance,
+) -> anyhow::Result<Vec<FichierPackCF>> {
+    let requis: Vec<&curseforge::FichierManifestCF> =
+        manifeste.files.iter().filter(|f| f.required).collect();
+    let fichiers: HashMap<i64, curseforge::FichierCF> =
+        curseforge::fichiers_par_ids(&requis.iter().map(|f| f.file_id).collect::<Vec<_>>())
+            .await?
+            .into_iter()
+            .map(|f| (f.id, f))
+            .collect();
+    let mods: HashMap<i64, curseforge::ModCF> =
+        curseforge::mods(&requis.iter().map(|f| f.project_id).collect::<Vec<_>>())
+            .await?
+            .into_iter()
+            .map(|m| (m.id, m))
+            .collect();
 
     let mut liste = Vec::new();
     for entree in requis {
-        let Some(fichier) = fichiers.get(&entree.file_id) else { continue };
+        let Some(fichier) = fichiers.get(&entree.file_id) else {
+            continue;
+        };
         let m = mods.get(&entree.project_id);
-        let type_ = curseforge::type_depuis_classe(m.and_then(|m| m.class_id).unwrap_or(curseforge::CLASSE_MODS));
+        let type_ = curseforge::type_depuis_classe(
+            m.and_then(|m| m.class_id)
+                .unwrap_or(curseforge::CLASSE_MODS),
+        );
         let dossier = content::dossier(instance, type_, None)?;
-        let nom_dossier = dossier.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-        let destination = chemin_sur(&instance.dossier(), &format!("{nom_dossier}/{}", download::nom_fichier_sur(&fichier.file_name)))?;
-        let titre = m.map(|m| m.name.clone()).unwrap_or_else(|| fichier.display_name.clone());
+        let nom_dossier = dossier
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let destination = chemin_sur(
+            &instance.dossier(),
+            &format!(
+                "{nom_dossier}/{}",
+                download::nom_fichier_sur(&fichier.file_name)
+            ),
+        )?;
+        let titre = m
+            .map(|m| m.name.clone())
+            .unwrap_or_else(|| fichier.display_name.clone());
         liste.push(FichierPackCF {
             url: fichier.download_url.clone().filter(|u| !u.is_empty()),
             sha1: fichier.sha1().map(str::to_string),
@@ -558,12 +821,18 @@ async fn fichiers_curseforge(manifeste: &curseforge::ManifestCF, instance: &Inst
                 version_id: Some(entree.file_id.to_string()),
                 titre: titre.clone(),
                 version_nom: Some(fichier.display_name.clone()),
-                icone_url: m.and_then(|m| m.logo.as_ref()).and_then(|l| l.thumbnail_url.clone()),
+                icone_url: m
+                    .and_then(|m| m.logo.as_ref())
+                    .and_then(|l| l.thumbnail_url.clone()),
                 type_: type_.to_string(),
                 client_side: Some(fichier.environnement().0),
                 server_side: Some(fichier.environnement().1),
             },
-            bloque: FichierBloque { nom: titre, page: curseforge::page_fichier(m, entree.project_id, entree.file_id), dossier: nom_dossier },
+            bloque: FichierBloque {
+                nom: titre,
+                page: curseforge::page_fichier(m, entree.project_id, entree.file_id),
+                dossier: nom_dossier,
+            },
             destination,
         });
     }
@@ -572,13 +841,20 @@ async fn fichiers_curseforge(manifeste: &curseforge::ManifestCF, instance: &Inst
 
 /// "Epic Terrain (Compatible)" → "epicterraincompatible" : pour comparer deux noms de projet.
 fn nom_simple(nom: &str) -> String {
-    nom.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+    nom.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 /// Fichiers que CurseForge interdit de télécharger : on les cherche sur Modrinth, d'abord le même
 /// fichier exact (SHA-1), sinon le projet du même nom, pour cette version de Minecraft et ce loader.
 /// Les fichiers trouvés prennent l'adresse Modrinth ; les autres restent à télécharger à la main.
-async fn remplacer_par_modrinth(instance: &Instance, bloques: &mut [FichierPackCF], progression: &Progress) {
+async fn remplacer_par_modrinth(
+    instance: &Instance,
+    bloques: &mut [FichierPackCF],
+    progression: &Progress,
+) {
     if bloques.is_empty() {
         return;
     }
@@ -586,34 +862,101 @@ async fn remplacer_par_modrinth(instance: &Instance, bloques: &mut [FichierPackC
 
     // 1. Le même fichier, publié aussi sur Modrinth
     let hashes: Vec<String> = bloques.iter().filter_map(|b| b.sha1.clone()).collect();
-    let par_hash = modrinth::versions_par_hash(&hashes).await.unwrap_or_default();
+    let par_hash = modrinth::versions_par_hash(&hashes)
+        .await
+        .unwrap_or_default();
     let ids: Vec<String> = par_hash.values().map(|v| v.project_id.clone()).collect();
-    let projets: HashMap<String, modrinth::ProjetDetail> =
-        modrinth::projets(&ids).await.unwrap_or_default().into_iter().map(|p| (p.id.clone(), p)).collect();
+    let projets: HashMap<String, modrinth::ProjetDetail> = modrinth::projets(&ids)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.id.clone(), p))
+        .collect();
     for b in bloques.iter_mut() {
         let Some(sha1) = b.sha1.clone() else { continue };
-        let Some(version) = par_hash.get(&sha1) else { continue };
-        let Some(f) = version.files.iter().find(|f| f.hashes.get("sha1").is_some_and(|h| h.eq_ignore_ascii_case(&sha1))).or_else(|| version.fichier_principal()) else {
+        let Some(version) = par_hash.get(&sha1) else {
+            continue;
+        };
+        let Some(f) = version
+            .files
+            .iter()
+            .find(|f| {
+                f.hashes
+                    .get("sha1")
+                    .is_some_and(|h| h.eq_ignore_ascii_case(&sha1))
+            })
+            .or_else(|| version.fichier_principal())
+        else {
             continue;
         };
         let projet = projets.get(&version.project_id);
-        trouve_sur_modrinth(instance, b, &f.url, &f.filename, f.hashes.get("sha1").cloned(), version, projet.map(|p| p.title.clone()), projet.and_then(|p| p.icon_url.clone()));
+        trouve_sur_modrinth(
+            instance,
+            b,
+            &f.url,
+            &f.filename,
+            f.hashes.get("sha1").cloned(),
+            version,
+            projet.map(|p| p.title.clone()),
+            projet.and_then(|p| p.icon_url.clone()),
+        );
     }
 
     // 2. Le projet du même nom, dans une version compatible
     for b in bloques.iter_mut().filter(|b| b.url.is_none()) {
         let type_ = b.meta.type_.clone();
         let categories = content::categories_recherche(instance, &type_);
-        let Ok(resultats) = modrinth::rechercher(&b.meta.titre, &type_, Some(&instance.version_mc), categories.as_deref(), "relevance", 0, 5).await else {
+        let Ok(resultats) = modrinth::rechercher(
+            &b.meta.titre,
+            &type_,
+            Some(&instance.version_mc),
+            categories.as_deref(),
+            "relevance",
+            0,
+            5,
+        )
+        .await
+        else {
             continue;
         };
         let voulu = nom_simple(&b.meta.titre);
-        let Some(projet) = resultats.hits.iter().find(|h| nom_simple(&h.title) == voulu) else { continue };
+        let Some(projet) = resultats
+            .hits
+            .iter()
+            .find(|h| nom_simple(&h.title) == voulu)
+        else {
+            continue;
+        };
         let loaders = content::loaders_modrinth(instance, &type_);
-        let Ok(versions) = modrinth::versions(&projet.project_id, loaders.as_deref(), Some(&instance.version_mc)).await else { continue };
-        let Some(version) = versions.iter().find(|v| v.version_type == "release").or_else(|| versions.first()) else { continue };
-        let Some(f) = version.fichier_principal() else { continue };
-        trouve_sur_modrinth(instance, b, &f.url, &f.filename, f.hashes.get("sha1").cloned(), version, Some(projet.title.clone()), projet.icon_url.clone());
+        let Ok(versions) = modrinth::versions(
+            &projet.project_id,
+            loaders.as_deref(),
+            Some(&instance.version_mc),
+        )
+        .await
+        else {
+            continue;
+        };
+        let Some(version) = versions
+            .iter()
+            .find(|v| v.version_type == "release")
+            .or_else(|| versions.first())
+        else {
+            continue;
+        };
+        let Some(f) = version.fichier_principal() else {
+            continue;
+        };
+        trouve_sur_modrinth(
+            instance,
+            b,
+            &f.url,
+            &f.filename,
+            f.hashes.get("sha1").cloned(),
+            version,
+            Some(projet.title.clone()),
+            projet.icon_url.clone(),
+        );
     }
 }
 
@@ -628,7 +971,9 @@ fn trouve_sur_modrinth(
     titre: Option<String>,
     icone: Option<String>,
 ) {
-    let Some(dossier) = b.destination.parent() else { return };
+    let Some(dossier) = b.destination.parent() else {
+        return;
+    };
     let destination = dossier.join(download::nom_fichier_sur(nom_fichier));
     b.url = Some(url.to_string());
     b.sha1 = sha1;
@@ -658,12 +1003,23 @@ async fn appliquer_curseforge(
     let manifeste: curseforge::ManifestCF = lire_json(zip, "manifest.json")?;
     let (loader, version_loader) = loader_curseforge(&manifeste.minecraft.mod_loaders)?;
 
-    let version_pack = if manifeste.version.is_empty() { version_repli.unwrap_or_default() } else { manifeste.version.clone() };
+    let version_pack = if manifeste.version.is_empty() {
+        version_repli.unwrap_or_default()
+    } else {
+        manifeste.version.clone()
+    };
     let titre = match &cible {
         Cible::Nouveau(o) => o.titre_avec(&manifeste.name),
         Cible::Existant { instance, .. } => instance.nom.clone(),
     };
-    let instance = preparer_profil(&cible, &titre, &manifeste.minecraft.version, loader, version_loader, version_pack)?;
+    let instance = preparer_profil(
+        &cible,
+        &titre,
+        &manifeste.minecraft.version,
+        loader,
+        version_loader,
+        version_pack,
+    )?;
     if matches!(cible, Cible::Nouveau(_)) {
         *sortie = Some(instance.clone());
     }
@@ -684,7 +1040,10 @@ async fn appliquer_curseforge(
     remplacer_par_modrinth(&instance, &mut bloques, progression).await;
     fichiers.extend(bloques);
 
-    let chemins: Vec<String> = fichiers.iter().map(|f| content::relatif(&instance, &f.destination)).collect();
+    let chemins: Vec<String> = fichiers
+        .iter()
+        .map(|f| content::relatif(&instance, &f.destination))
+        .collect();
     if let Cible::Existant { anciens, .. } = &cible {
         retirer_anciens(&instance, anciens, &chemins);
     }
@@ -703,22 +1062,36 @@ async fn appliquer_curseforge(
         metas.push(f.meta);
     }
 
-    en_parallele(a_telecharger, progression, |(url, destination, sha1)| async move {
-        download::fichier(&url, &destination, sha1.as_deref()).await
-    })
+    en_parallele(
+        a_telecharger,
+        progression,
+        |(url, destination, sha1)| async move {
+            download::fichier(&url, &destination, sha1.as_deref()).await
+        },
+    )
     .await?;
     content::enregistrer_metas(&instance, metas)?;
 
     progression(loc::t("Progres_Config"));
-    let overrides = manifeste.overrides.as_deref().map(|o| o.trim_matches('/')).filter(|o| !o.is_empty()).unwrap_or("overrides");
+    let overrides = manifeste
+        .overrides
+        .as_deref()
+        .map(|o| o.trim_matches('/'))
+        .filter(|o| !o.is_empty())
+        .unwrap_or("overrides");
     extraire(zip, &format!("{overrides}/"), &instance.dossier())?;
     ecrire_fichiers_pack(&instance, &chemins);
 
-    Ok(Resultat { instance, bloques: restants })
+    Ok(Resultat {
+        instance,
+        bloques: restants,
+    })
 }
 
 /// "forge-47.2.0" → (Forge, "47.2.0"). Le loader principal est privilégié.
-fn loader_curseforge(liste: &[curseforge::LoaderManifestCF]) -> anyhow::Result<(&'static str, Option<String>)> {
+fn loader_curseforge(
+    liste: &[curseforge::LoaderManifestCF],
+) -> anyhow::Result<(&'static str, Option<String>)> {
     let Some(principal) = liste.iter().find(|l| l.primary).or_else(|| liste.first()) else {
         return Ok((loaders::VANILLA, None));
     };
@@ -737,15 +1110,25 @@ fn loader_curseforge(liste: &[curseforge::LoaderManifestCF]) -> anyhow::Result<(
 
 // ───────────────────────── Commun ─────────────────────────
 
-fn lire_json<T: serde::de::DeserializeOwned>(zip: &mut zip::ZipArchive<std::fs::File>, nom: &str) -> anyhow::Result<T> {
-    let mut entree = zip.by_name(nom).map_err(|_| anyhow::anyhow!(loc::tf("Erreur_Manquant", &[&nom])))?;
+fn lire_json<T: serde::de::DeserializeOwned>(
+    zip: &mut zip::ZipArchive<std::fs::File>,
+    nom: &str,
+) -> anyhow::Result<T> {
+    let mut entree = zip
+        .by_name(nom)
+        .map_err(|_| anyhow::anyhow!(loc::tf("Erreur_Manquant", &[&nom])))?;
     let mut texte = String::new();
     entree.read_to_string(&mut texte)?;
-    serde_json::from_str(texte.trim_start_matches('\u{feff}')).map_err(|e| anyhow::anyhow!("{nom} illisible : {e}"))
+    serde_json::from_str(texte.trim_start_matches('\u{feff}'))
+        .map_err(|e| anyhow::anyhow!("{nom} illisible : {e}"))
 }
 
 /// Exécute les téléchargements 6 par 6 en affichant l'avancement.
-async fn en_parallele<T, F, Fut>(elements: Vec<T>, progression: &Progress, action: F) -> anyhow::Result<()>
+async fn en_parallele<T, F, Fut>(
+    elements: Vec<T>,
+    progression: &Progress,
+    action: F,
+) -> anyhow::Result<()>
 where
     F: Fn(T) -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<()>>,
@@ -771,7 +1154,11 @@ where
 }
 
 /// Extrait les fichiers de l'archive qui commencent par `prefixe` dans `racine`.
-fn extraire(zip: &mut zip::ZipArchive<std::fs::File>, prefixe: &str, racine: &Path) -> anyhow::Result<()> {
+fn extraire(
+    zip: &mut zip::ZipArchive<std::fs::File>,
+    prefixe: &str,
+    racine: &Path,
+) -> anyhow::Result<()> {
     let prefixe_min = prefixe.to_lowercase();
     for i in 0..zip.len() {
         let mut entree = zip.by_index(i)?;
@@ -792,7 +1179,10 @@ fn extraire(zip: &mut zip::ZipArchive<std::fs::File>, prefixe: &str, racine: &Pa
 /// Refuse les chemins qui sortiraient du dossier du profil ("../", chemins absolus…).
 pub fn chemin_sur(racine: &Path, relatif: &str) -> anyhow::Result<PathBuf> {
     let rel = Path::new(relatif);
-    if rel.components().any(|c| !matches!(c, Component::Normal(_) | Component::CurDir)) {
+    if rel
+        .components()
+        .any(|c| !matches!(c, Component::Normal(_) | Component::CurDir))
+    {
         anyhow::bail!("Chemin invalide dans le modpack : {relatif}");
     }
     Ok(racine.join(rel))
@@ -806,7 +1196,9 @@ mod tests_reseau {
 
     fn dossier_de_test() -> bool {
         // jamais sur les vraies données du joueur
-        std::env::var_os("MISTY_DATA_DIR").is_some() && super::super::paths::data_dir().starts_with(std::env::var_os("MISTY_DATA_DIR").unwrap())
+        std::env::var_os("MISTY_DATA_DIR").is_some()
+            && super::super::paths::data_dir()
+                .starts_with(std::env::var_os("MISTY_DATA_DIR").unwrap())
     }
 
     #[tokio::test]
@@ -818,19 +1210,34 @@ mod tests_reseau {
         let rien: Progress = std::sync::Arc::new(|t| println!("  {t}"));
         // Fabulously Optimized : une version ancienne, en fichier, importée comme le ferait le joueur
         let versions = modrinth::versions("1KVo5zza", None, None).await.unwrap();
-        let avec_pack: Vec<&modrinth::VersionModrinth> =
-            versions.iter().filter(|v| v.files.iter().any(|f| f.filename.ends_with(".mrpack"))).collect();
+        let avec_pack: Vec<&modrinth::VersionModrinth> = versions
+            .iter()
+            .filter(|v| v.files.iter().any(|f| f.filename.ends_with(".mrpack")))
+            .collect();
         let (ancienne, recente) = (avec_pack[6], avec_pack[0]);
-        let f = ancienne.files.iter().find(|f| f.filename.ends_with(".mrpack")).unwrap();
+        let f = ancienne
+            .files
+            .iter()
+            .find(|f| f.filename.ends_with(".mrpack"))
+            .unwrap();
         let fichier = std::env::temp_dir().join("misty-test-ancien.mrpack");
         download::fichier(&f.url, &fichier, None).await.unwrap();
 
         let r = importer_fichier(&fichier, rien.clone()).await.unwrap();
         let i = r.instance;
-        assert_eq!(i.modpack_project_id.as_deref(), Some("1KVo5zza"), "pack reconnu sur Modrinth");
+        assert_eq!(
+            i.modpack_project_id.as_deref(),
+            Some("1KVo5zza"),
+            "pack reconnu sur Modrinth"
+        );
         assert_eq!(i.modpack_version_id.as_deref(), Some(ancienne.id.as_str()));
         let anciens = lire_fichiers_pack(&i).unwrap();
-        println!("importé : {} ({} fichiers, MC {})", i.nom, anciens.len(), i.version_mc);
+        println!(
+            "importé : {} ({} fichiers, MC {})",
+            i.nom,
+            anciens.len(),
+            i.version_mc
+        );
 
         let r = mettre_a_jour(&i, recente.id.clone(), rien).await.unwrap();
         let j = r.instance;
@@ -840,11 +1247,23 @@ mod tests_reseau {
         for c in &nouveaux {
             assert!(chemin_sur(&j.dossier(), c).unwrap().exists(), "manque {c}");
         }
-        let retires: Vec<&String> = anciens.iter().filter(|a| !nouveaux.iter().any(|n| n.eq_ignore_ascii_case(a))).collect();
+        let retires: Vec<&String> = anciens
+            .iter()
+            .filter(|a| !nouveaux.iter().any(|n| n.eq_ignore_ascii_case(a)))
+            .collect();
         for c in &retires {
-            assert!(!chemin_sur(&j.dossier(), c).unwrap().exists(), "pas retiré : {c}");
+            assert!(
+                !chemin_sur(&j.dossier(), c).unwrap().exists(),
+                "pas retiré : {c}"
+            );
         }
-        println!("mis à jour : MC {} → {}, {} fichiers, {} retirés", i.version_mc, j.version_mc, nouveaux.len(), retires.len());
+        println!(
+            "mis à jour : MC {} → {}, {} fichiers, {} retirés",
+            i.version_mc,
+            j.version_mc,
+            nouveaux.len(),
+            retires.len()
+        );
         let _ = std::fs::remove_file(fichier);
     }
 
@@ -859,21 +1278,39 @@ mod tests_reseau {
             url: None,
             destination: i.dossier().join("mods").join("sodium-cf.jar"),
             sha1: None,
-            meta: ContenuMeta { titre: "Sodium".into(), type_: content::MOD.into(), ..Default::default() },
-            bloque: FichierBloque { nom: "Sodium".into(), page: String::new(), dossier: "mods".into() },
+            meta: ContenuMeta {
+                titre: "Sodium".into(),
+                type_: content::MOD.into(),
+                ..Default::default()
+            },
+            bloque: FichierBloque {
+                nom: "Sodium".into(),
+                page: String::new(),
+                dossier: "mods".into(),
+            },
         }];
         let rien: Progress = std::sync::Arc::new(|_| {});
         remplacer_par_modrinth(&i, &mut liste, &rien).await;
         let b = &liste[0];
-        assert!(b.url.as_deref().is_some_and(|u| u.contains("modrinth")), "trouvé sur Modrinth");
+        assert!(
+            b.url.as_deref().is_some_and(|u| u.contains("modrinth")),
+            "trouvé sur Modrinth"
+        );
         assert_eq!(b.meta.source.as_deref(), Some(MODRINTH));
-        println!("Sodium → {} ({})", b.destination.display(), b.meta.version_nom.clone().unwrap_or_default());
+        println!(
+            "Sodium → {} ({})",
+            b.destination.display(),
+            b.meta.version_nom.clone().unwrap_or_default()
+        );
         let _ = instances::supprimer(&i);
     }
 
     #[test]
     fn noms() {
-        assert_eq!(nom_simple("Epic Terrain (Compatible)"), "epicterraincompatible");
+        assert_eq!(
+            nom_simple("Epic Terrain (Compatible)"),
+            "epicterraincompatible"
+        );
         assert_eq!(nom_simple("Cloth Config API"), "clothconfigapi");
     }
 }

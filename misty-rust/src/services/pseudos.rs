@@ -13,7 +13,9 @@ pub fn initialiser() {
 }
 
 pub fn lire() -> Vec<String> {
-    let Ok(texte) = fs::read_to_string(paths::profiles_file()) else { return Vec::new() };
+    let Ok(texte) = fs::read_to_string(paths::profiles_file()) else {
+        return Vec::new();
+    };
     let mut resultat = Vec::new();
     for ligne in texte.lines() {
         if let Some(valeur) = ligne.strip_prefix(CLE) {
@@ -47,7 +49,9 @@ pub fn supprimer(pseudo: &str) {
 }
 
 fn ecrire(pseudos: &[String]) {
-    let Ok(texte) = fs::read_to_string(paths::profiles_file()) else { return };
+    let Ok(texte) = fs::read_to_string(paths::profiles_file()) else {
+        return;
+    };
     let nouvelle = format!("{CLE}{}", pseudos.join(","));
     let mut lignes: Vec<String> = texte.lines().map(str::to_string).collect();
     match lignes.iter().position(|l| l.starts_with(CLE)) {

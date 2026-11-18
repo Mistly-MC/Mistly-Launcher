@@ -91,8 +91,17 @@ fn afficher(app: &Rc<App>) {
             }
         })
         .collect();
-    let a_charger: Vec<String> = etat.amis.iter().filter(|a| !etat.demandees.contains(&a.uuid)).map(|a| a.uuid.clone()).collect();
-    let nombre = etat.amis.iter().filter(|a| etat.en_ligne.contains(&a.uuid)).count();
+    let a_charger: Vec<String> = etat
+        .amis
+        .iter()
+        .filter(|a| !etat.demandees.contains(&a.uuid))
+        .map(|a| a.uuid.clone())
+        .collect();
+    let nombre = etat
+        .amis
+        .iter()
+        .filter(|a| etat.en_ligne.contains(&a.uuid))
+        .count();
     drop(etat);
     s(app).set_list(modele(cartes));
     s(app).set_online_count(nombre as i32);
@@ -104,7 +113,10 @@ fn afficher(app: &Rc<App>) {
 /// Les têtes manquantes, une par une : le service de sessions de Mojang répond 429 si on lui en
 /// demande trop d'un coup. Une tête qui n'a pas pu venir est redemandée à la prochaine ouverture.
 fn charger_tetes(app: &Rc<App>, uuids: Vec<String>) {
-    app.amis.borrow_mut().demandees.extend(uuids.iter().cloned());
+    app.amis
+        .borrow_mut()
+        .demandees
+        .extend(uuids.iter().cloned());
     let a = app.clone();
     lancer(async move {
         for uuid in uuids {
@@ -166,7 +178,11 @@ async fn ajouter(app: &Rc<App>) {
             maj_en_ligne(app).await;
         }
         Ok(Ajout::DejaLa) => message(app, &loc::t("Amis_DejaLa").replace("{0}", &pseudo), true),
-        Ok(Ajout::Introuvable) => message(app, &loc::t("Amis_Introuvable").replace("{0}", &pseudo), true),
+        Ok(Ajout::Introuvable) => message(
+            app,
+            &loc::t("Amis_Introuvable").replace("{0}", &pseudo),
+            true,
+        ),
         Err(e) => message(app, &format!("{} ({e})", loc::t("Amis_Erreur")), true),
     }
 }
@@ -183,9 +199,10 @@ fn message(app: &Rc<App>, texte: &str, erreur: bool) {
         return;
     }
     let faible = Rc::downgrade(app);
-    etat.effacer.start(slint::TimerMode::SingleShot, MESSAGE, move || {
-        if let Some(a) = faible.upgrade() {
-            s(&a).set_message(SharedString::new());
-        }
-    });
+    etat.effacer
+        .start(slint::TimerMode::SingleShot, MESSAGE, move || {
+            if let Some(a) = faible.upgrade() {
+                s(&a).set_message(SharedString::new());
+            }
+        });
 }

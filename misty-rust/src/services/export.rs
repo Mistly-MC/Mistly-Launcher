@@ -13,7 +13,15 @@ use std::io::Write;
 use std::path::Path;
 
 /// Ce qui part dans le pack : la configuration du jeu et du contenu, pas les mondes ni les journaux.
-const DOSSIERS: &[&str] = &["mods", "config", "defaultconfigs", "kubejs", "scripts", "resourcepacks", "shaderpacks"];
+const DOSSIERS: &[&str] = &[
+    "mods",
+    "config",
+    "defaultconfigs",
+    "kubejs",
+    "scripts",
+    "resourcepacks",
+    "shaderpacks",
+];
 const FICHIERS: &[&str] = &["options.txt"];
 
 /// Version du loader à écrire dans le pack : celle du profil, sinon celle installée par Misty pour
@@ -32,9 +40,17 @@ fn version_loader(instance: &Instance) -> Option<String> {
     let candidats: Vec<String> = installees
         .iter()
         .filter_map(|nom| match instance.loader.as_str() {
-            loaders::FABRIC => nom.strip_prefix("fabric-loader-")?.strip_suffix(&format!("-{mc}")).map(str::to_string),
-            loaders::QUILT => nom.strip_prefix("quilt-loader-")?.strip_suffix(&format!("-{mc}")).map(str::to_string),
-            loaders::FORGE => nom.strip_prefix(&format!("{mc}-forge-")).map(str::to_string),
+            loaders::FABRIC => nom
+                .strip_prefix("fabric-loader-")?
+                .strip_suffix(&format!("-{mc}"))
+                .map(str::to_string),
+            loaders::QUILT => nom
+                .strip_prefix("quilt-loader-")?
+                .strip_suffix(&format!("-{mc}"))
+                .map(str::to_string),
+            loaders::FORGE => nom
+                .strip_prefix(&format!("{mc}-forge-"))
+                .map(str::to_string),
             // NeoForge : "neoforge-21.1.77" ; sa version commence par celle de Minecraft sans le "1."
             loaders::NEOFORGE => {
                 let v = nom.strip_prefix("neoforge-")?;
@@ -44,7 +60,9 @@ fn version_loader(instance: &Instance) -> Option<String> {
             _ => None,
         })
         .collect();
-    candidats.into_iter().max_by(|a, b| super::update::comparer_versions(a, b))
+    candidats
+        .into_iter()
+        .max_by(|a, b| super::update::comparer_versions(a, b))
 }
 
 fn cle_loader(loader: &str) -> Option<&'static str> {
@@ -62,7 +80,8 @@ pub fn exporter(instance: &Instance, destination: &Path, avec_misty: bool) -> an
     let mut dependances = serde_json::Map::new();
     dependances.insert("minecraft".into(), instance.version_mc.clone().into());
     if let Some(cle) = cle_loader(&instance.loader) {
-        let version = version_loader(instance).ok_or_else(|| anyhow::anyhow!(super::loc::t("Export_JamaisLance")))?;
+        let version = version_loader(instance)
+            .ok_or_else(|| anyhow::anyhow!(super::loc::t("Export_JamaisLance")))?;
         dependances.insert(cle.into(), version.into());
     }
     let index = serde_json::json!({
@@ -79,15 +98,25 @@ pub fn exporter(instance: &Instance, destination: &Path, avec_misty: bool) -> an
     let temporaire = destination.with_extension("mrpack.part");
     let resultat = (|| -> anyhow::Result<()> {
         let mut zip = zip::ZipWriter::new(fs::File::create(&temporaire)?);
-        let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
         zip.start_file("modrinth.index.json", options)?;
         zip.write_all(serde_json::to_string_pretty(&index)?.as_bytes())?;
 
         let racine = instance.dossier();
         // les jars de Misty Client du profil ne partent pas tels quels : le bon est ajouté plus bas
-        let misty_presents: Vec<_> = client::jars_presents(&racine.join("mods")).into_iter().map(|(p, _)| p).collect();
+        let misty_presents: Vec<_> = client::jars_presents(&racine.join("mods"))
+            .into_iter()
+            .map(|(p, _)| p)
+            .collect();
         for dossier in DOSSIERS {
-            ajouter_dossier(&mut zip, &racine.join(dossier), &format!("overrides/{dossier}"), &misty_presents, options)?;
+            ajouter_dossier(
+                &mut zip,
+                &racine.join(dossier),
+                &format!("overrides/{dossier}"),
+                &misty_presents,
+                options,
+            )?;
         }
         for fichier in FICHIERS {
             let chemin = racine.join(fichier);
@@ -99,7 +128,10 @@ pub fn exporter(instance: &Instance, destination: &Path, avec_misty: bool) -> an
         if avec_misty && client::compatible(&instance.version_mc, &instance.loader) {
             if let Some((nom, jar)) = client::jar_a_exporter(&instance.version_mc) {
                 // un jar est déjà compressé : stocké tel quel
-                zip.start_file(format!("overrides/mods/{nom}"), options.compression_method(zip::CompressionMethod::Stored))?;
+                zip.start_file(
+                    format!("overrides/mods/{nom}"),
+                    options.compression_method(zip::CompressionMethod::Stored),
+                )?;
                 zip.write_all(&jar)?;
             }
         }
@@ -126,7 +158,9 @@ fn ajouter_dossier(
     exclus: &[std::path::PathBuf],
     options: zip::write::SimpleFileOptions,
 ) -> anyhow::Result<()> {
-    let Ok(lecture) = fs::read_dir(dossier) else { return Ok(()) };
+    let Ok(lecture) = fs::read_dir(dossier) else {
+        return Ok(());
+    };
     for entree in lecture.flatten() {
         let chemin = entree.path();
         if exclus.contains(&chemin) {
@@ -151,9 +185,13 @@ mod tests {
     /// seule fois (celui du launcher, nommé avec sa version) si on le demande.
     #[test]
     fn export_mrpack() {
-        let Some(mc) = client::versions().last().cloned() else { return };
+        let Some(mc) = client::versions().last().cloned() else {
+            return;
+        };
         // le jar doit être téléchargé (test sans Internet : rien à vérifier)
-        let Some((_, jar)) = client::jar_a_exporter(&mc) else { return };
+        let Some((_, jar)) = client::jar_a_exporter(&mc) else {
+            return;
+        };
         let mut instance: Instance = serde_json::from_str("{}").unwrap();
         instance.id = format!("misty-test-export-{}", std::process::id());
         instance.nom = "Test".into();
@@ -178,7 +216,8 @@ mod tests {
             assert!(!noms.iter().any(|n| n.contains("saves")));
             let misty = noms.iter().filter(|n| n.contains("misty-client")).count();
             assert_eq!(misty, avec as usize, "{noms:?}");
-            let index: serde_json::Value = serde_json::from_reader(zip.by_name("modrinth.index.json").unwrap()).unwrap();
+            let index: serde_json::Value =
+                serde_json::from_reader(zip.by_name("modrinth.index.json").unwrap()).unwrap();
             assert_eq!(index["dependencies"]["fabric-loader"], "0.17.2");
             assert_eq!(index["dependencies"]["minecraft"], mc.as_str());
         }

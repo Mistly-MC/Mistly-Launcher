@@ -78,7 +78,11 @@ pub fn installer(app: &Rc<App>) {
     });
     let a = app.clone();
     s.on_source_changed(move |i| {
-        a.browser.borrow_mut().source = if i == 1 { CURSEFORGE.into() } else { MODRINTH.into() };
+        a.browser.borrow_mut().source = if i == 1 {
+            CURSEFORGE.into()
+        } else {
+            MODRINTH.into()
+        };
         remplir_tris(&a);
         rechercher_plus_tard(&a, true);
     });
@@ -88,9 +92,11 @@ pub fn installer(app: &Rc<App>) {
     s.on_query_changed(move |_| {
         // Anti-rebond : on attend que l'utilisateur ait fini de taper
         let a2 = a.clone();
-        a.browser.borrow().anti_rebond.start(slint::TimerMode::SingleShot, Duration::from_millis(350), move || {
-            rechercher_plus_tard(&a2, true)
-        });
+        a.browser.borrow().anti_rebond.start(
+            slint::TimerMode::SingleShot,
+            Duration::from_millis(350),
+            move || rechercher_plus_tard(&a2, true),
+        );
     });
     let a = app.clone();
     s.on_near_end(move || {
@@ -134,7 +140,12 @@ pub fn configurer_modpacks(app: &Rc<App>) {
         rafraichir_etats(app);
         return;
     }
-    configurer(app, Contexte::Modpacks, "modpacks".into(), content::MODPACK.into());
+    configurer(
+        app,
+        Contexte::Modpacks,
+        "modpacks".into(),
+        content::MODPACK.into(),
+    );
 }
 
 /// Explorateur des packs de ressources à importer dans l'éditeur de packs.
@@ -143,7 +154,12 @@ pub fn configurer_packs(app: &Rc<App>) {
         rafraichir_etats(app);
         return;
     }
-    configurer(app, Contexte::Packs, "packs".into(), content::PACK_RESSOURCES.into());
+    configurer(
+        app,
+        Contexte::Packs,
+        "packs".into(),
+        content::PACK_RESSOURCES.into(),
+    );
 }
 
 /// Un autre profil a été ouvert : l'explorateur devra être reconfiguré.
@@ -191,7 +207,10 @@ fn construire_types(app: &Rc<App>) {
     };
     let items: Vec<TabItem> = types
         .iter()
-        .map(|(t, l)| TabItem { text: l.clone().into(), enabled: t != content::MOD || mods_possibles })
+        .map(|(t, l)| TabItem {
+            text: l.clone().into(),
+            enabled: t != content::MOD || mods_possibles,
+        })
         .collect();
     b(app).set_types(modele(items));
     b(app).set_type_index(types.iter().position(|(t, _)| *t == type_).unwrap_or(0) as i32);
@@ -200,7 +219,10 @@ fn construire_types(app: &Rc<App>) {
 
 fn remplir_tris(app: &Rc<App>) {
     let source = app.browser.borrow().source.clone();
-    let tris: Vec<String> = catalogue::tris(&source).into_iter().map(|(_, l)| l).collect();
+    let tris: Vec<String> = catalogue::tris(&source)
+        .into_iter()
+        .map(|(_, l)| l)
+        .collect();
     b(app).set_sorts(modele_textes(&tris));
     b(app).set_sort_index(0);
 }
@@ -220,7 +242,14 @@ pub fn langue_changee(app: &Rc<App>) {
         (e.chargement, e.projets.len() as i64, e.total)
     };
     if !chargement && total > 0 {
-        b(app).set_bottom_text(if n >= total { loc::t("Explorateur_Fin") } else { String::new() }.into());
+        b(app).set_bottom_text(
+            if n >= total {
+                loc::t("Explorateur_Fin")
+            } else {
+                String::new()
+            }
+            .into(),
+        );
     }
 }
 
@@ -268,12 +297,26 @@ async fn rechercher(app: &Rc<App>, nouvelle: bool) {
         (e.type_.clone(), instance, e.projets.len())
     };
     let tris = catalogue::tris(&source);
-    let tri = tris.get(b(app).get_sort_index().max(0) as usize).map(|(c, _)| c.clone()).unwrap_or_default();
+    let tri = tris
+        .get(b(app).get_sort_index().max(0) as usize)
+        .map(|(c, _)| c.clone())
+        .unwrap_or_default();
     let requete = b(app).get_query().trim().to_string();
 
     let src = source.clone();
     let resultat = app
-        .bg(async move { catalogue::rechercher(&src, &requete, &type_, instance.as_ref(), &tri, offset, TAILLE_PAGE).await })
+        .bg(async move {
+            catalogue::rechercher(
+                &src,
+                &requete,
+                &type_,
+                instance.as_ref(),
+                &tri,
+                offset,
+                TAILLE_PAGE,
+            )
+            .await
+        })
         .await;
 
     if app.browser.borrow().generation != generation {
@@ -333,8 +376,16 @@ async fn rechercher(app: &Rc<App>, nouvelle: bool) {
         }
         Err(e) => {
             b(app).set_bottom_text(
-                format!("{} : {}", loc::tf("Explorateur_Injoignable", &[&catalogue::libelle_source(&source)]).to_uppercase(), e.to_string().to_uppercase())
-                    .into(),
+                format!(
+                    "{} : {}",
+                    loc::tf(
+                        "Explorateur_Injoignable",
+                        &[&catalogue::libelle_source(&source)]
+                    )
+                    .to_uppercase(),
+                    e.to_string().to_uppercase()
+                )
+                .into(),
             );
         }
     }
@@ -348,12 +399,26 @@ fn maj_info(app: &Rc<App>) {
     let source = catalogue::libelle_source(&e.source);
     let filtre = match &e.contexte {
         Contexte::Instance(i) => {
-            let loader = if e.type_ == content::MOD || e.type_ == content::SHADER { format!(" ({})", i.loader) } else { String::new() };
-            format!(" · {}{loader}", loc::tf("Explorateur_Compatibles", &[&i.version_mc]))
+            let loader = if e.type_ == content::MOD || e.type_ == content::SHADER {
+                format!(" ({})", i.loader)
+            } else {
+                String::new()
+            };
+            format!(
+                " · {}{loader}",
+                loc::tf("Explorateur_Compatibles", &[&i.version_mc])
+            )
         }
         _ => String::new(),
     };
-    let debut = if e.total > 0 { loc::tf("Explorateur_Resultats", &[&formater_entier(e.total), &source]) } else { source.to_string() };
+    let debut = if e.total > 0 {
+        loc::tf(
+            "Explorateur_Resultats",
+            &[&formater_entier(e.total), &source],
+        )
+    } else {
+        source.to_string()
+    };
     b(app).set_info(format!("{debut}{filtre}").into());
 }
 
@@ -375,12 +440,29 @@ fn item(_app: &App, p: &ProjetDistant) -> ResultItem {
         .categories
         .iter()
         .map(String::as_str)
-        .filter(|c| !matches!(*c, "fabric" | "forge" | "neoforge" | "quilt" | "minecraft" | "datapack" | "iris" | "optifine"))
+        .filter(|c| {
+            !matches!(
+                *c,
+                "fabric"
+                    | "forge"
+                    | "neoforge"
+                    | "quilt"
+                    | "minecraft"
+                    | "datapack"
+                    | "iris"
+                    | "optifine"
+            )
+        })
         .take(4)
         .collect();
     ResultItem {
         title: p.titre.clone().into(),
-        author: if p.auteur.is_empty() { String::new() } else { loc::tf("Explorateur_Par", &[&p.auteur]) }.into(),
+        author: if p.auteur.is_empty() {
+            String::new()
+        } else {
+            loc::tf("Explorateur_Par", &[&p.auteur])
+        }
+        .into(),
         description: p.description.clone().into(),
         downloads: modrinth::formater_nombre(p.telechargements).into(),
         categories: categories.join(" · ").into(),
@@ -425,16 +507,32 @@ pub fn rafraichir_etats(app: &Rc<App>) {
         maj_ligne(&m, i, |r| {
             r.installed = installe;
             r.busy = occupe;
-            r.author = if auteur.is_empty() { String::new() } else { loc::tf("Explorateur_Par", &[auteur]) }.into();
+            r.author = if auteur.is_empty() {
+                String::new()
+            } else {
+                loc::tf("Explorateur_Par", &[auteur])
+            }
+            .into();
             r.button_text = loc::t(if occupe {
                 "Explorateur_EnCours"
             } else if installe {
-                if packs { "Pack_Importe" } else { "Explorateur_Installe" }
+                if packs {
+                    "Pack_Importe"
+                } else {
+                    "Explorateur_Installe"
+                }
             } else {
                 libelle
             })
             .into();
-            r.button_icon = if occupe { "\u{E895}" } else if installe { "\u{E73E}" } else { "\u{E896}" }.into();
+            r.button_icon = if occupe {
+                "\u{E895}"
+            } else if installe {
+                "\u{E73E}"
+            } else {
+                "\u{E896}"
+            }
+            .into();
         });
     }
 }
@@ -444,8 +542,16 @@ pub fn rafraichir_etats(app: &Rc<App>) {
 async fn installer_projet(app: &Rc<App>, i: usize) {
     let (projet, contexte, type_, installe, occupe) = {
         let e = app.browser.borrow();
-        let Some(p) = e.projets.get(i).cloned() else { return };
-        (p, e.contexte.clone(), e.type_.clone(), e.installes.get(i).copied().unwrap_or(false), e.occupes.get(i).copied().unwrap_or(false))
+        let Some(p) = e.projets.get(i).cloned() else {
+            return;
+        };
+        (
+            p,
+            e.contexte.clone(),
+            e.type_.clone(),
+            e.installes.get(i).copied().unwrap_or(false),
+            e.occupes.get(i).copied().unwrap_or(false),
+        )
     };
     if installe || occupe {
         return;

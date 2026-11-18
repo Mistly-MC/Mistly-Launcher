@@ -34,7 +34,17 @@ const GROUPES: &[(&str, bool)] = &[
 ];
 
 /// Données personnelles : montrées pour information, jamais supprimables.
-const PERSONNELLES: &[&str] = &["instances", "saves", "mymods", "resourcepacks", "resources", "screenshots", "templates", "local", "backups"];
+const PERSONNELLES: &[&str] = &[
+    "instances",
+    "saves",
+    "mymods",
+    "resourcepacks",
+    "resources",
+    "screenshots",
+    "templates",
+    "local",
+    "backups",
+];
 
 const RESIDUS: &str = "@residus";
 
@@ -43,7 +53,9 @@ fn racine() -> PathBuf {
 }
 
 fn sous_dossiers(dossier: &Path) -> Vec<(String, PathBuf)> {
-    let Ok(entrees) = std::fs::read_dir(dossier) else { return Vec::new() };
+    let Ok(entrees) = std::fs::read_dir(dossier) else {
+        return Vec::new();
+    };
     entrees
         .flatten()
         .filter(|e| e.metadata().map(|m| m.is_dir()).unwrap_or(false))
@@ -53,14 +65,20 @@ fn sous_dossiers(dossier: &Path) -> Vec<(String, PathBuf)> {
 
 /// Fichiers « résidus » à la racine : journaux de plantage Java, captures de debug, etc.
 fn residus_racine() -> Vec<(String, u64)> {
-    let Ok(entrees) = std::fs::read_dir(racine()) else { return Vec::new() };
+    let Ok(entrees) = std::fs::read_dir(racine()) else {
+        return Vec::new();
+    };
     entrees
         .flatten()
         .filter_map(|e| {
             let meta = e.metadata().ok()?;
             let nom = e.file_name().to_string_lossy().to_string();
             let bas = nom.to_lowercase();
-            let residu = meta.is_file() && (bas.starts_with("hs_err_pid") || bas.starts_with("debug.") || bas.ends_with(".tmp") || bas.ends_with(".log"));
+            let residu = meta.is_file()
+                && (bas.starts_with("hs_err_pid")
+                    || bas.starts_with("debug.")
+                    || bas.ends_with(".tmp")
+                    || bas.ends_with(".log"));
             residu.then_some((nom, meta.len()))
         })
         .collect()
@@ -100,7 +118,11 @@ pub fn analyser() -> Vec<Ligne> {
             }
             enfants.sort_by(|a, b| b.reste.cmp(&a.reste).then(b.taille.cmp(&a.taille)));
         }
-        let taille = if enfants.is_empty() { system_info::taille_dossier(&dossier) } else { enfants.iter().map(|e| e.taille).sum() };
+        let taille = if enfants.is_empty() {
+            system_info::taille_dossier(&dossier)
+        } else {
+            enfants.iter().map(|e| e.taille).sum()
+        };
         lignes.push(Ligne {
             cle: nom.to_string(),
             nom: nom.to_string(),
@@ -118,11 +140,27 @@ pub fn analyser() -> Vec<Ligne> {
     for dossier in ["logs", "crash-reports"] {
         let chemin = r.join(dossier);
         if chemin.exists() {
-            enfants.push(Ligne { cle: dossier.into(), nom: dossier.into(), taille: system_info::taille_dossier(&chemin), niveau: 1, depliable: false, reste: false, protege: false });
+            enfants.push(Ligne {
+                cle: dossier.into(),
+                nom: dossier.into(),
+                taille: system_info::taille_dossier(&chemin),
+                niveau: 1,
+                depliable: false,
+                reste: false,
+                protege: false,
+            });
         }
     }
     for (nom, taille) in residus_racine() {
-        enfants.push(Ligne { cle: nom.clone(), nom, taille, niveau: 1, depliable: false, reste: true, protege: false });
+        enfants.push(Ligne {
+            cle: nom.clone(),
+            nom,
+            taille,
+            niveau: 1,
+            depliable: false,
+            reste: true,
+            protege: false,
+        });
     }
     if !enfants.is_empty() {
         enfants.sort_by(|a, b| b.taille.cmp(&a.taille));
@@ -139,15 +177,30 @@ pub fn analyser() -> Vec<Ligne> {
     }
 
     // Données personnelles : une seule ligne informative
-    let perso: u64 = PERSONNELLES.iter().map(|d| system_info::taille_dossier(&r.join(d))).sum();
-    lignes.push(Ligne { cle: "@perso".into(), nom: "@perso".into(), taille: perso, niveau: 0, depliable: false, reste: false, protege: true });
+    let perso: u64 = PERSONNELLES
+        .iter()
+        .map(|d| system_info::taille_dossier(&r.join(d)))
+        .sum();
+    lignes.push(Ligne {
+        cle: "@perso".into(),
+        nom: "@perso".into(),
+        taille: perso,
+        niveau: 0,
+        depliable: false,
+        reste: false,
+        protege: true,
+    });
     lignes
 }
 
 /// Groupe d'une clé (« versions/1.20.1 » → « versions ») : sert à choisir le message d'avertissement.
 pub fn groupe_de(cle: &str) -> String {
     let premier = cle.split('/').next().unwrap_or(cle);
-    if cle == RESIDUS || premier == "logs" || premier == "crash-reports" || !GROUPES.iter().any(|(g, _)| *g == premier) {
+    if cle == RESIDUS
+        || premier == "logs"
+        || premier == "crash-reports"
+        || !GROUPES.iter().any(|(g, _)| *g == premier)
+    {
         return "residus".into();
     }
     premier.to_string()
@@ -165,11 +218,18 @@ pub fn supprimer(cle: &str) -> std::io::Result<()> {
         }
         return Ok(());
     }
-    if cle.is_empty() || cle.contains("..") || cle.contains('\\') || cle.starts_with('/') || cle.split('/').count() > 2 {
+    if cle.is_empty()
+        || cle.contains("..")
+        || cle.contains('\\')
+        || cle.starts_with('/')
+        || cle.split('/').count() > 2
+    {
         return Err(std::io::Error::other("clé invalide"));
     }
     let premier = cle.split('/').next().unwrap_or("");
-    let autorise = GROUPES.iter().any(|(g, _)| *g == premier) || (matches!(premier, "logs" | "crash-reports") && !cle.contains('/')) || residus_racine().iter().any(|(n, _)| n == cle);
+    let autorise = GROUPES.iter().any(|(g, _)| *g == premier)
+        || (matches!(premier, "logs" | "crash-reports") && !cle.contains('/'))
+        || residus_racine().iter().any(|(n, _)| n == cle);
     if !autorise {
         return Err(std::io::Error::other("suppression non autorisée"));
     }

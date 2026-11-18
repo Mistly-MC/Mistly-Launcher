@@ -17,7 +17,6 @@ static DERNIER_COMPTE: std::sync::Mutex<String> = std::sync::Mutex::new(String::
 /// Nombre de capes par ligne (doit correspondre à la largeur du panneau).
 const COLONNES: usize = 4;
 
-
 #[derive(Default)]
 pub struct Etat {
     profil: Option<Profil>,
@@ -126,7 +125,10 @@ pub fn installer(app: &Rc<App>) {
     // côté (tête : chapeaux ; dos, corps, cape : capes ; élytres : ailes) et la caméra s'y tourne
     let a = app.clone();
     st.on_pick(move |u, v| {
-        let Some(emplacement) = super::studio::partie(u, v).and_then(super::studio::emplacement) else { return };
+        let Some(emplacement) = super::studio::partie(u, v).and_then(super::studio::emplacement)
+        else {
+            return;
+        };
         let st = s(&a);
         st.set_popup(emplacement);
         st.set_category(emplacement);
@@ -154,7 +156,10 @@ fn tenue(app: &App) -> (Option<Vec<u8>>, bool) {
         _ => {
             let cape = if st.get_show_cape() {
                 let e = app.skin.borrow();
-                e.profil.as_ref().and_then(|p| p.capes.iter().position(|c| c.active)).and_then(|i| e.capes_img.get(i).cloned().flatten())
+                e.profil
+                    .as_ref()
+                    .and_then(|p| p.capes.iter().position(|c| c.active))
+                    .and_then(|i| e.capes_img.get(i).cloned().flatten())
             } else {
                 None
             };
@@ -186,7 +191,11 @@ fn changer_tenue(app: &Rc<App>) {
         3 => client::CAPE_EARLY,
         _ => "",
     });
-    client::equiper_chapeau(if st.get_misty_hat() { client::CLOUDLY } else { "" });
+    client::equiper_chapeau(if st.get_misty_hat() {
+        client::CLOUDLY
+    } else {
+        ""
+    });
     // Sans compte et sans rien d'essayé : Steve tel quel
     if account::session().is_none() && st.get_misty_equip() == 0 && !st.get_elytra() {
         afficher_steve(app, false);
@@ -240,7 +249,11 @@ fn afficher_steve(app: &Rc<App>, force: bool) {
         }
         let st = s(&a);
         st.set_has_figure(vues.is_some());
-        let images: Vec<Image> = vues.unwrap_or_default().iter().map(|v| Image::from_rgba8(images::tampon(v))).collect();
+        let images: Vec<Image> = vues
+            .unwrap_or_default()
+            .iter()
+            .map(|v| Image::from_rgba8(images::tampon(v)))
+            .collect();
         st.set_frames(modele(images));
     });
 }
@@ -264,15 +277,24 @@ async fn rassembler(profil: Profil) -> Charge {
         if profil.skin_url.is_empty() {
             Vec::new()
         } else {
-            skins::telecharger(&profil.skin_url).await.unwrap_or_default()
+            skins::telecharger(&profil.skin_url)
+                .await
+                .unwrap_or_default()
         }
     };
     let cape = async {
         let i = profil.capes.iter().position(|c| c.active)?;
-        skins::telecharger(&profil.capes[i].url).await.ok().map(|o| (i, o))
+        skins::telecharger(&profil.capes[i].url)
+            .await
+            .ok()
+            .map(|o| (i, o))
     };
     let (skin, cape_active) = futures::join!(skin, cape);
-    Charge { profil, skin, cape_active }
+    Charge {
+        profil,
+        skin,
+        cape_active,
+    }
 }
 
 /// Profil actuel demandé à Mojang.
@@ -319,7 +341,12 @@ async fn afficher_charge(app: &Rc<App>, c: Charge, epoque: u64) -> bool {
         if let Some((i, octets)) = c.cape_active {
             e.capes_img[i] = Some(octets);
         }
-        e.cape_confirmee = profil.capes.iter().find(|x| x.active).map(|x| x.id.clone()).unwrap_or_default();
+        e.cape_confirmee = profil
+            .capes
+            .iter()
+            .find(|x| x.active)
+            .map(|x| x.id.clone())
+            .unwrap_or_default();
         e.cape_voulue = e.cape_confirmee.clone();
         e.profil = Some(c.profil);
     }
@@ -365,7 +392,11 @@ fn montrer_limite(app: &Rc<App>) {
         return;
     }
     let a = app.clone();
-    let texte = if std::mem::take(&mut app.skin.borrow_mut().limite_cape) { loc::t("Skin_LimiteCape_Popup") } else { loc::t("Skin_Limite_Popup") };
+    let texte = if std::mem::take(&mut app.skin.borrow_mut().limite_cape) {
+        loc::t("Skin_LimiteCape_Popup")
+    } else {
+        loc::t("Skin_Limite_Popup")
+    };
     lancer(async move { dialogs::info(&a, &loc::t("Skin_Limite_Titre"), &texte).await });
 }
 
@@ -422,7 +453,11 @@ fn charger(app: &Rc<App>) {
                     if limite.is_some() {
                         signaler_limite(&a);
                     }
-                    let message = if limite.is_some() { loc::t("Skin_Limite") } else { loc::tf("Skin_ErreurChargement", &[&e]) };
+                    let message = if limite.is_some() {
+                        loc::t("Skin_Limite")
+                    } else {
+                        loc::tf("Skin_ErreurChargement", &[&e])
+                    };
                     st.set_info(message.into());
                     if !affiche {
                         st.set_loading(false);
@@ -441,7 +476,10 @@ fn charger(app: &Rc<App>) {
                         _ => 60,
                     });
                     let attente = attente.clamp(2, 120);
-                    a.bg(async move { tokio::time::sleep(std::time::Duration::from_secs(attente)).await }).await;
+                    a.bg(async move {
+                        tokio::time::sleep(std::time::Duration::from_secs(attente)).await
+                    })
+                    .await;
                     if EPOQUE.load(Ordering::SeqCst) != epoque {
                         return;
                     }
@@ -465,12 +503,17 @@ fn rendre_marche(app: &Rc<App>) {
     };
     let a = app.clone();
     lancer(async move {
-        let vues = a.bloquant(move || skins::rendre_marche(&png, fin, cape.as_deref(), elytres)).await;
+        let vues = a
+            .bloquant(move || skins::rendre_marche(&png, fin, cape.as_deref(), elytres))
+            .await;
         if a.skin.borrow().generation != generation {
             return;
         }
         if let Some(vues) = vues {
-            let images: Vec<Image> = vues.iter().map(|v| Image::from_rgba8(images::tampon(v))).collect();
+            let images: Vec<Image> = vues
+                .iter()
+                .map(|v| Image::from_rgba8(images::tampon(v)))
+                .collect();
             s(&a).set_walk_frames(modele(images));
         }
     });
@@ -499,7 +542,9 @@ fn afficher_personnage(app: &Rc<App>) {
         // Déjà un personnage affiché (changement de cape...) : on le garde jusqu'à la fin du calcul
         if !st.get_has_figure() {
             let (png2, cape2) = (png.clone(), cape.clone());
-            let face = a.bloquant(move || skins::rendre_vues(&png2, fin, cape2.as_deref(), &[0])).await;
+            let face = a
+                .bloquant(move || skins::rendre_vues(&png2, fin, cape2.as_deref(), &[0]))
+                .await;
             if a.skin.borrow().generation != generation {
                 return; // a newer preview was requested meanwhile
             }
@@ -516,12 +561,17 @@ fn afficher_personnage(app: &Rc<App>) {
             }
         }
         // 2. Le tour complet (calculé sur tous les cœurs)
-        let vues = a.bloquant(move || skins::rendre_tour_elytres(&png, fin, cape.as_deref(), elytres)).await;
+        let vues = a
+            .bloquant(move || skins::rendre_tour_elytres(&png, fin, cape.as_deref(), elytres))
+            .await;
         if a.skin.borrow().generation != generation {
             return;
         }
         if let Some(vues) = vues {
-            let images: Vec<Image> = vues.iter().map(|v| Image::from_rgba8(images::tampon(v))).collect();
+            let images: Vec<Image> = vues
+                .iter()
+                .map(|v| Image::from_rgba8(images::tampon(v)))
+                .collect();
             st.set_frames(modele(images));
             if st.get_walk() {
                 rendre_marche(&a);
@@ -544,7 +594,13 @@ fn afficher_capes(app: &Rc<App>) {
         row: 0,
     }];
     for (i, cape) in profil.capes.iter().enumerate() {
-        let image = e.capes_img.get(i).cloned().flatten().and_then(|o| skins::rendre_cape(&o)).map(|i| Image::from_rgba8(images::tampon(&i)));
+        let image = e
+            .capes_img
+            .get(i)
+            .cloned()
+            .flatten()
+            .and_then(|o| skins::rendre_cape(&o))
+            .map(|i| Image::from_rgba8(images::tampon(&i)));
         elements.push(CapeItem {
             id: cape.id.clone().into(),
             name: cape.nom.clone().into(),
@@ -573,7 +629,10 @@ fn afficher_capes(app: &Rc<App>) {
 // ───────────────────────── Actions ─────────────────────────
 
 async fn choisir_fichier(app: &Rc<App>) {
-    let Some(chemin) = dialogs::choisir_fichier(&loc::t("Skin_Fichier"), "PNG", &["png"]).await else { return };
+    let Some(chemin) = dialogs::choisir_fichier(&loc::t("Skin_Fichier"), "PNG", &["png"]).await
+    else {
+        return;
+    };
     let octets = match std::fs::read(&chemin) {
         Ok(o) => o,
         Err(e) => return dialogs::erreur(app, &loc::t("Skin_Erreur"), &e.to_string()).await,
@@ -589,7 +648,13 @@ async fn choisir_fichier(app: &Rc<App>) {
     let st = s(app);
     st.set_slim(fin);
     st.set_has_file(true);
-    st.set_file_name(chemin.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default().into());
+    st.set_file_name(
+        chemin
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default()
+            .into(),
+    );
     st.set_info("".into());
     afficher_personnage(app);
 }
@@ -598,7 +663,11 @@ async fn choisir_fichier(app: &Rc<App>) {
 fn afficher_historique(app: &Rc<App>) {
     let actuel = {
         let e = app.skin.borrow();
-        if e.skin_actuel.is_empty() { String::new() } else { skins::id_historique(&e.skin_actuel) }
+        if e.skin_actuel.is_empty() {
+            String::new()
+        } else {
+            skins::id_historique(&e.skin_actuel)
+        }
     };
     let items: Vec<SkinHistoryItem> = skins::historique()
         .into_iter()
@@ -618,10 +687,15 @@ fn afficher_historique(app: &Rc<App>) {
 
 /// Un skin de l'historique choisi : il devient le skin à envoyer (comme un fichier choisi).
 fn reprendre_historique(app: &Rc<App>, id: &str) {
-    let Some((chemin, fin)) = skins::historique().into_iter().find(|(p, _)| p.file_stem().is_some_and(|n| n.to_string_lossy() == id)) else {
+    let Some((chemin, fin)) = skins::historique()
+        .into_iter()
+        .find(|(p, _)| p.file_stem().is_some_and(|n| n.to_string_lossy() == id))
+    else {
         return;
     };
-    let Ok(octets) = std::fs::read(&chemin) else { return };
+    let Ok(octets) = std::fs::read(&chemin) else {
+        return;
+    };
     let st = s(app);
     // le skin déjà porté : on annule simplement le fichier en attente
     if skins::id_historique(&octets) == skins::id_historique(&app.skin.borrow().skin_actuel) {
@@ -639,13 +713,18 @@ fn reprendre_historique(app: &Rc<App>, id: &str) {
 }
 
 async fn appliquer(app: &Rc<App>) {
-    let Some(png) = app.skin.borrow().fichier.clone() else { return };
+    let Some(png) = app.skin.borrow().fichier.clone() else {
+        return;
+    };
     let st = s(app);
     let fin = st.get_slim();
     st.set_busy(true);
     st.set_info("".into());
     let envoi = png.clone();
-    match app.bg(async move { skins::changer_skin(envoi, fin).await }).await {
+    match app
+        .bg(async move { skins::changer_skin(envoi, fin).await })
+        .await
+    {
         Ok(()) => {
             {
                 let mut e = app.skin.borrow_mut();
@@ -672,7 +751,11 @@ async fn appliquer(app: &Rc<App>) {
             }
         }
         Err(e) => {
-            let message = if e.downcast_ref::<skins::Limite>().is_some() { loc::t("Skin_LimiteEchec") } else { e.to_string() };
+            let message = if e.downcast_ref::<skins::Limite>().is_some() {
+                loc::t("Skin_LimiteEchec")
+            } else {
+                e.to_string()
+            };
             dialogs::erreur(app, &loc::t("Skin_Erreur"), &message).await
         }
     }
@@ -710,7 +793,8 @@ async fn changer_cape(app: &Rc<App>, id: String) {
     let mut essai = 0usize;
     loop {
         // Courte pause : si l'utilisateur clique encore sur d'autres capes, une seule demande partira
-        app.bg(async { tokio::time::sleep(std::time::Duration::from_millis(500)).await }).await;
+        app.bg(async { tokio::time::sleep(std::time::Duration::from_millis(500)).await })
+            .await;
         let voulue = app.skin.borrow().cape_voulue.clone();
         if voulue == app.skin.borrow().cape_confirmee {
             app.skin.borrow_mut().envoi_cape = false;
@@ -718,7 +802,14 @@ async fn changer_cape(app: &Rc<App>, id: String) {
         }
         let envoi = voulue.clone();
         let resultat = app
-            .bg(async move { skins::activer_cape(if envoi.is_empty() { None } else { Some(envoi.as_str()) }).await })
+            .bg(async move {
+                skins::activer_cape(if envoi.is_empty() {
+                    None
+                } else {
+                    Some(envoi.as_str())
+                })
+                .await
+            })
             .await;
         match resultat {
             Ok(()) => {
@@ -743,8 +834,16 @@ async fn changer_cape(app: &Rc<App>, id: String) {
                     if essai <= 4 {
                         app.skin.borrow_mut().limite_cape = true;
                         signaler_limite(app);
-                        let attente = (if limite.attente > 0 { limite.attente } else { 5u64 << (essai - 1).min(3) }).clamp(2, 120);
-                        app.bg(async move { tokio::time::sleep(std::time::Duration::from_secs(attente)).await }).await;
+                        let attente = (if limite.attente > 0 {
+                            limite.attente
+                        } else {
+                            5u64 << (essai - 1).min(3)
+                        })
+                        .clamp(2, 120);
+                        app.bg(async move {
+                            tokio::time::sleep(std::time::Duration::from_secs(attente)).await
+                        })
+                        .await;
                         continue;
                     }
                 }
@@ -752,7 +851,11 @@ async fn changer_cape(app: &Rc<App>, id: String) {
                     let mut etat = app.skin.borrow_mut();
                     etat.envoi_cape = false;
                     etat.cape_voulue = etat.cape_confirmee.clone();
-                    let message = if e.downcast_ref::<skins::Limite>().is_some() { loc::t("Skin_LimiteEchec") } else { e.to_string() };
+                    let message = if e.downcast_ref::<skins::Limite>().is_some() {
+                        loc::t("Skin_LimiteEchec")
+                    } else {
+                        e.to_string()
+                    };
                     (etat.cape_confirmee.clone(), message)
                 };
                 cape_localement(app, &confirmee); // on revient à la cape réellement portée

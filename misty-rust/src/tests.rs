@@ -9,14 +9,21 @@ use std::sync::Arc;
 fn compteur() -> (FileProgress, Arc<AtomicUsize>) {
     let n = Arc::new(AtomicUsize::new(0));
     let n2 = n.clone();
-    (Arc::new(move |_, _, _| { n2.fetch_add(1, Ordering::Relaxed); }), n)
+    (
+        Arc::new(move |_, _, _| {
+            n2.fetch_add(1, Ordering::Relaxed);
+        }),
+        n,
+    )
 }
 
 /// Vérifie qu'une version installée produit une commande de lancement cohérente.
 async fn verifier(id: &str) {
     let dirs = McDirs::misty();
     let (prog, n) = compteur();
-    let v = install::installer(&dirs, id, prog).await.unwrap_or_else(|e| panic!("{id} : {e:#}"));
+    let v = install::installer(&dirs, id, prog)
+        .await
+        .unwrap_or_else(|e| panic!("{id} : {e:#}"));
     let options = launch::Options {
         joueur: launch::Joueur {
             pseudo: "Test".into(),
@@ -29,13 +36,29 @@ async fn verifier(id: &str) {
         dossier_jeu: std::env::temp_dir().join("misty-test-jeu"),
     };
     let cmd = launch::preparer(&dirs, &v, &options).unwrap();
-    let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
-    let cp_index = args.iter().position(|a| a == "-cp" || a == "-classpath").expect("classpath");
+    let args: Vec<String> = cmd
+        .get_args()
+        .map(|a| a.to_string_lossy().to_string())
+        .collect();
+    let cp_index = args
+        .iter()
+        .position(|a| a == "-cp" || a == "-classpath")
+        .expect("classpath");
     let cp = &args[cp_index + 1];
-    let manquants: Vec<&str> = cp.split(';').filter(|p| !std::path::Path::new(p).exists()).collect();
+    let manquants: Vec<&str> = cp
+        .split(';')
+        .filter(|p| !std::path::Path::new(p).exists())
+        .collect();
     let classe = v.json["mainClass"].as_str().unwrap();
-    assert!(args.iter().any(|a| a == classe), "classe principale absente");
-    assert!(!args.iter().any(|a| a.contains("${")), "variable non remplacée : {:?}", args.iter().find(|a| a.contains("${")));
+    assert!(
+        args.iter().any(|a| a == classe),
+        "classe principale absente"
+    );
+    assert!(
+        !args.iter().any(|a| a.contains("${")),
+        "variable non remplacée : {:?}",
+        args.iter().find(|a| a.contains("${"))
+    );
     println!(
         "{id:<40} java={} fichiers téléchargés={} classpath={} manquants={:?} main={classe}",
         v.java.file_name().unwrap().to_string_lossy(),
@@ -43,14 +66,24 @@ async fn verifier(id: &str) {
         cp.split(';').count(),
         manquants
     );
-    assert!(manquants.is_empty(), "{id} : fichiers manquants dans le classpath");
+    assert!(
+        manquants.is_empty(),
+        "{id} : fichiers manquants dans le classpath"
+    );
 }
 
 #[tokio::test]
 #[ignore]
 async fn versions_installees() {
     loc::initialiser();
-    for id in ["1.21.1", "1.8.9", "1.7.10", "1.18.1-forge-39.1.0", "1.8.9-OptiFine_HD_U_M6_pre2", "1.8.9-forge1.8.9-11.15.1.2318-1.8.9"] {
+    for id in [
+        "1.21.1",
+        "1.8.9",
+        "1.7.10",
+        "1.18.1-forge-39.1.0",
+        "1.8.9-OptiFine_HD_U_M6_pre2",
+        "1.8.9-forge1.8.9-11.15.1.2318-1.8.9",
+    ] {
         verifier(id).await;
     }
 }
@@ -68,9 +101,16 @@ async fn modes_disponibles() {
 async fn fabric_et_forge() {
     loc::initialiser();
     let dirs = McDirs::misty();
-    for (version, mode) in [("1.21.1", loaders::FABRIC), ("1.21.1", loaders::QUILT), ("1.21.1", loaders::NEOFORGE), ("1.21.1", loaders::FORGE)] {
+    for (version, mode) in [
+        ("1.21.1", loaders::FABRIC),
+        ("1.21.1", loaders::QUILT),
+        ("1.21.1", loaders::NEOFORGE),
+        ("1.21.1", loaders::FORGE),
+    ] {
         let (prog, _) = compteur();
-        let nom = loaders::installer(&dirs, version, mode, None, prog).await.unwrap_or_else(|e| panic!("{mode} : {e:#}"));
+        let nom = loaders::installer(&dirs, version, mode, None, prog)
+            .await
+            .unwrap_or_else(|e| panic!("{mode} : {e:#}"));
         verifier(&nom).await;
     }
 }
@@ -86,9 +126,14 @@ fn apercu_3d() {
     }
     let mut octets = std::io::Cursor::new(Vec::new());
     cape.write_to(&mut octets, image::ImageFormat::Png).unwrap();
-    let vues = crate::services::skins::rendre_tour(&png, false, Some(&octets.into_inner())).unwrap();
+    let vues =
+        crate::services::skins::rendre_tour(&png, false, Some(&octets.into_inner())).unwrap();
     let choix = [0usize, 5, 9, 14, 18, 27];
-    let mut feuille = image::RgbaImage::from_pixel(160 * choix.len() as u32, 320, image::Rgba([90, 120, 160, 255]));
+    let mut feuille = image::RgbaImage::from_pixel(
+        160 * choix.len() as u32,
+        320,
+        image::Rgba([90, 120, 160, 255]),
+    );
     for (i, k) in choix.iter().enumerate() {
         image::imageops::overlay(&mut feuille, &vues[*k], 160 * i as i64, 0);
     }
@@ -102,21 +147,37 @@ fn apercu_3d() {
 async fn horizon_preparation() {
     use crate::services::horizon;
     loc::initialiser();
-    let tag = std::env::var("MISTY_HZ_TAG").ok().or_else(|| horizon::installes().into_iter().next()).expect("aucun build installé");
+    let tag = std::env::var("MISTY_HZ_TAG")
+        .ok()
+        .or_else(|| horizon::installes().into_iter().next())
+        .expect("aucun build installé");
     let build = horizon::dossier_build(&tag).expect("dossier du build");
     let ex = horizon::exigences(&build).unwrap();
     println!("{tag} : {ex:?}");
     let dirs = McDirs::misty();
     let (prog, _) = compteur();
-    let v = install::installer(&dirs, &ex.minecraft, prog).await.unwrap_or_else(|e| panic!("{e:#}"));
+    let v = install::installer(&dirs, &ex.minecraft, prog)
+        .await
+        .unwrap_or_else(|e| panic!("{e:#}"));
     let jar = horizon::server_jar(&v.json, &ex.minecraft).await.unwrap();
     horizon::manifeste_epingle(&build, &ex).await.unwrap();
-    let java_home = v.java.parent().and_then(|b| b.parent()).unwrap().to_path_buf();
+    let java_home = v
+        .java
+        .parent()
+        .and_then(|b| b.parent())
+        .unwrap()
+        .to_path_buf();
     println!("java {}  server {}", java_home.display(), jar.display());
     if !horizon::est_prepare(&build, &ex) {
-        horizon::preparer(&build, &ex, &dirs.root, &jar, &java_home, |f, m| println!("{:>3.0}% {m}", f * 100.0)).unwrap_or_else(|e| panic!("{e:#}"));
+        horizon::preparer(&build, &ex, &dirs.root, &jar, &java_home, |f, m| {
+            println!("{:>3.0}% {m}", f * 100.0)
+        })
+        .unwrap_or_else(|e| panic!("{e:#}"));
     }
-    assert!(horizon::est_prepare(&build, &ex), "pas prêt après la préparation");
+    assert!(
+        horizon::est_prepare(&build, &ex),
+        "pas prêt après la préparation"
+    );
 }
 
 /// Mises à jour et côté client / serveur du contenu de chaque profil (réseau).
@@ -127,13 +188,37 @@ async fn majs_et_environnement() {
     loc::initialiser();
     println!("CurseForge : {}", crate::services::curseforge::disponible());
     for inst in instances::lister() {
-        let contenus = content::identifier(&inst, content::lister(&inst)).await.unwrap();
-        let (majs, contenus) = content::verifier(&inst, contenus).await.unwrap_or_else(|e| panic!("{} : {e:#}", inst.nom));
-        println!("== {} ({} {} {}) : {} fichiers, {} mises à jour", inst.nom, inst.version_mc, inst.loader, inst.id, contenus.len(), majs.len());
+        let contenus = content::identifier(&inst, content::lister(&inst))
+            .await
+            .unwrap();
+        let (majs, contenus) = content::verifier(&inst, contenus)
+            .await
+            .unwrap_or_else(|e| panic!("{} : {e:#}", inst.nom));
+        println!(
+            "== {} ({} {} {}) : {} fichiers, {} mises à jour",
+            inst.nom,
+            inst.version_mc,
+            inst.loader,
+            inst.id,
+            contenus.len(),
+            majs.len()
+        );
         for c in &contenus {
             let rel = content::relatif(&inst, &c.chemin_fichier);
-            let src = c.meta.as_ref().map(|m| m.source().to_string()).unwrap_or_default();
-            println!("  {:<40} {:<10} {:?} {}", c.titre(), src, c.environnement(), majs.get(&rel).map(|m| format!("-> {}", m.version_nom)).unwrap_or_default());
+            let src = c
+                .meta
+                .as_ref()
+                .map(|m| m.source().to_string())
+                .unwrap_or_default();
+            println!(
+                "  {:<40} {:<10} {:?} {}",
+                c.titre(),
+                src,
+                c.environnement(),
+                majs.get(&rel)
+                    .map(|m| format!("-> {}", m.version_nom))
+                    .unwrap_or_default()
+            );
         }
     }
 }

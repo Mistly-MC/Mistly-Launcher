@@ -119,7 +119,13 @@ pub fn installer(app: &Rc<App>) {
     });
     let a = app.clone();
     st.on_filter_changed(move |i| {
-        let t = a.instance.borrow().types.get(i as usize).cloned().unwrap_or_default();
+        let t = a
+            .instance
+            .borrow()
+            .types
+            .get(i as usize)
+            .cloned()
+            .unwrap_or_default();
         a.instance.borrow_mut().filtre_type = t;
         appliquer_filtre(&a);
     });
@@ -150,8 +156,17 @@ pub fn installer(app: &Rc<App>) {
         lancer(async move {
             let liste: Vec<ContenuInstalle> = {
                 let e = a.instance.borrow();
-                let Some(inst) = e.instance.as_ref() else { return };
-                e.contenus.iter().filter(|c| e.majs.contains_key(&content::relatif(inst, &c.chemin_fichier))).cloned().collect()
+                let Some(inst) = e.instance.as_ref() else {
+                    return;
+                };
+                e.contenus
+                    .iter()
+                    .filter(|c| {
+                        e.majs
+                            .contains_key(&content::relatif(inst, &c.chemin_fichier))
+                    })
+                    .cloned()
+                    .collect()
             };
             mettre_a_jour(&a, liste).await;
         });
@@ -160,17 +175,23 @@ pub fn installer(app: &Rc<App>) {
     // Fichiers ajoutés à la main (glissés dans le dossier mods, etc.) : la liste se recharge seule
     let a = Rc::downgrade(app);
     let minuterie = slint::Timer::default();
-    minuterie.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(2), move || {
-        if let Some(a) = a.upgrade() {
-            surveiller(&a);
-        }
-    });
+    minuterie.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_secs(2),
+        move || {
+            if let Some(a) = a.upgrade() {
+                surveiller(&a);
+            }
+        },
+    );
     std::mem::forget(minuterie);
 }
 
 /// Page du profil ouverte sur son contenu : recharge la liste si les dossiers ont changé.
 fn surveiller(app: &Rc<App>) {
-    if app.ui.global::<crate::AppState>().get_page() != super::page::INSTANCE || s(app).get_tab() != 0 {
+    if app.ui.global::<crate::AppState>().get_page() != super::page::INSTANCE
+        || s(app).get_tab() != 0
+    {
         return;
     }
     let Some(inst) = instance(app) else { return };
@@ -182,7 +203,8 @@ fn surveiller(app: &Rc<App>) {
     lancer(async move {
         let i = inst.clone();
         let empreinte = a.bloquant(move || content::empreinte(&i)).await;
-        let change = instance(&a).map(|x| x.id) == Some(inst.id.clone()) && empreinte != a.instance.borrow().empreinte;
+        let change = instance(&a).map(|x| x.id) == Some(inst.id.clone())
+            && empreinte != a.instance.borrow().empreinte;
         a.instance.borrow_mut().chargement = false;
         if change {
             charger_contenu(&a).await;
@@ -211,8 +233,17 @@ async fn mettre_a_jour_pack(app: &Rc<App>) {
     attente.set_waiting(false);
     let (versions, actuelle) = match resultat {
         Ok((v, a)) if !v.is_empty() => (v, a),
-        Ok(_) => return dialogs::erreur(app, &loc::t("Pack_MajImpossible"), &loc::t("Erreur_ModpackSansVersion")).await,
-        Err(e) => return dialogs::erreur(app, &loc::t("Pack_MajImpossible"), &format!("{e:#}")).await,
+        Ok(_) => {
+            return dialogs::erreur(
+                app,
+                &loc::t("Pack_MajImpossible"),
+                &loc::t("Erreur_ModpackSansVersion"),
+            )
+            .await
+        }
+        Err(e) => {
+            return dialogs::erreur(app, &loc::t("Pack_MajImpossible"), &format!("{e:#}")).await
+        }
     };
 
     // déjà la plus récente : on le dit, et on propose quand même une autre version
@@ -233,12 +264,27 @@ async fn mettre_a_jour_pack(app: &Rc<App>) {
     }
     let libelles: Vec<String> = versions
         .iter()
-        .map(|v| if actuelle.as_deref() == Some(v.id.as_str()) { format!("{}  ·  {}", v.libelle, loc::t("Pack_Actuelle")) } else { v.libelle.clone() })
+        .map(|v| {
+            if actuelle.as_deref() == Some(v.id.as_str()) {
+                format!("{}  ·  {}", v.libelle, loc::t("Pack_Actuelle"))
+            } else {
+                v.libelle.clone()
+            }
+        })
         .collect();
-    let Some(choix) = dialogs::choisir(app, &loc::t("Pack_MettreAJour"), &loc::tf("Pack_Choisir_Texte", &[&inst.nom]), &libelles).await else {
+    let Some(choix) = dialogs::choisir(
+        app,
+        &loc::t("Pack_MettreAJour"),
+        &loc::tf("Pack_Choisir_Texte", &[&inst.nom]),
+        &libelles,
+    )
+    .await
+    else {
         return;
     };
-    let Some(version) = versions.get(choix).cloned() else { return };
+    let Some(version) = versions.get(choix).cloned() else {
+        return;
+    };
     if actuelle.as_deref() == Some(version.id.as_str()) {
         return;
     }
@@ -258,10 +304,16 @@ async fn mettre_a_jour_pack(app: &Rc<App>) {
     attente.set_wait_title(inst.nom.to_uppercase().into());
     attente.set_wait_text(loc::t("Commun_Preparation").into());
     attente.set_waiting(true);
-    let progression = app.progression(|ui, texte| ui.global::<ProfilesState>().set_wait_text(texte.into()));
+    let progression =
+        app.progression(|ui, texte| ui.global::<ProfilesState>().set_wait_text(texte.into()));
     let (i, id) = (inst.clone(), version.id.clone());
-    crate::services::journal::info(&format!("Mise à jour du modpack {} vers {}", inst.nom, version.libelle));
-    let resultat = app.bg(async move { modpack::mettre_a_jour(&i, id, progression).await }).await;
+    crate::services::journal::info(&format!(
+        "Mise à jour du modpack {} vers {}",
+        inst.nom, version.libelle
+    ));
+    let resultat = app
+        .bg(async move { modpack::mettre_a_jour(&i, id, progression).await })
+        .await;
     attente.set_waiting(false);
     match resultat {
         Ok(r) => {
@@ -269,7 +321,12 @@ async fn mettre_a_jour_pack(app: &Rc<App>) {
             if !r.bloques.is_empty() {
                 super::profiles::proposer_telechargements_manuels(app, &r).await;
             } else {
-                dialogs::info(app, &loc::t("Pack_MajFaite"), &loc::tf("Pack_MajFaite_Texte", &[&inst.nom, &version.libelle])).await;
+                dialogs::info(
+                    app,
+                    &loc::t("Pack_MajFaite"),
+                    &loc::tf("Pack_MajFaite_Texte", &[&inst.nom, &version.libelle]),
+                )
+                .await;
             }
         }
         Err(e) => {
@@ -315,7 +372,9 @@ async fn verifier_majs(app: &Rc<App>) {
         return;
     }
     let i = inst.clone();
-    let resultat = app.bg(async move { content::verifier(&i, contenus).await }).await;
+    let resultat = app
+        .bg(async move { content::verifier(&i, contenus).await })
+        .await;
     if instance(app).map(|x| x.id) != Some(inst.id) {
         return; // un autre profil a été ouvert entre-temps
     }
@@ -326,14 +385,19 @@ async fn verifier_majs(app: &Rc<App>) {
                 e.majs = majs;
                 // métadonnées complétées (client / serveur), si la liste n'a pas changé entre-temps
                 if e.contenus.len() == contenus.len()
-                    && e.contenus.iter().zip(&contenus).all(|(a, b)| a.chemin_fichier == b.chemin_fichier)
+                    && e.contenus
+                        .iter()
+                        .zip(&contenus)
+                        .all(|(a, b)| a.chemin_fichier == b.chemin_fichier)
                 {
                     e.contenus = contenus;
                 }
             }
             appliquer_filtre(app);
         }
-        Err(e) => crate::services::journal::info(&format!("Recherche des mises à jour impossible : {e:#}")),
+        Err(e) => crate::services::journal::info(&format!(
+            "Recherche des mises à jour impossible : {e:#}"
+        )),
     }
 }
 
@@ -350,7 +414,8 @@ async fn mettre_a_jour(app: &Rc<App>, liste: Vec<ContenuInstalle>) {
                 (!e.majs_en_cours.contains(&rel)).then_some((c, rel, maj))
             })
             .collect();
-        e.majs_en_cours.extend(taches.iter().map(|(_, r, _)| r.clone()));
+        e.majs_en_cours
+            .extend(taches.iter().map(|(_, r, _)| r.clone()));
         taches
     };
     if taches.is_empty() {
@@ -365,9 +430,12 @@ async fn mettre_a_jour(app: &Rc<App>, liste: Vec<ContenuInstalle>) {
     let mut erreurs = Vec::new();
     let mut faits = Vec::new();
     for (contenu, rel, maj) in taches {
-        let progression = app.progression(|ui, texte| ui.global::<InstanceState>().set_status(texte.into()));
+        let progression =
+            app.progression(|ui, texte| ui.global::<InstanceState>().set_status(texte.into()));
         let (i, c, m) = (inst.clone(), contenu.clone(), maj.clone());
-        let resultat = app.bg(async move { content::mettre_a_jour(&i, &c, &m, Some(progression)).await }).await;
+        let resultat = app
+            .bg(async move { content::mettre_a_jour(&i, &c, &m, Some(progression)).await })
+            .await;
         if instance(app).map(|x| x.id) != Some(inst.id.clone()) {
             return; // profil fermé : la liste sera relue à la prochaine ouverture
         }
@@ -398,7 +466,12 @@ async fn mettre_a_jour(app: &Rc<App>, liste: Vec<ContenuInstalle>) {
         .into(),
     );
     if !erreurs.is_empty() {
-        dialogs::erreur(app, &loc::t("Instance_MajImpossible"), &erreurs.join("\n\n")).await;
+        dialogs::erreur(
+            app,
+            &loc::t("Instance_MajImpossible"),
+            &erreurs.join("\n\n"),
+        )
+        .await;
     }
 }
 
@@ -416,15 +489,29 @@ fn maj_en_tete(app: &Rc<App>) {
     st.set_name(i.nom.clone().into());
 
     let mut badges = vec![
-        BadgeItem { text: i.version_mc.to_uppercase().into(), color: Color::from_rgb_u8(0x1C, 0x23, 0x35) },
         BadgeItem {
-            text: format!("{}{}", i.loader, i.loader_version.as_ref().map(|v| format!(" {v}")).unwrap_or_default()).to_uppercase().into(),
+            text: i.version_mc.to_uppercase().into(),
+            color: Color::from_rgb_u8(0x1C, 0x23, 0x35),
+        },
+        BadgeItem {
+            text: format!(
+                "{}{}",
+                i.loader,
+                i.loader_version
+                    .as_ref()
+                    .map(|v| format!(" {v}"))
+                    .unwrap_or_default()
+            )
+            .to_uppercase()
+            .into(),
             color: Color::from_rgb_u8(0x13, 0xB2, 0x4C),
         },
     ];
     if i.est_modpack() {
         badges.push(BadgeItem {
-            text: format!("MODPACK {}", i.modpack_version.clone().unwrap_or_default()).to_uppercase().into(),
+            text: format!("MODPACK {}", i.modpack_version.clone().unwrap_or_default())
+                .to_uppercase()
+                .into(),
             color: Color::from_rgb_u8(0x2F, 0x8C, 0xFF),
         });
     }
@@ -456,10 +543,19 @@ fn maj_en_tete(app: &Rc<App>) {
 /// Filter labels with the number of items of each type, e.g. "Mods (12)".
 fn libelles_filtres(app: &App) -> Vec<String> {
     let e = app.instance.borrow();
-    let avec_nombre = |libelle: String, nb: usize| if nb > 0 { format!("{libelle} ({nb})") } else { libelle };
+    let avec_nombre = |libelle: String, nb: usize| {
+        if nb > 0 {
+            format!("{libelle} ({nb})")
+        } else {
+            libelle
+        }
+    };
     let mut libelles = vec![avec_nombre(loc::t("Instance_Tout"), e.contenus.len())];
     for (t, l) in content::types() {
-        libelles.push(avec_nombre(l, e.contenus.iter().filter(|c| c.type_ == t).count()));
+        libelles.push(avec_nombre(
+            l,
+            e.contenus.iter().filter(|c| c.type_ == t).count(),
+        ));
     }
     libelles
 }
@@ -488,7 +584,9 @@ async fn charger_contenu(app: &Rc<App>) {
     let Some(i) = instance(app) else { return };
     let inst = i.clone();
     app.instance.borrow_mut().chargement = true;
-    let (contenus, empreinte) = app.bloquant(move || (content::lister(&inst), content::empreinte(&inst))).await;
+    let (contenus, empreinte) = app
+        .bloquant(move || (content::lister(&inst), content::empreinte(&inst)))
+        .await;
     {
         let mut e = app.instance.borrow_mut();
         e.empreinte = empreinte;
@@ -502,7 +600,9 @@ async fn charger_contenu(app: &Rc<App>) {
     if a_identifier {
         s(app).set_status(loc::t("Instance_Identification").into());
         let inst = i.clone();
-        let resultat = app.bg(async move { content::identifier(&inst, contenus).await }).await;
+        let resultat = app
+            .bg(async move { content::identifier(&inst, contenus).await })
+            .await;
         // hors-ligne : on garde les noms de fichiers
         if instance(app).map(|x| x.id) == Some(i.id.clone()) {
             if let Ok(c) = resultat {
@@ -518,12 +618,19 @@ fn appliquer_filtre(app: &Rc<App>) {
     let texte = s(app).get_filter_text().trim().to_lowercase();
     let (visibles, items, nb, nb_majs) = {
         let e = app.instance.borrow();
-        let rel = |c: &ContenuInstalle| e.instance.as_ref().map(|i| content::relatif(i, &c.chemin_fichier)).unwrap_or_default();
+        let rel = |c: &ContenuInstalle| {
+            e.instance
+                .as_ref()
+                .map(|i| content::relatif(i, &c.chemin_fichier))
+                .unwrap_or_default()
+        };
         let visibles: Vec<usize> = (0..e.contenus.len())
             .filter(|&i| {
                 let c = &e.contenus[i];
                 (e.filtre_type.is_empty() || c.type_ == e.filtre_type)
-                    && (texte.is_empty() || c.titre().to_lowercase().contains(&texte) || c.nom_fichier().to_lowercase().contains(&texte))
+                    && (texte.is_empty()
+                        || c.titre().to_lowercase().contains(&texte)
+                        || c.nom_fichier().to_lowercase().contains(&texte))
             })
             .collect();
         let items: Vec<(ContentItem, Option<String>)> = visibles
@@ -539,14 +646,23 @@ fn appliquer_filtre(app: &Rc<App>) {
                         has_icon: false,
                         active: c.actif(),
                         side: c.environnement().code(),
-                        update: e.majs.get(&r).map(|m| m.version_nom.clone()).unwrap_or_default().into(),
+                        update: e
+                            .majs
+                            .get(&r)
+                            .map(|m| m.version_nom.clone())
+                            .unwrap_or_default()
+                            .into(),
                         updating: e.majs_en_cours.contains(&r),
                     },
                     c.icone_url(),
                 )
             })
             .collect();
-        let nb_majs = e.contenus.iter().filter(|c| e.majs.contains_key(&rel(c))).count();
+        let nb_majs = e
+            .contenus
+            .iter()
+            .filter(|c| e.majs.contains_key(&rel(c)))
+            .count();
         (visibles, items, e.contenus.len(), nb_majs)
     };
     s(app).set_updates_count(nb_majs as i32);
@@ -555,7 +671,14 @@ fn appliquer_filtre(app: &Rc<App>) {
     let m = modele(items.into_iter().map(|(c, _)| c).collect());
     s(app).set_items(m.clone());
     s(app).set_filters(modele_textes(&libelles_filtres(app)));
-    s(app).set_content_tab_text(if nb > 0 { format!("{} ({nb})", loc::t("Instance_Contenu")) } else { loc::t("Instance_Contenu") }.into());
+    s(app).set_content_tab_text(
+        if nb > 0 {
+            format!("{} ({nb})", loc::t("Instance_Contenu"))
+        } else {
+            loc::t("Instance_Contenu")
+        }
+        .into(),
+    );
     {
         let mut e = app.instance.borrow_mut();
         e.visibles = visibles;
@@ -584,7 +707,9 @@ fn contenu_affiche(app: &App, ligne: usize) -> Option<(usize, ContenuInstalle)> 
 }
 
 async fn basculer(app: &Rc<App>, ligne: usize) {
-    let Some((i, contenu)) = contenu_affiche(app, ligne) else { return };
+    let Some((i, contenu)) = contenu_affiche(app, ligne) else {
+        return;
+    };
     match content::basculer(&contenu) {
         Ok(nouveau) => {
             let actif = {
@@ -601,13 +726,20 @@ async fn basculer(app: &Rc<App>, ligne: usize) {
             }
         }
         Err(e) => {
-            dialogs::erreur(app, &loc::t("Instance_ModifImpossible"), &format!("{e}\n\n{}", loc::t("Commun_JeuOuvert"))).await;
+            dialogs::erreur(
+                app,
+                &loc::t("Instance_ModifImpossible"),
+                &format!("{e}\n\n{}", loc::t("Commun_JeuOuvert")),
+            )
+            .await;
         }
     }
 }
 
 async fn supprimer_contenu(app: &Rc<App>, ligne: usize) {
-    let Some((i, contenu)) = contenu_affiche(app, ligne) else { return };
+    let Some((i, contenu)) = contenu_affiche(app, ligne) else {
+        return;
+    };
     let Some(inst) = instance(app) else { return };
     let ok = dialogs::confirmer(
         app,
@@ -627,7 +759,12 @@ async fn supprimer_contenu(app: &Rc<App>, ligne: usize) {
             appliquer_filtre(app);
         }
         Err(e) => {
-            dialogs::erreur(app, &loc::t("Commun_SuppressionImpossible"), &format!("{e}\n\n{}", loc::t("Commun_JeuOuvert"))).await;
+            dialogs::erreur(
+                app,
+                &loc::t("Commun_SuppressionImpossible"),
+                &format!("{e}\n\n{}", loc::t("Commun_JeuOuvert")),
+            )
+            .await;
         }
     }
 }
@@ -641,22 +778,35 @@ pub fn est_installe(app: &App, projet: &ProjetDistant) -> bool {
 
 /// Installation (avec les cas particuliers datapacks / shaders). Renvoie true si elle a réussi.
 pub async fn installer_projet(app: &Rc<App>, projet: ProjetDistant, type_: String) -> bool {
-    let Some(inst) = instance(app) else { return false };
-    let progression = app.progression(|ui, texte| ui.global::<InstanceState>().set_status(texte.into()));
+    let Some(inst) = instance(app) else {
+        return false;
+    };
+    let progression =
+        app.progression(|ui, texte| ui.global::<InstanceState>().set_status(texte.into()));
 
     let mut monde = None;
     if type_ == content::DATAPACK {
         let mondes = content::mondes(&inst);
         if mondes.is_empty() {
-            dialogs::info(app, &loc::t("Instance_AucunMonde"), &loc::t("Instance_AucunMonde_Texte")).await;
+            dialogs::info(
+                app,
+                &loc::t("Instance_AucunMonde"),
+                &loc::t("Instance_AucunMonde_Texte"),
+            )
+            .await;
             return false;
         }
         monde = if mondes.len() == 1 {
             Some(mondes[0].clone())
         } else {
-            dialogs::choisir(app, &loc::t("Instance_ChoisirMonde"), &loc::tf("Instance_ChoisirMonde_Texte", &[&projet.titre]), &mondes)
-                .await
-                .map(|i| mondes[i].clone())
+            dialogs::choisir(
+                app,
+                &loc::t("Instance_ChoisirMonde"),
+                &loc::tf("Instance_ChoisirMonde_Texte", &[&projet.titre]),
+                &mondes,
+            )
+            .await
+            .map(|i| mondes[i].clone())
         };
         if monde.is_none() {
             return false;
@@ -669,7 +819,12 @@ pub async fn installer_projet(app: &Rc<App>, projet: ProjetDistant, type_: Strin
             Ok(false) => return false,
             Err(e) => {
                 s(app).set_status("".into());
-                dialogs::erreur(app, &loc::t("Instance_InstallationImpossible"), &format!("{e:#}")).await;
+                dialogs::erreur(
+                    app,
+                    &loc::t("Instance_InstallationImpossible"),
+                    &format!("{e:#}"),
+                )
+                .await;
                 return false;
             }
         }
@@ -677,13 +832,26 @@ pub async fn installer_projet(app: &Rc<App>, projet: ProjetDistant, type_: Strin
 
     let (i2, p2, t2) = (inst.clone(), projet.clone(), type_.clone());
     let resultat = app
-        .bg(async move { content::installer(&i2, &p2.source, &p2.id, &t2, monde.as_deref(), Some(progression)).await })
+        .bg(async move {
+            content::installer(
+                &i2,
+                &p2.source,
+                &p2.id,
+                &t2,
+                monde.as_deref(),
+                Some(progression),
+            )
+            .await
+        })
         .await;
     match resultat {
         Ok(installes) => {
             s(app).set_status(
                 if installes.len() > 1 {
-                    loc::tf("Instance_InstalleDeps", &[&projet.titre, &(installes.len() - 1)])
+                    loc::tf(
+                        "Instance_InstalleDeps",
+                        &[&projet.titre, &(installes.len() - 1)],
+                    )
                 } else {
                     loc::tf("Instance_Installe", &[&projet.titre])
                 }
@@ -697,15 +865,26 @@ pub async fn installer_projet(app: &Rc<App>, projet: ProjetDistant, type_: Strin
         }
         Err(e) => {
             s(app).set_status("".into());
-            dialogs::erreur(app, &loc::t("Instance_InstallationImpossible"), &format!("{e:#}")).await;
+            dialogs::erreur(
+                app,
+                &loc::t("Instance_InstallationImpossible"),
+                &format!("{e:#}"),
+            )
+            .await;
             false
         }
     }
 }
 
 /// Les shaders ont besoin d'Iris (Fabric/Quilt/NeoForge), Oculus (Forge) ou OptiFine.
-async fn preparer_shaders(app: &Rc<App>, inst: &Instance, progression: crate::services::Progress) -> anyhow::Result<bool> {
-    let Some(prerequis) = content::prerequis_shaders(inst, &content::lister(inst)) else { return Ok(true) };
+async fn preparer_shaders(
+    app: &Rc<App>,
+    inst: &Instance,
+    progression: crate::services::Progress,
+) -> anyhow::Result<bool> {
+    let Some(prerequis) = content::prerequis_shaders(inst, &content::lister(inst)) else {
+        return Ok(true);
+    };
 
     if prerequis.is_empty() {
         return Ok(dialogs::confirmer(
@@ -719,7 +898,11 @@ async fn preparer_shaders(app: &Rc<App>, inst: &Instance, progression: crate::se
         .await);
     }
 
-    let nom = if prerequis == content::ID_IRIS { "Iris" } else { "Oculus" };
+    let nom = if prerequis == content::ID_IRIS {
+        "Iris"
+    } else {
+        "Oculus"
+    };
     let installer = dialogs::confirmer(
         app,
         &loc::t("Shaders_ModRequis"),
@@ -733,7 +916,18 @@ async fn preparer_shaders(app: &Rc<App>, inst: &Instance, progression: crate::se
         return Ok(true);
     }
     let i = inst.clone();
-    app.bg(async move { content::installer(&i, MODRINTH, prerequis, content::MOD, None, Some(progression)).await }).await?;
+    app.bg(async move {
+        content::installer(
+            &i,
+            MODRINTH,
+            prerequis,
+            content::MOD,
+            None,
+            Some(progression),
+        )
+        .await
+    })
+    .await?;
     Ok(true)
 }
 
@@ -741,12 +935,20 @@ async fn preparer_shaders(app: &Rc<App>, inst: &Instance, progression: crate::se
 
 async fn changer_icone(app: &Rc<App>) {
     let Some(i) = instance(app) else { return };
-    let Some(fichier) = dialogs::choisir_fichier(&loc::t("Instance_IconeTitre"), "Images", &["png", "jpg", "jpeg", "bmp", "gif"]).await else {
+    let Some(fichier) = dialogs::choisir_fichier(
+        &loc::t("Instance_IconeTitre"),
+        "Images",
+        &["png", "jpg", "jpeg", "bmp", "gif"],
+    )
+    .await
+    else {
         return;
     };
     // Réencodé en PNG 128 px pour garder un fichier léger
     let destination = i.chemin_icone();
-    let resultat = app.bloquant(move || packs::enregistrer_icone(&fichier, &destination)).await;
+    let resultat = app
+        .bloquant(move || packs::enregistrer_icone(&fichier, &destination))
+        .await;
     match resultat {
         Ok(()) => {
             let _ = instances::sauver(&i);
@@ -759,9 +961,26 @@ async fn changer_icone(app: &Rc<App>) {
 /// Exporte le profil en modpack .mrpack, avec Misty Client si sa case est cochée.
 async fn exporter(app: &Rc<App>) {
     let Some(i) = instance(app) else { return };
-    let nom_fichier: String = i.nom.chars().map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '_' }).collect();
+    let nom_fichier: String = i
+        .nom
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
     let nom_fichier = format!("{}.mrpack", nom_fichier.trim());
-    let Some(destination) = dialogs::enregistrer_fichier(&loc::t("Export_Titre"), &nom_fichier, "Modpack Modrinth", "mrpack").await else {
+    let Some(destination) = dialogs::enregistrer_fichier(
+        &loc::t("Export_Titre"),
+        &nom_fichier,
+        "Modpack Modrinth",
+        "mrpack",
+    )
+    .await
+    else {
         return;
     };
     let avec_misty = client::voulu(&i);
@@ -772,12 +991,26 @@ async fn exporter(app: &Rc<App>) {
         let _ = app.bg(async move { client::telecharger(&mc).await }).await;
     }
     let (inst, chemin) = (i.clone(), destination.clone());
-    let resultat = app.bloquant(move || export::exporter(&inst, &chemin, avec_misty)).await;
+    let resultat = app
+        .bloquant(move || export::exporter(&inst, &chemin, avec_misty))
+        .await;
     s(app).set_status("".into());
     match resultat {
         Ok(()) => {
-            let nom = destination.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-            if dialogs::confirmer(app, &loc::t("Export_Fini"), &loc::tf("Export_Fini_Texte", &[&nom]), Some(&loc::t("Export_OuvrirDossier")), Some(&loc::t("Commun_Fermer")), false).await {
+            let nom = destination
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if dialogs::confirmer(
+                app,
+                &loc::t("Export_Fini"),
+                &loc::tf("Export_Fini_Texte", &[&nom]),
+                Some(&loc::t("Export_OuvrirDossier")),
+                Some(&loc::t("Commun_Fermer")),
+                false,
+            )
+            .await
+            {
                 if let Some(dossier) = destination.parent() {
                     system_info::ouvrir_dossier(dossier);
                 }

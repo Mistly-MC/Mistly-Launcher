@@ -15,7 +15,12 @@ fn session() -> &'static str {
 }
 
 async fn envoyer(corps: serde_json::Value) {
-    let _ = http::client().post(URL).timeout(Duration::from_secs(10)).json(&corps).send().await;
+    let _ = http::client()
+        .post(URL)
+        .timeout(Duration::from_secs(10))
+        .json(&corps)
+        .send()
+        .await;
 }
 
 /// Lance les signes de vie (sur le runtime des tâches de fond).
@@ -32,13 +37,19 @@ pub fn demarrer(rt: &tokio::runtime::Handle) {
 /// Joueurs Mistly en ligne en ce moment, et combien sont en jeu (le compteur du site).
 pub async fn en_ligne() -> anyhow::Result<(u64, u64)> {
     let v: serde_json::Value = http::get_json("https://misty-launcher.online/api/online").await?;
-    let en_ligne = v["online"].as_u64().ok_or_else(|| anyhow::anyhow!("/api/online : pas de nombre"))?;
+    let en_ligne = v["online"]
+        .as_u64()
+        .ok_or_else(|| anyhow::anyhow!("/api/online : pas de nombre"))?;
     Ok((en_ligne, v["playing"].as_u64().unwrap_or(0)))
 }
 
 /// À la fermeture de Misty : il ne compte plus tout de suite (attend au plus 2 secondes).
 pub fn quitter(rt: &tokio::runtime::Handle) {
     let _ = rt.block_on(async {
-        tokio::time::timeout(Duration::from_secs(2), envoyer(serde_json::json!({ "session": session(), "bye": true }))).await
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            envoyer(serde_json::json!({ "session": session(), "bye": true })),
+        )
+        .await
     });
 }

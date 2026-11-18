@@ -22,7 +22,9 @@ const NOUVEAU: i32 = 1;
 const CORRIGE: i32 = 2;
 
 /// Images des versions dans la frise (les illustrations pixel art de la fenêtre des versions).
-const ILLUSTRATIONS: [&str; 8] = ["26.x", "1.21", "1.20", "1.19", "1.18", "1.17", "1.16", "1.15"];
+const ILLUSTRATIONS: [&str; 8] = [
+    "26.x", "1.21", "1.20", "1.19", "1.18", "1.17", "1.16", "1.15",
+];
 
 /// Partie de chaque ligne, d'après l'intertitre qui la précède : 0 launcher, 1 Misty Client (en jeu).
 fn parties(lignes: &[String], genres: &[i32]) -> Vec<i32> {
@@ -32,7 +34,11 @@ fn parties(lignes: &[String], genres: &[i32]) -> Vec<i32> {
         .zip(genres)
         .map(|(l, &g)| {
             if g == INTERTITRE {
-                partie = if l.to_lowercase().contains("client") { 1 } else { 0 };
+                partie = if l.to_lowercase().contains("client") {
+                    1
+                } else {
+                    0
+                };
             }
             partie
         })
@@ -55,16 +61,33 @@ fn fichier_cache() -> std::path::PathBuf {
 }
 
 pub fn installer(app: &Rc<App>) {
-    app.ui.global::<ChangelogState>().on_open_url(|url| system_info::ouvrir(&url));
-    let depuis_cache = std::fs::read_to_string(fichier_cache()).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).map(|v| depuis_releases(&v));
-    afficher(app, depuis_cache.filter(|s| !s.is_empty()).unwrap_or_else(integre));
+    app.ui
+        .global::<ChangelogState>()
+        .on_open_url(|url| system_info::ouvrir(&url));
+    let depuis_cache = std::fs::read_to_string(fichier_cache())
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .map(|v| depuis_releases(&v));
+    afficher(
+        app,
+        depuis_cache
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(integre),
+    );
     let a = app.clone();
     lancer(async move {
-        let url = format!("https://api.github.com/repos/{}/releases?per_page=100", app_info::GITHUB_REPO);
-        if let Ok(v) = a.bg(async move { http::get_json::<serde_json::Value>(&url).await }).await {
+        let url = format!(
+            "https://api.github.com/repos/{}/releases?per_page=100",
+            app_info::GITHUB_REPO
+        );
+        if let Ok(v) = a
+            .bg(async move { http::get_json::<serde_json::Value>(&url).await })
+            .await
+        {
             let sections = depuis_releases(&v);
             if !sections.is_empty() {
-                let _ = std::fs::create_dir_all(fichier_cache().parent().unwrap_or(&paths::data_dir()));
+                let _ =
+                    std::fs::create_dir_all(fichier_cache().parent().unwrap_or(&paths::data_dir()));
                 let _ = std::fs::write(fichier_cache(), v.to_string());
                 afficher(&a, sections);
             }
@@ -76,14 +99,26 @@ fn afficher(app: &App, sections: Vec<Section>) {
     use slint::Model;
     let etat = app.ui.global::<ChangelogState>();
     // la version choisie reste choisie quand la liste est rechargée depuis GitHub
-    let choisie = usize::try_from(etat.get_selected()).ok().and_then(|i| etat.get_sections().row_data(i)).map(|s| s.title.to_string());
-    let index = choisie.and_then(|t| sections.iter().position(|s| s.titre == t)).unwrap_or(0);
+    let choisie = usize::try_from(etat.get_selected())
+        .ok()
+        .and_then(|i| etat.get_sections().row_data(i))
+        .map(|s| s.title.to_string());
+    let index = choisie
+        .and_then(|t| sections.iter().position(|s| s.titre == t))
+        .unwrap_or(0);
     let sections: Vec<ChangelogSection> = sections
         .into_iter()
         .enumerate()
         .map(|(i, s)| ChangelogSection {
             parts: modele(parties(&s.lignes, &s.genres)),
-            summary: s.lignes.iter().zip(&s.genres).find(|(_, &g)| g != INTERTITRE).map(|(l, _)| l.clone()).unwrap_or_default().into(),
+            summary: s
+                .lignes
+                .iter()
+                .zip(&s.genres)
+                .find(|(_, &g)| g != INTERTITRE)
+                .map(|(l, _)| l.clone())
+                .unwrap_or_default()
+                .into(),
             art: super::picker::illustration(ILLUSTRATIONS[i % ILLUSTRATIONS.len()]),
             news: s.genres.iter().filter(|&&g| g == NOUVEAU).count() as i32,
             fixes: s.genres.iter().filter(|&&g| g == CORRIGE).count() as i32,
@@ -134,15 +169,16 @@ fn lignes(markdown: &str) -> (Vec<String>, Vec<i32>) {
     for l in markdown.lines().map(str::trim) {
         if let Some(t) = l.strip_prefix("- ").or_else(|| l.strip_prefix("* ")) {
             let t = t.replace(['`', '*'], "");
-            let (texte, genre) = if let Some(reste) = t.strip_prefix("Fixed:").or_else(|| t.strip_prefix("Fix:")) {
-                (majuscule(reste.trim()), CORRIGE)
-            } else if let Some(reste) = t.strip_prefix("New:") {
-                (majuscule(reste.trim()), NOUVEAU)
-            } else if t.starts_with("New ") {
-                (t, NOUVEAU)
-            } else {
-                (t, SIMPLE)
-            };
+            let (texte, genre) =
+                if let Some(reste) = t.strip_prefix("Fixed:").or_else(|| t.strip_prefix("Fix:")) {
+                    (majuscule(reste.trim()), CORRIGE)
+                } else if let Some(reste) = t.strip_prefix("New:") {
+                    (majuscule(reste.trim()), NOUVEAU)
+                } else if t.starts_with("New ") {
+                    (t, NOUVEAU)
+                } else {
+                    (t, SIMPLE)
+                };
             lignes.push(texte);
             genres.push(genre);
         } else if l.starts_with('#') {
@@ -158,7 +194,9 @@ fn lignes(markdown: &str) -> (Vec<String>, Vec<i32>) {
 
 fn majuscule(texte: &str) -> String {
     let mut c = texte.chars();
-    c.next().map(|p| p.to_uppercase().chain(c).collect()).unwrap_or_default()
+    c.next()
+        .map(|p| p.to_uppercase().chain(c).collect())
+        .unwrap_or_default()
 }
 
 /// CHANGELOG.md intégré : « ## version » = une section, gardée si elle a été publiée sur GitHub.
@@ -169,7 +207,13 @@ fn integre() -> Vec<Section> {
         if let Some((titre, texte)) = c {
             if !update::est_plus_recente(PREMIERE_RELEASE, &titre) {
                 let (lignes, genres) = lignes(&texte);
-                sections.push(Section { prerelease: titre.contains('-'), titre, lignes, genres, ..Default::default() });
+                sections.push(Section {
+                    prerelease: titre.contains('-'),
+                    titre,
+                    lignes,
+                    genres,
+                    ..Default::default()
+                });
             }
         }
     };
@@ -194,14 +238,22 @@ mod tests {
     fn changelog_integre_depuis_la_premiere_release() {
         let s = integre();
         // titres tels que publiés ("0.3.8-beta.1")
-        assert_eq!(s.first().map(|x| x.titre.clone()), Some(app_info::VERSION.to_string()));
+        assert_eq!(
+            s.first().map(|x| x.titre.clone()),
+            Some(app_info::VERSION.to_string())
+        );
         assert_eq!(s.last().map(|x| x.titre.as_str()), Some("0.3.0"));
-        assert!(s[0].genres.contains(&INTERTITRE), "intertitres de la version actuelle");
+        assert!(
+            s[0].genres.contains(&INTERTITRE),
+            "intertitres de la version actuelle"
+        );
     }
 
     #[test]
     fn genres_des_lignes() {
-        let (l, g) = lignes("### Launcher\n- New Reach module\n- Fixed: dragging was wrong\n- The ping is faster");
+        let (l, g) = lignes(
+            "### Launcher\n- New Reach module\n- Fixed: dragging was wrong\n- The ping is faster",
+        );
         assert_eq!(g, [INTERTITRE, NOUVEAU, CORRIGE, SIMPLE]);
         assert_eq!(l[0], "Launcher");
         assert_eq!(l[2], "Dragging was wrong");

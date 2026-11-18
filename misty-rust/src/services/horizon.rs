@@ -61,9 +61,17 @@ pub async fn builds_disponibles() -> anyhow::Result<Vec<Build>> {
             if !nightly && !tag.starts_with('v') {
                 return None; // launcher@…, « nightly » mobile…
             }
-            let archive = r["assets"].as_array()?.iter().find(|a| a["name"].as_str() == Some(ARCHIVE))?;
+            let archive = r["assets"]
+                .as_array()?
+                .iter()
+                .find(|a| a["name"].as_str() == Some(ARCHIVE))?;
             Some(Build {
-                date: r["published_at"].as_str().unwrap_or("").get(..10).unwrap_or("").to_string(),
+                date: r["published_at"]
+                    .as_str()
+                    .unwrap_or("")
+                    .get(..10)
+                    .unwrap_or("")
+                    .to_string(),
                 url: archive["browser_download_url"].as_str()?.to_string(),
                 taille: archive["size"].as_u64().unwrap_or(0),
                 tag,
@@ -77,7 +85,9 @@ pub async fn builds_disponibles() -> anyhow::Result<Vec<Build>> {
 
 /// Builds installés (dossier de chaque build : celui qui contient horizon-client.exe).
 pub fn installes() -> Vec<String> {
-    let Ok(entrees) = std::fs::read_dir(dossier_builds()) else { return Vec::new() };
+    let Ok(entrees) = std::fs::read_dir(dossier_builds()) else {
+        return Vec::new();
+    };
     let mut tags: Vec<String> = entrees
         .flatten()
         .filter(|e| dossier_build(&e.file_name().to_string_lossy()).is_some())
@@ -106,7 +116,8 @@ fn chercher(dossier: &Path, nom: &str, profondeur: u32) -> Option<PathBuf> {
     if profondeur == 0 {
         return None;
     }
-    sous.into_iter().find_map(|d| chercher(&d, nom, profondeur - 1))
+    sous.into_iter()
+        .find_map(|d| chercher(&d, nom, profondeur - 1))
 }
 
 /// Télécharge et extrait un build (`avancement` : de 0 à 1).
@@ -114,7 +125,11 @@ pub async fn installer_build(build: &Build, avancement: impl Fn(f32)) -> anyhow:
     let cible = dossier_builds().join(&build.tag);
     let archive = dossier().join(format!("{}.zip", build.tag));
     std::fs::create_dir_all(dossier())?;
-    let reponse = http::client().get(&build.url).send().await?.error_for_status()?;
+    let reponse = http::client()
+        .get(&build.url)
+        .send()
+        .await?
+        .error_for_status()?;
     let total = reponse.content_length().unwrap_or(build.taille).max(1);
     let mut fichier = std::fs::File::create(&archive)?;
     let mut recu = 0u64;
@@ -135,7 +150,10 @@ pub async fn installer_build(build: &Build, avancement: impl Fn(f32)) -> anyhow:
     })();
     let _ = std::fs::remove_file(&archive);
     resultat?;
-    anyhow::ensure!(dossier_build(&build.tag).is_some(), "{CLIENT} introuvable dans l'archive");
+    anyhow::ensure!(
+        dossier_build(&build.tag).is_some(),
+        "{CLIENT} introuvable dans l'archive"
+    );
     Ok(())
 }
 
@@ -168,15 +186,28 @@ pub struct Exigences {
 /// Lit `research-lock.json` (la version épinglée, présente dans tous les builds) et demande au
 /// préparateur s'il connaît l'API de lancement.
 pub fn exigences(build: &Path) -> anyhow::Result<Exigences> {
-    let verrou: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(build.join("research-lock.json"))?)?;
-    let minecraft = verrou["minecraft"]["version"].as_str().unwrap_or("26.3").to_string();
-    let manifeste_sha1 = verrou["minecraft"]["manifest_sha1"].as_str().unwrap_or("").to_string();
+    let verrou: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(build.join("research-lock.json"))?)?;
+    let minecraft = verrou["minecraft"]["version"]
+        .as_str()
+        .unwrap_or("26.3")
+        .to_string();
+    let manifeste_sha1 = verrou["minecraft"]["manifest_sha1"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
     let api = commande(&build.join(PREPARE))
         .arg("--launch-api")
         .current_dir(build)
         .output()
-        .is_ok_and(|s| s.status.success() && serde_json::from_slice::<serde_json::Value>(&s.stdout).is_ok());
-    Ok(Exigences { minecraft, manifeste_sha1, api })
+        .is_ok_and(|s| {
+            s.status.success() && serde_json::from_slice::<serde_json::Value>(&s.stdout).is_ok()
+        });
+    Ok(Exigences {
+        minecraft,
+        manifeste_sha1,
+        api,
+    })
 }
 
 /// Ressources préparées que lit horizon-client.
@@ -184,7 +215,10 @@ fn ressources(build: &Path, ex: &Exigences) -> PathBuf {
     if ex.api {
         build.join("prepared")
     } else {
-        build.join(".local").join("horizon-client").join(&ex.minecraft)
+        build
+            .join(".local")
+            .join("horizon-client")
+            .join(&ex.minecraft)
     }
 }
 
@@ -209,19 +243,35 @@ pub fn est_prepare(build: &Path, ex: &Exigences) -> bool {
 /// Le JSON de version exact que le build attend, à l'endroit où le préparateur le cherche avant celui
 /// du launcher : si Mojang a republié la version, celui de Misty n'a plus le SHA-1 épinglé.
 pub async fn manifeste_epingle(build: &Path, ex: &Exigences) -> anyhow::Result<PathBuf> {
-    let chemin = build.join(".local").join("minecraft").join(&ex.minecraft).join("manifest.json");
+    let chemin = build
+        .join(".local")
+        .join("minecraft")
+        .join(&ex.minecraft)
+        .join("manifest.json");
     if chemin.is_file() || ex.manifeste_sha1.is_empty() {
         return Ok(chemin);
     }
-    let url = format!("https://piston-meta.mojang.com/v1/packages/{}/{}.json", ex.manifeste_sha1, ex.minecraft);
-    let octets = http::client().get(&url).send().await?.error_for_status()?.bytes().await?;
+    let url = format!(
+        "https://piston-meta.mojang.com/v1/packages/{}/{}.json",
+        ex.manifeste_sha1, ex.minecraft
+    );
+    let octets = http::client()
+        .get(&url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
     std::fs::create_dir_all(chemin.parent().unwrap_or(build))?;
     std::fs::write(&chemin, &octets)?;
     Ok(chemin)
 }
 
 /// Le server.jar de la version (downloads.server du JSON de version), gardé dans le dossier d'Horizon.
-pub async fn server_jar(version_json: &serde_json::Value, version: &str) -> anyhow::Result<PathBuf> {
+pub async fn server_jar(
+    version_json: &serde_json::Value,
+    version: &str,
+) -> anyhow::Result<PathBuf> {
     let chemin = dossier().join(format!("server-{version}.jar"));
     if chemin.is_file() {
         return Ok(chemin);
@@ -229,7 +279,13 @@ pub async fn server_jar(version_json: &serde_json::Value, version: &str) -> anyh
     let url = version_json["downloads"]["server"]["url"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("pas de server.jar pour {version}"))?;
-    let octets = http::client().get(url).send().await?.error_for_status()?.bytes().await?;
+    let octets = http::client()
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
     std::fs::create_dir_all(dossier())?;
     std::fs::write(&chemin, &octets)?;
     Ok(chemin)
@@ -247,14 +303,25 @@ struct LigneProgression {
 
 /// Les dernières lignes utiles d'une sortie d'erreur (pas l'aide complète du programme).
 fn resume_erreur(texte: &str, defaut: &str) -> String {
-    let lignes: Vec<&str> = texte.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    let lignes: Vec<&str> = texte
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
     // « error: … » en premier s'il y en a un : c'est la cause
-    if let Some(e) = lignes.iter().find(|l| l.contains("error:") || l.starts_with("Error")) {
+    if let Some(e) = lignes
+        .iter()
+        .find(|l| l.contains("error:") || l.starts_with("Error"))
+    {
         return e.to_string();
     }
     let fin = lignes.len().saturating_sub(4);
     let r = lignes[fin..].join("\n");
-    if r.is_empty() { defaut.to_string() } else { r }
+    if r.is_empty() {
+        defaut.to_string()
+    } else {
+        r
+    }
 }
 
 /// Lance le préparateur et suit sa sortie : JSON (`--progress json`) ou texte (anciens builds).
@@ -273,7 +340,10 @@ fn executer_preparateur(mut c: Command, avancement: &dyn Fn(f32, &str)) -> anyho
     let mut fraction = 0.0;
     let mut lignes_texte = 0u32;
     if let Some(sortie) = enfant.stdout.take() {
-        for ligne in std::io::BufReader::new(sortie).lines().map_while(Result::ok) {
+        for ligne in std::io::BufReader::new(sortie)
+            .lines()
+            .map_while(Result::ok)
+        {
             match serde_json::from_str::<LigneProgression>(&ligne) {
                 Ok(l) => {
                     if let Some(f) = l.fraction {
@@ -296,15 +366,27 @@ fn executer_preparateur(mut c: Command, avancement: &dyn Fn(f32, &str)) -> anyho
         }
     }
     let statut = enfant.wait()?;
-    let erreur = lecteur_erreur.and_then(|t| t.join().ok()).unwrap_or_default();
+    let erreur = lecteur_erreur
+        .and_then(|t| t.join().ok())
+        .unwrap_or_default();
     if statut.success() {
         return Ok(());
     }
-    anyhow::bail!("{}", derniere_erreur.unwrap_or_else(|| resume_erreur(&erreur, "horizon-prepare a échoué")))
+    anyhow::bail!(
+        "{}",
+        derniere_erreur.unwrap_or_else(|| resume_erreur(&erreur, "horizon-prepare a échoué"))
+    )
 }
 
 /// Prépare un build depuis Minecraft installé par Misty (dossier `minecraft` : versions/, assets/…).
-pub fn preparer(build: &Path, ex: &Exigences, minecraft: &Path, server_jar: &Path, java_home: &Path, avancement: impl Fn(f32, &str)) -> anyhow::Result<()> {
+pub fn preparer(
+    build: &Path,
+    ex: &Exigences,
+    minecraft: &Path,
+    server_jar: &Path,
+    java_home: &Path,
+    avancement: impl Fn(f32, &str),
+) -> anyhow::Result<()> {
     let mut c = commande(&build.join(PREPARE));
     c.current_dir(build).env("JAVA_HOME", java_home);
     if ex.api {
@@ -316,7 +398,11 @@ pub fn preparer(build: &Path, ex: &Exigences, minecraft: &Path, server_jar: &Pat
             .arg(server_jar)
             .arg("--java-home")
             .arg(java_home);
-        let manifeste = build.join(".local").join("minecraft").join(&ex.minecraft).join("manifest.json");
+        let manifeste = build
+            .join(".local")
+            .join("minecraft")
+            .join(&ex.minecraft)
+            .join("manifest.json");
         if manifeste.is_file() {
             c.arg("--version-json").arg(manifeste);
         }
@@ -333,7 +419,13 @@ pub fn preparer(build: &Path, ex: &Exigences, minecraft: &Path, server_jar: &Pat
         .arg(build);
     executer_preparateur(c, &avancement)?;
     let mut sons = commande(&build.join(PREPARE));
-    sons.current_dir(build).env("JAVA_HOME", java_home).arg("sounds").arg("--minecraft-dir").arg(minecraft).arg("--root").arg(build);
+    sons.current_dir(build)
+        .env("JAVA_HOME", java_home)
+        .arg("sounds")
+        .arg("--minecraft-dir")
+        .arg(minecraft)
+        .arg("--root")
+        .arg(build);
     let _ = executer_preparateur(sons, &avancement);
     std::fs::write(marque(build), &ex.minecraft)?;
     Ok(())
@@ -350,12 +442,22 @@ pub struct Session {
 /// Lance horizon-client et attend la fin de la partie. Avec une session Microsoft, le joueur est
 /// connecté (serveurs en ligne) ; sans, il joue hors ligne sous `pseudo`. Erreur : la dernière ligne
 /// de sa sortie d'erreur (qui nomme le rapport de plantage).
-pub fn jouer(partie: u64, build: &Path, ex: &Exigences, session: Option<&Session>, pseudo: &str) -> anyhow::Result<()> {
+pub fn jouer(
+    partie: u64,
+    build: &Path,
+    ex: &Exigences,
+    session: Option<&Session>,
+    pseudo: &str,
+) -> anyhow::Result<()> {
     let jeu = dossier_jeu();
     std::fs::create_dir_all(&jeu)?;
     // sans console noire (CREATE_NO_WINDOW), comme horizon-prepare : la sortie va dans la console de Misty
     let mut c = commande(&build.join(CLIENT));
-    c.arg("--resources").arg(ressources(build, ex)).current_dir(&jeu).env("HORIZON_HOME", &jeu).stderr(Stdio::piped());
+    c.arg("--resources")
+        .arg(ressources(build, ex))
+        .current_dir(&jeu)
+        .env("HORIZON_HOME", &jeu)
+        .stderr(Stdio::piped());
     if ex.api {
         c.arg("--game-dir").arg(&jeu).arg("--home").arg(&jeu);
     }
@@ -378,7 +480,10 @@ pub fn jouer(partie: u64, build: &Path, ex: &Exigences, session: Option<&Session
                 // ancien build : la session passe par un fichier que le jeu supprime dès qu'il l'a lu
                 let dossier = jeu.join("sessions");
                 std::fs::create_dir_all(&dossier)?;
-                let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+                let nanos = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(0);
                 let f = dossier.join(format!("session-{nanos:x}.json"));
                 std::fs::write(&f, &texte)?;
                 c.arg("--session-file").arg(&f);
@@ -400,7 +505,11 @@ pub fn jouer(partie: u64, build: &Path, ex: &Exigences, session: Option<&Session
     let mut enfant = match c.spawn() {
         Ok(e) => e,
         Err(e) => {
-            super::journal::ajouter(partie, &format!("horizon-client : {e}"), super::journal::ERREUR);
+            super::journal::ajouter(
+                partie,
+                &format!("horizon-client : {e}"),
+                super::journal::ERREUR,
+            );
             super::journal::fin(partie, Some(-1));
             return Err(e.into());
         }
@@ -408,7 +517,7 @@ pub fn jouer(partie: u64, build: &Path, ex: &Exigences, session: Option<&Session
     if let (Some(mut entree), Some(json)) = (enfant.stdin.take(), json) {
         entree.write_all(json.as_bytes())?;
     } // l'entrée est fermée ici, comme l'attend Horizon
-    // la sortie va dans la console ; celle d'erreur est aussi gardée pour résumer un échec
+      // la sortie va dans la console ; celle d'erreur est aussi gardée pour résumer un échec
     let copie = super::journal::Copie::default();
     let fils = super::journal::suivre(partie, &mut enfant, Some(copie.clone()));
     let statut = enfant.wait()?;

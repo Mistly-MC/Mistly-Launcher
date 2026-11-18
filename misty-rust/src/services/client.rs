@@ -86,7 +86,10 @@ fn dossier() -> PathBuf {
 
 /// Dossier du mod en développement (`MISTY_CLIENT_DIR`), s'il est donné.
 fn dossier_dev() -> Option<PathBuf> {
-    std::env::var("MISTY_CLIENT_DIR").ok().filter(|d| !d.trim().is_empty()).map(PathBuf::from)
+    std::env::var("MISTY_CLIENT_DIR")
+        .ok()
+        .filter(|d| !d.trim().is_empty())
+        .map(PathBuf::from)
 }
 
 fn index() -> Index {
@@ -95,7 +98,10 @@ fn index() -> Index {
     }
     let i = match dossier_dev() {
         Some(d) => index_local(&d),
-        None => fs::read_to_string(dossier().join("index.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default(),
+        None => fs::read_to_string(dossier().join("index.json"))
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_default(),
     };
     *INDEX.write().unwrap() = Some(i.clone());
     i
@@ -105,13 +111,26 @@ fn index() -> Index {
 /// (le plus récent par version), et les versions de Minecraft de chacun (`mod.mc_releases` de
 /// `stonecutter.properties.toml`, sinon celle de son nom).
 fn index_local(racine: &Path) -> Index {
-    let releases = mc_releases(&fs::read_to_string(racine.join("stonecutter.properties.toml")).unwrap_or_default());
-    let mut jars: std::collections::BTreeMap<String, (std::time::SystemTime, PathBuf)> = Default::default();
-    for v in fs::read_dir(racine.join("versions")).into_iter().flatten().flatten() {
-        for f in fs::read_dir(v.path().join("build/libs")).into_iter().flatten().flatten() {
+    let releases = mc_releases(
+        &fs::read_to_string(racine.join("stonecutter.properties.toml")).unwrap_or_default(),
+    );
+    let mut jars: std::collections::BTreeMap<String, (std::time::SystemTime, PathBuf)> =
+        Default::default();
+    for v in fs::read_dir(racine.join("versions"))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        for f in fs::read_dir(v.path().join("build/libs"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
             let nom = f.file_name().to_string_lossy().to_string();
             let Some(mc) = mc_du_nom(&nom) else { continue };
-            let Ok(date) = f.metadata().and_then(|m| m.modified()) else { continue };
+            let Ok(date) = f.metadata().and_then(|m| m.modified()) else {
+                continue;
+            };
             if jars.get(&mc).is_none_or(|(d, _)| date > *d) {
                 jars.insert(mc, (date, f.path()));
             }
@@ -120,14 +139,23 @@ fn index_local(racine: &Path) -> Index {
     let jars = jars
         .into_iter()
         .map(|(mc, (_, chemin))| Jar {
-            fichier: chemin.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
-            minecraft: releases.get(&mc).cloned().unwrap_or_else(|| vec![mc.clone()]),
+            fichier: chemin
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            minecraft: releases
+                .get(&mc)
+                .cloned()
+                .unwrap_or_else(|| vec![mc.clone()]),
             url: String::new(),
             sha1: None,
             local: Some(chemin),
         })
         .collect();
-    Index { release: "dev".into(), jars }
+    Index {
+        release: "dev".into(),
+        jars,
+    }
 }
 
 /// "misty-client-1.0.2+mc26.1.2.jar" → "26.1.2" (pas les jars de sources)
@@ -135,7 +163,10 @@ fn mc_du_nom(nom: &str) -> Option<String> {
     if nom.ends_with("-sources.jar") {
         return None;
     }
-    nom.strip_prefix("misty-client-")?.strip_suffix(".jar")?.split_once("+mc").map(|(_, mc)| mc.to_string())
+    nom.strip_prefix("misty-client-")?
+        .strip_suffix(".jar")?
+        .split_once("+mc")
+        .map(|(_, mc)| mc.to_string())
 }
 
 /// `["26.1.2"]` puis `mod.mc_releases = ["26.1", "26.1.2"]` : version du jar → versions de Minecraft.
@@ -143,10 +174,19 @@ fn mc_releases(toml: &str) -> std::collections::HashMap<String, Vec<String>> {
     let mut liste = std::collections::HashMap::new();
     let mut section = None;
     for ligne in toml.lines().map(str::trim) {
-        if let Some(nom) = ligne.strip_prefix("[\"").and_then(|l| l.strip_suffix("\"]")) {
+        if let Some(nom) = ligne
+            .strip_prefix("[\"")
+            .and_then(|l| l.strip_suffix("\"]"))
+        {
             section = Some(nom.to_string());
-        } else if let (Some(nom), Some(valeur)) = (&section, ligne.strip_prefix("mod.mc_releases")) {
-            let versions = valeur.split('"').skip(1).step_by(2).map(str::to_string).collect();
+        } else if let (Some(nom), Some(valeur)) = (&section, ligne.strip_prefix("mod.mc_releases"))
+        {
+            let versions = valeur
+                .split('"')
+                .skip(1)
+                .step_by(2)
+                .map(str::to_string)
+                .collect();
             liste.insert(nom.clone(), versions);
         }
     }
@@ -155,7 +195,11 @@ fn mc_releases(toml: &str) -> std::collections::HashMap<String, Vec<String>> {
 
 /// "1.21.11" < "26.1" < "26.1.2" < "26.3" (nombre par nombre)
 fn ordre_versions(a: &str, b: &str) -> std::cmp::Ordering {
-    let n = |v: &str| v.split(['.', '-']).map(|x| x.parse::<u64>().unwrap_or(0)).collect::<Vec<_>>();
+    let n = |v: &str| {
+        v.split(['.', '-'])
+            .map(|x| x.parse::<u64>().unwrap_or(0))
+            .collect::<Vec<_>>()
+    };
     n(a).cmp(&n(b))
 }
 
@@ -169,7 +213,10 @@ pub async fn actualiser() -> anyhow::Result<bool> {
     *DERNIERE_LECTURE.lock().unwrap() = Some(std::time::Instant::now());
     // la dernière release publiée (une pré-release seulement si on suit les pré-releases)
     let pre = settings::get_bool(settings::MAJ_PRERELEASE, false);
-    let liste: Vec<serde_json::Value> = http::get_json(&format!("https://api.github.com/repos/{DEPOT}/releases?per_page=20")).await?;
+    let liste: Vec<serde_json::Value> = http::get_json(&format!(
+        "https://api.github.com/repos/{DEPOT}/releases?per_page=20"
+    ))
+    .await?;
     let release = liste
         .iter()
         .filter(|r| !r["draft"].as_bool().unwrap_or(false))
@@ -177,21 +224,44 @@ pub async fn actualiser() -> anyhow::Result<bool> {
         .ok_or_else(|| anyhow::anyhow!("{DEPOT} : aucune release publiée"))?;
     let tag = release["tag_name"].as_str().unwrap_or_default().to_string();
     let assets = release["assets"].as_array().cloned().unwrap_or_default();
-    let url_de = |nom: &str| assets.iter().find(|a| a["name"].as_str() == Some(nom)).and_then(|a| a["browser_download_url"].as_str()).map(str::to_string);
-    let manifeste = url_de(MANIFESTE).ok_or_else(|| anyhow::anyhow!("{DEPOT} {tag} : pas de {MANIFESTE}"))?;
+    let url_de = |nom: &str| {
+        assets
+            .iter()
+            .find(|a| a["name"].as_str() == Some(nom))
+            .and_then(|a| a["browser_download_url"].as_str())
+            .map(str::to_string)
+    };
+    let manifeste =
+        url_de(MANIFESTE).ok_or_else(|| anyhow::anyhow!("{DEPOT} {tag} : pas de {MANIFESTE}"))?;
     let doc: serde_json::Value = http::get_json(&manifeste).await?;
     let mut jars = Vec::new();
     for j in doc["jars"].as_array().into_iter().flatten() {
         let fichier = j["file"].as_str().unwrap_or_default().to_string();
-        let minecraft: Vec<String> = j["minecraft"].as_array().into_iter().flatten().filter_map(|v| v.as_str().map(str::to_string)).collect();
+        let minecraft: Vec<String> = j["minecraft"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect();
         // seulement les jars vraiment publiés avec la release
-        let Some(url) = url_de(&fichier) else { continue };
+        let Some(url) = url_de(&fichier) else {
+            continue;
+        };
         if minecraft.is_empty() || mc_du_nom(&fichier).is_none() {
             continue;
         }
-        jars.push(Jar { fichier, minecraft, url, sha1: j["sha1"].as_str().map(str::to_string), local: None });
+        jars.push(Jar {
+            fichier,
+            minecraft,
+            url,
+            sha1: j["sha1"].as_str().map(str::to_string),
+            local: None,
+        });
     }
-    anyhow::ensure!(!jars.is_empty(), "{DEPOT} {tag} : aucun jar dans {MANIFESTE}");
+    anyhow::ensure!(
+        !jars.is_empty(),
+        "{DEPOT} {tag} : aucun jar dans {MANIFESTE}"
+    );
     let nouveau = Index { release: tag, jars };
     let texte = serde_json::to_string_pretty(&nouveau)?;
     let chemin = dossier().join("index.json");
@@ -199,7 +269,16 @@ pub async fn actualiser() -> anyhow::Result<bool> {
     if change {
         fs::create_dir_all(dossier())?;
         fs::write(&chemin, &texte)?;
-        journal::info(&format!("Mistly Client {} : {}", nouveau.release, nouveau.jars.iter().map(|j| j.fichier.as_str()).collect::<Vec<_>>().join(", ")));
+        journal::info(&format!(
+            "Mistly Client {} : {}",
+            nouveau.release,
+            nouveau
+                .jars
+                .iter()
+                .map(|j| j.fichier.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
         // les jars des anciennes releases ne servent plus
         for f in fs::read_dir(dossier()).into_iter().flatten().flatten() {
             let nom = f.file_name().to_string_lossy().to_string();
@@ -219,7 +298,10 @@ static DERNIERE_LECTURE: std::sync::Mutex<Option<std::time::Instant>> = std::syn
 /// launcher peut rester ouvert des jours, une nouvelle version du mod doit quand même arriver).
 /// Renvoie vrai si la liste des jars a changé.
 pub async fn actualiser_si_ancien() -> bool {
-    let ancienne = DERNIERE_LECTURE.lock().unwrap().is_none_or(|t| t.elapsed() > std::time::Duration::from_secs(30 * 60));
+    let ancienne = DERNIERE_LECTURE
+        .lock()
+        .unwrap()
+        .is_none_or(|t| t.elapsed() > std::time::Duration::from_secs(30 * 60));
     if !ancienne {
         return false;
     }
@@ -235,17 +317,23 @@ pub async fn actualiser_si_ancien() -> bool {
 
 /// Le jar du mod pour cette version de Minecraft.
 fn jar_pour(version_mc: &str) -> Option<Jar> {
-    index().jars.into_iter().find(|j| j.minecraft.iter().any(|m| m == version_mc))
+    index()
+        .jars
+        .into_iter()
+        .find(|j| j.minecraft.iter().any(|m| m == version_mc))
 }
 
 /// Chemin du jar sur le disque (téléchargé ou non).
 fn chemin(jar: &Jar) -> PathBuf {
-    jar.local.clone().unwrap_or_else(|| dossier().join(&jar.fichier))
+    jar.local
+        .clone()
+        .unwrap_or_else(|| dossier().join(&jar.fichier))
 }
 
 /// Le jar de cette version, téléchargé s'il ne l'est pas encore. Renvoie son chemin.
 pub async fn telecharger(version_mc: &str) -> anyhow::Result<PathBuf> {
-    let jar = jar_pour(version_mc).ok_or_else(|| anyhow::anyhow!("Mistly Client n'existe pas pour Minecraft {version_mc}"))?;
+    let jar = jar_pour(version_mc)
+        .ok_or_else(|| anyhow::anyhow!("Mistly Client n'existe pas pour Minecraft {version_mc}"))?;
     let chemin = chemin(&jar);
     if jar.local.is_some() {
         return Ok(chemin);
@@ -263,9 +351,15 @@ pub async fn telecharger(version_mc: &str) -> anyhow::Result<PathBuf> {
         if intact {
             return Ok(chemin);
         }
-        journal::info(&format!("Mistly Client : {} ne correspond plus à la release, nouveau téléchargement", jar.fichier));
+        journal::info(&format!(
+            "Mistly Client : {} ne correspond plus à la release, nouveau téléchargement",
+            jar.fichier
+        ));
     }
-    journal::info(&format!("Téléchargement de Mistly Client : {}", jar.fichier));
+    journal::info(&format!(
+        "Téléchargement de Mistly Client : {}",
+        jar.fichier
+    ));
     download::fichier(&jar.url, &chemin, jar.sha1.as_deref()).await?;
     Ok(chemin)
 }
@@ -327,7 +421,8 @@ fn version_du_jar(contenu: impl std::io::Read + std::io::Seek) -> Option<String>
     let mut texte = String::new();
     std::io::Read::read_to_string(&mut fichier, &mut texte).ok()?;
     let json: serde_json::Value = serde_json::from_str(&texte).ok()?;
-    (json["id"].as_str() == Some("misty-client")).then(|| json["version"].as_str().unwrap_or_default().to_string())
+    (json["id"].as_str() == Some("misty-client"))
+        .then(|| json["version"].as_str().unwrap_or_default().to_string())
 }
 
 /// "1.0.0+mc26.2" → ("1.0.0", "26.2")
@@ -347,7 +442,9 @@ pub fn jar_a_exporter(version_mc: &str) -> Option<(String, Vec<u8>)> {
 /// Les jars de Misty Client d'un dossier `mods`, avec leur version : quel que soit leur nom (un
 /// modpack exporté les nomme avec leur version, d'anciens launchers « misty-client.jar »).
 pub fn jars_presents(mods: &Path) -> Vec<(std::path::PathBuf, String)> {
-    let Ok(lecture) = fs::read_dir(mods) else { return Vec::new() };
+    let Ok(lecture) = fs::read_dir(mods) else {
+        return Vec::new();
+    };
     lecture
         .flatten()
         .map(|f| f.path())
@@ -365,7 +462,13 @@ pub fn jars_presents(mods: &Path) -> Vec<(std::path::PathBuf, String)> {
 /// le jar déjà dans `mods` reste s'il est pour cette version. Les jars du mod déjà là sont
 /// comparés au nôtre : les anciens (ou ceux d'une autre version de Minecraft) sont supprimés, pour
 /// qu'il n'en reste jamais qu'un ; un plus récent que le nôtre (modpack exporté plus tard) est gardé.
-pub fn preparer(dossier_jeu: &Path, version_mc: &str, mode: &str, voulu: bool, notre: Option<&[u8]>) {
+pub fn preparer(
+    dossier_jeu: &Path,
+    version_mc: &str,
+    mode: &str,
+    voulu: bool,
+    notre: Option<&[u8]>,
+) {
     let mods = dossier_jeu.join("mods");
     let presents = jars_presents(&mods);
     if !(voulu && compatible(version_mc, mode)) {
@@ -377,7 +480,10 @@ pub fn preparer(dossier_jeu: &Path, version_mc: &str, mode: &str, voulu: bool, n
     let Some(notre) = notre else {
         // pas de jar (téléchargement impossible) : on garde celui de cette version s'il y en a un
         for (chemin, v) in &presents {
-            if !decouper(v).1.is_empty() && !jar_pour(version_mc).is_some_and(|j| mc_du_nom(&j.fichier).as_deref() == Some(decouper(v).1)) {
+            if !decouper(v).1.is_empty()
+                && !jar_pour(version_mc)
+                    .is_some_and(|j| mc_du_nom(&j.fichier).as_deref() == Some(decouper(v).1))
+            {
                 let _ = fs::remove_file(chemin);
             }
         }
@@ -389,13 +495,18 @@ pub fn preparer(dossier_jeu: &Path, version_mc: &str, mode: &str, voulu: bool, n
     // le plus récent des jars déjà là, s'il est pour cette version de Minecraft et plus récent que le nôtre
     let garde = presents
         .iter()
-        .filter(|(_, v)| decouper(v).1 == mc && super::update::comparer_versions(decouper(v).0, numero).is_gt())
+        .filter(|(_, v)| {
+            decouper(v).1 == mc && super::update::comparer_versions(decouper(v).0, numero).is_gt()
+        })
         .max_by(|a, b| super::update::comparer_versions(decouper(&a.1).0, decouper(&b.1).0))
         .map(|(p, _)| p.clone());
     let chemin = garde.clone().unwrap_or_else(|| mods.join(FICHIER));
     for (autre, v) in &presents {
         if *autre != chemin {
-            journal::info(&format!("Ancien Misty Client retiré : {} ({v})", autre.display()));
+            journal::info(&format!(
+                "Ancien Misty Client retiré : {} ({v})",
+                autre.display()
+            ));
             let _ = fs::remove_file(autre);
         }
     }
@@ -404,15 +515,22 @@ pub fn preparer(dossier_jeu: &Path, version_mc: &str, mode: &str, voulu: bool, n
     }
     let ecrit = fs::create_dir_all(&mods).and_then(|_| fs::write(&chemin, notre));
     if let Err(e) = ecrit {
-        journal::info(&format!("Misty Client non installé dans {} : {e}", chemin.display()));
+        journal::info(&format!(
+            "Misty Client non installé dans {} : {e}",
+            chemin.display()
+        ));
     }
 }
 
 /// La garde-robe du jeu (Misty Client) écrit son choix dans `client.json` avec `"from": "game"` :
 /// le launcher le reprend au lieu d'écrire le sien par-dessus.
 pub fn reprendre_du_jeu() {
-    let Ok(texte) = fs::read_to_string(paths::data_dir().join("client.json")) else { return };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&texte) else { return };
+    let Ok(texte) = fs::read_to_string(paths::data_dir().join("client.json")) else {
+        return;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&texte) else {
+        return;
+    };
     if json["from"].as_str() != Some("game") {
         return;
     }
@@ -420,7 +538,10 @@ pub fn reprendre_du_jeu() {
     if choix.is_empty() || DOS.contains(&choix) {
         if choix != settings::get(settings::COSMETIQUE) {
             settings::set(settings::COSMETIQUE, choix);
-            journal::info(&format!("Cosmétique choisi en jeu : {}", if choix.is_empty() { "aucun" } else { choix }));
+            journal::info(&format!(
+                "Cosmétique choisi en jeu : {}",
+                if choix.is_empty() { "aucun" } else { choix }
+            ));
         }
     }
     let tag = json["tag"].as_str().unwrap_or("");
@@ -428,9 +549,14 @@ pub fn reprendre_du_jeu() {
         settings::set(settings::TAG, tag);
     }
     let chapeau = json["hat"].as_str().unwrap_or("");
-    if (chapeau.is_empty() || CHAPEAUX.contains(&chapeau)) && chapeau != settings::get(settings::CHAPEAU) {
+    if (chapeau.is_empty() || CHAPEAUX.contains(&chapeau))
+        && chapeau != settings::get(settings::CHAPEAU)
+    {
         settings::set(settings::CHAPEAU, chapeau);
-        journal::info(&format!("Chapeau choisi en jeu : {}", if chapeau.is_empty() { "aucun" } else { chapeau }));
+        journal::info(&format!(
+            "Chapeau choisi en jeu : {}",
+            if chapeau.is_empty() { "aucun" } else { chapeau }
+        ));
     }
 }
 
@@ -487,7 +613,11 @@ pub fn equiper_chapeau(chapeau: &str) {
 /// Ce compte a-t-il droit à la cape early player ? (le site le sait : comptes vus avant une date)
 pub async fn early(uuid: &str) -> bool {
     let url = format!("https://misty-launcher.online/api/client/early/{uuid}");
-    super::http::get_json::<serde_json::Value>(&url).await.ok().and_then(|v| v["early"].as_bool()).unwrap_or(false)
+    super::http::get_json::<serde_json::Value>(&url)
+        .await
+        .ok()
+        .and_then(|v| v["early"].as_bool())
+        .unwrap_or(false)
 }
 
 /// Équipe un cosmétique Misty (ou aucun) : il est gardé d'une session à l'autre et le mod le
@@ -517,19 +647,29 @@ mod tests {
     fn faux_jar(version: &str) -> Vec<u8> {
         use std::io::Write;
         let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-        zip.start_file("fabric.mod.json", zip::write::SimpleFileOptions::default()).unwrap();
+        zip.start_file("fabric.mod.json", zip::write::SimpleFileOptions::default())
+            .unwrap();
         write!(zip, r#"{{"id": "misty-client", "version": "{version}"}}"#).unwrap();
         zip.finish().unwrap().into_inner()
     }
 
     /// Une liste de jars comme celle d'une release : 26.1.2 tourne aussi sur 26.1 et 26.1.1.
     fn index_test() {
-        let jar = |fichier: &str, mc: &[&str]| Jar { fichier: fichier.into(), minecraft: mc.iter().map(|m| m.to_string()).collect(), url: String::new(), sha1: None, local: None };
+        let jar = |fichier: &str, mc: &[&str]| Jar {
+            fichier: fichier.into(),
+            minecraft: mc.iter().map(|m| m.to_string()).collect(),
+            url: String::new(),
+            sha1: None,
+            local: None,
+        };
         *INDEX.write().unwrap() = Some(Index {
             release: "test".into(),
             jars: vec![
                 jar("misty-client-1.0.0+mc26.3.jar", &["26.3"]),
-                jar("misty-client-1.0.0+mc26.1.2.jar", &["26.1", "26.1.1", "26.1.2"]),
+                jar(
+                    "misty-client-1.0.0+mc26.1.2.jar",
+                    &["26.1", "26.1.1", "26.1.2"],
+                ),
                 jar("misty-client-1.0.0+mc1.21.11.jar", &["1.21.11"]),
             ],
         });
@@ -546,12 +686,18 @@ mod tests {
             assert!(!compatible(&mc, loaders::FORGE));
         }
         assert!(!compatible("0.0.1", loaders::FABRIC));
-        assert_eq!(jar_pour("26.1.1").unwrap().fichier, "misty-client-1.0.0+mc26.1.2.jar");
+        assert_eq!(
+            jar_pour("26.1.1").unwrap().fichier,
+            "misty-client-1.0.0+mc26.1.2.jar"
+        );
     }
 
     #[test]
     fn noms_et_versions_du_mod() {
-        assert_eq!(mc_du_nom("misty-client-1.0.2+mc26.1.2.jar").as_deref(), Some("26.1.2"));
+        assert_eq!(
+            mc_du_nom("misty-client-1.0.2+mc26.1.2.jar").as_deref(),
+            Some("26.1.2")
+        );
         assert_eq!(mc_du_nom("misty-client-1.0.2+mc26.1.2-sources.jar"), None);
         assert_eq!(mc_du_nom("autre.jar"), None);
         let toml = "mod.version = \"1\"\n[\"26.1.2\"]\nmod.mc_releases = [\"26.1\", \"26.1.2\"]\n[\"26.3\"]\nmod.mc_releases = [\"26.3\"]\n";
@@ -571,7 +717,11 @@ mod tests {
         if index.jars.is_empty() {
             return;
         }
-        let j = index.jars.iter().find(|j| j.fichier.contains("+mc26.1.2")).expect("jar 26.1.2");
+        let j = index
+            .jars
+            .iter()
+            .find(|j| j.fichier.contains("+mc26.1.2"))
+            .expect("jar 26.1.2");
         assert!(j.minecraft.iter().any(|m| m == "26.1"), "{:?}", j.minecraft);
         assert!(j.local.as_ref().is_some_and(|p| p.is_file()));
     }
@@ -586,7 +736,11 @@ mod tests {
         let mods = dossier.join("mods");
         let _ = fs::remove_dir_all(&dossier);
         fs::create_dir_all(&mods).unwrap();
-        fs::write(mods.join("misty-client-0.0.1+mc26.3.jar"), faux_jar("0.0.1+mc26.3")).unwrap();
+        fs::write(
+            mods.join("misty-client-0.0.1+mc26.3.jar"),
+            faux_jar("0.0.1+mc26.3"),
+        )
+        .unwrap();
         fs::write(mods.join("ancien.jar"), faux_jar("9.9.9+mc0.0")).unwrap();
         fs::write(mods.join("autre-mod.jar"), b"pas un zip").unwrap();
         preparer(&dossier, mc, loaders::FABRIC, true, Some(&notre));
@@ -629,8 +783,14 @@ mod tests {
     /// La cape du mod est celle que le launcher dessine dans l'onglet Skin : mêmes pixels.
     #[test]
     fn cape_du_mod_identique() {
-        let mod_ = image::load_from_memory(include_bytes!("../../../misty-client/src/main/resources/assets/misty/textures/cape/misty.png")).unwrap().to_rgba8();
-        let launcher = image::load_from_memory(crate::services::skins::texture_misty()).unwrap().to_rgba8();
+        let mod_ = image::load_from_memory(include_bytes!(
+            "../../../misty-client/src/main/resources/assets/misty/textures/cape/misty.png"
+        ))
+        .unwrap()
+        .to_rgba8();
+        let launcher = image::load_from_memory(crate::services::skins::texture_misty())
+            .unwrap()
+            .to_rgba8();
         assert!(mod_ == launcher, "misty-client : textures/cape/misty.png n'est plus la texture de skins::texture_misty()");
     }
 }

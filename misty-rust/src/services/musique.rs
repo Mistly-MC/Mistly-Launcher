@@ -64,7 +64,8 @@ fn ecrire(chemin: &std::path::Path, contenu: &[u8]) {
 mod windows_musique {
     use super::*;
     pub(super) use windows::Media::Control::{
-        GlobalSystemMediaTransportControlsSessionManager as Gestionnaire, GlobalSystemMediaTransportControlsSessionPlaybackStatus as Statut,
+        GlobalSystemMediaTransportControlsSessionManager as Gestionnaire,
+        GlobalSystemMediaTransportControlsSessionPlaybackStatus as Statut,
     };
     use windows::Storage::Streams::{DataReader, InputStreamOptions};
 
@@ -79,7 +80,9 @@ mod windows_musique {
     pub fn boucle() {
         // WinRT sur ce fil (multithread)
         unsafe {
-            let _ = windows::Win32::System::WinRT::RoInitialize(windows::Win32::System::WinRT::RO_INIT_MULTITHREADED);
+            let _ = windows::Win32::System::WinRT::RoInitialize(
+                windows::Win32::System::WinRT::RO_INIT_MULTITHREADED,
+            );
         }
         let mut gestionnaire = None;
         let mut dernier = Morceau::default();
@@ -122,21 +125,42 @@ mod windows_musique {
     }
 
     /// Le morceau en cours, en JSON pour le jeu (None : rien ne joue).
-    pub(super) fn lire(g: &Gestionnaire, dernier: &mut Morceau, pochette: &mut u64) -> Option<serde_json::Value> {
+    pub(super) fn lire(
+        g: &Gestionnaire,
+        dernier: &mut Morceau,
+        pochette: &mut u64,
+    ) -> Option<serde_json::Value> {
         let session = g.GetCurrentSession().ok()?;
         let proprietes = session.TryGetMediaPropertiesAsync().ok()?.join().ok()?;
         let titre = proprietes.Title().ok()?.to_string();
         if titre.is_empty() {
             return None;
         }
-        let artiste = proprietes.Artist().map(|a| a.to_string()).unwrap_or_default();
-        let app = session.SourceAppUserModelId().map(|a| a.to_string()).unwrap_or_default();
-        let lecture = session.GetPlaybackInfo().ok().and_then(|i| i.PlaybackStatus().ok());
+        let artiste = proprietes
+            .Artist()
+            .map(|a| a.to_string())
+            .unwrap_or_default();
+        let app = session
+            .SourceAppUserModelId()
+            .map(|a| a.to_string())
+            .unwrap_or_default();
+        let lecture = session
+            .GetPlaybackInfo()
+            .ok()
+            .and_then(|i| i.PlaybackStatus().ok());
         let joue = lecture == Some(Statut::Playing);
         let temps = session.GetTimelineProperties().ok();
         // TimeSpan : centaines de nanosecondes
-        let position = temps.as_ref().and_then(|t| t.Position().ok()).map(|d| d.Duration / 10_000).unwrap_or(0);
-        let duree = temps.as_ref().and_then(|t| t.EndTime().ok()).map(|d| d.Duration / 10_000).unwrap_or(0);
+        let position = temps
+            .as_ref()
+            .and_then(|t| t.Position().ok())
+            .map(|d| d.Duration / 10_000)
+            .unwrap_or(0);
+        let duree = temps
+            .as_ref()
+            .and_then(|t| t.EndTime().ok())
+            .map(|d| d.Duration / 10_000)
+            .unwrap_or(0);
         // instant de la mesure de position (DateTime : centaines de ns depuis 1601)
         let mesure = temps
             .as_ref()
@@ -145,7 +169,11 @@ mod windows_musique {
             .filter(|&ms| ms > 0)
             .unwrap_or_else(maintenant);
 
-        let morceau = Morceau { titre: titre.clone(), artiste: artiste.clone(), app: app.clone() };
+        let morceau = Morceau {
+            titre: titre.clone(),
+            artiste: artiste.clone(),
+            app: app.clone(),
+        };
         if morceau != *dernier {
             // nouveau morceau : sa pochette
             *pochette += 1;
@@ -170,37 +198,61 @@ mod windows_musique {
     }
 
     /// La pochette, réduite en PNG 128 × 128 (le jeu l'affiche petite).
-    fn lire_pochette(reference: &windows::Storage::Streams::IRandomAccessStreamReference) -> Option<Vec<u8>> {
+    fn lire_pochette(
+        reference: &windows::Storage::Streams::IRandomAccessStreamReference,
+    ) -> Option<Vec<u8>> {
         let flux = reference.OpenReadAsync().ok()?.join().ok()?;
         let taille = flux.Size().ok()? as u32;
         if taille == 0 || taille > 8_000_000 {
             return None;
         }
         let lecteur = DataReader::CreateDataReader(&flux).ok()?;
-        lecteur.SetInputStreamOptions(InputStreamOptions::None).ok()?;
+        lecteur
+            .SetInputStreamOptions(InputStreamOptions::None)
+            .ok()?;
         lecteur.LoadAsync(taille).ok()?.join().ok()?;
         let mut octets = vec![0u8; taille as usize];
         lecteur.ReadBytes(&mut octets).ok()?;
         let image = image::load_from_memory(&octets).ok()?;
         let carree = image.resize_to_fill(128, 128, image::imageops::FilterType::Triangle);
         let mut png = Vec::new();
-        carree.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).ok()?;
+        carree
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .ok()?;
         Some(png)
     }
 
     /// "Spotify.exe" / "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify" → "Spotify".
     fn nom_app(id: &str) -> String {
         let bas = id.to_lowercase();
-        for (cle, nom) in [("spotify", "Spotify"), ("deezer", "Deezer"), ("chrome", "Chrome"), ("firefox", "Firefox"), ("msedge", "Edge"), ("opera", "Opera"), ("brave", "Brave"), ("applemusic", "Apple Music"), ("tidal", "Tidal"), ("vlc", "VLC")] {
+        for (cle, nom) in [
+            ("spotify", "Spotify"),
+            ("deezer", "Deezer"),
+            ("chrome", "Chrome"),
+            ("firefox", "Firefox"),
+            ("msedge", "Edge"),
+            ("opera", "Opera"),
+            ("brave", "Brave"),
+            ("applemusic", "Apple Music"),
+            ("tidal", "Tidal"),
+            ("vlc", "VLC"),
+        ] {
             if bas.contains(cle) {
                 return nom.into();
             }
         }
-        id.rsplit(['!', '\\']).next().unwrap_or(id).trim_end_matches(".exe").to_string()
+        id.rsplit(['!', '\\'])
+            .next()
+            .unwrap_or(id)
+            .trim_end_matches(".exe")
+            .to_string()
     }
 
     fn maintenant() -> i64 {
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0)
     }
 }
 
@@ -213,8 +265,12 @@ mod tests {
     #[test]
     #[ignore]
     fn musique_ecrite() {
-        let g = super::windows_musique::Gestionnaire::RequestAsync().unwrap().join().unwrap();
-        let json = super::windows_musique::lire(&g, &mut Default::default(), &mut 0).expect("rien ne joue");
+        let g = super::windows_musique::Gestionnaire::RequestAsync()
+            .unwrap()
+            .join()
+            .unwrap();
+        let json = super::windows_musique::lire(&g, &mut Default::default(), &mut 0)
+            .expect("rien ne joue");
         super::ecrire(&super::fichier(), json.to_string().as_bytes());
         println!("{json}");
     }
@@ -228,7 +284,12 @@ mod tests {
         match g.GetCurrentSession() {
             Ok(s) => {
                 let p = s.TryGetMediaPropertiesAsync().unwrap().join().unwrap();
-                println!("{} — {} ({})", p.Title().unwrap(), p.Artist().unwrap(), s.SourceAppUserModelId().unwrap());
+                println!(
+                    "{} — {} ({})",
+                    p.Title().unwrap(),
+                    p.Artist().unwrap(),
+                    s.SourceAppUserModelId().unwrap()
+                );
             }
             Err(_) => println!("rien ne joue"),
         }

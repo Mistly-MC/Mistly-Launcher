@@ -21,7 +21,12 @@ fn plateforme() -> &'static str {
 }
 
 /// Chemin de javaw.exe pour ce composant (téléchargé si besoin).
-pub async fn assurer(dirs: &McDirs, composant: &str, majeure: u32, progression: &FileProgress) -> anyhow::Result<PathBuf> {
+pub async fn assurer(
+    dirs: &McDirs,
+    composant: &str,
+    majeure: u32,
+    progression: &FileProgress,
+) -> anyhow::Result<PathBuf> {
     // Même organisation que la version C# : runtime\windows-x64\<composant>
     let dossier = dirs.runtime().join(plateforme()).join(composant);
     let javaw = dossier.join("bin").join("javaw.exe");
@@ -38,7 +43,10 @@ pub async fn assurer(dirs: &McDirs, composant: &str, majeure: u32, progression: 
     };
 
     // Composant indisponible pour cette plateforme : on prend un Java de version proche
-    let mut entree = tous[plateforme()][composant].as_array().and_then(|a| a.first()).cloned();
+    let mut entree = tous[plateforme()][composant]
+        .as_array()
+        .and_then(|a| a.first())
+        .cloned();
     if entree.is_none() {
         let secours = match majeure {
             0..=8 => "jre-legacy",
@@ -46,17 +54,30 @@ pub async fn assurer(dirs: &McDirs, composant: &str, majeure: u32, progression: 
             17 => "java-runtime-gamma",
             _ => "java-runtime-delta",
         };
-        entree = tous[plateforme()][secours].as_array().and_then(|a| a.first()).cloned();
+        entree = tous[plateforme()][secours]
+            .as_array()
+            .and_then(|a| a.first())
+            .cloned();
     }
-    let Some(entree) = entree else { anyhow::bail!("Java {majeure} indisponible pour {}", plateforme()) };
-    let url_manifeste = entree["manifest"]["url"].as_str().unwrap_or_default().to_string();
-    let sha1_manifeste = entree["manifest"]["sha1"].as_str().unwrap_or_default().to_string();
+    let Some(entree) = entree else {
+        anyhow::bail!("Java {majeure} indisponible pour {}", plateforme())
+    };
+    let url_manifeste = entree["manifest"]["url"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let sha1_manifeste = entree["manifest"]["sha1"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
 
     // Déjà installé et à jour. Le marqueur dit que chaque fichier a été vérifié (SHA-1) : un ancien
     // marqueur (le SHA-1 du manifeste seul, avant 0.3.9) fait revérifier le runtime, car une mise à
     // jour de Mojang ne remplaçait alors que les fichiers qui avaient changé de taille
     let attendu = marqueur_verifie(&sha1_manifeste);
-    if javaw.exists() && std::fs::read_to_string(&marqueur).ok().as_deref() == Some(attendu.as_str()) {
+    if javaw.exists()
+        && std::fs::read_to_string(&marqueur).ok().as_deref() == Some(attendu.as_str())
+    {
         return Ok(javaw);
     }
 
@@ -89,7 +110,10 @@ pub async fn assurer(dirs: &McDirs, composant: &str, majeure: u32, progression: 
         let mut tout_remplace = true;
         for t in &taches {
             let Some(sha1) = &t.sha1 else { continue };
-            if t.chemin.exists() && !crate::services::download::sha1_fichier(&t.chemin).is_ok_and(|h| h.eq_ignore_ascii_case(sha1)) {
+            if t.chemin.exists()
+                && !crate::services::download::sha1_fichier(&t.chemin)
+                    .is_ok_and(|h| h.eq_ignore_ascii_case(sha1))
+            {
                 // un fichier utilisé par une partie en cours ne peut pas être remplacé : on revérifiera
                 tout_remplace &= std::fs::remove_file(&t.chemin).is_ok();
             }
@@ -135,19 +159,32 @@ mod tests {
     async fn java_25_complet() {
         let dirs = McDirs::misty();
         let progression: FileProgress = Arc::new(|_, _, _| {});
-        let javaw = assurer(&dirs, "java-runtime-epsilon", 25, &progression).await.unwrap();
+        let javaw = assurer(&dirs, "java-runtime-epsilon", 25, &progression)
+            .await
+            .unwrap();
         let dossier = javaw.parent().unwrap().parent().unwrap().to_path_buf();
         let tous: Value = http::get_json(RUNTIMES_URL).await.unwrap();
-        let manifeste: Value = http::get_json(tous[plateforme()]["java-runtime-epsilon"][0]["manifest"]["url"].as_str().unwrap()).await.unwrap();
+        let manifeste: Value = http::get_json(
+            tous[plateforme()]["java-runtime-epsilon"][0]["manifest"]["url"]
+                .as_str()
+                .unwrap(),
+        )
+        .await
+        .unwrap();
         let mut differents = Vec::new();
         for (chemin, fichier) in manifeste["files"].as_object().unwrap() {
             if let Some(sha1) = fichier["downloads"]["raw"]["sha1"].as_str() {
                 let local = dossier.join(chemin.replace('/', "\\"));
-                if !crate::services::download::sha1_fichier(&local).is_ok_and(|h| h.eq_ignore_ascii_case(sha1)) {
+                if !crate::services::download::sha1_fichier(&local)
+                    .is_ok_and(|h| h.eq_ignore_ascii_case(sha1))
+                {
                     differents.push(chemin.clone());
                 }
             }
         }
-        assert!(differents.is_empty(), "fichiers différents du manifeste : {differents:?}");
+        assert!(
+            differents.is_empty(),
+            "fichiers différents du manifeste : {differents:?}"
+        );
     }
 }

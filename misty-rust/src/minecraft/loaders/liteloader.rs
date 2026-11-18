@@ -36,10 +36,14 @@ pub async fn disponible(mc: &str) -> bool {
 }
 
 pub async fn installer(dirs: &McDirs, mc: &str) -> anyhow::Result<String> {
-    let (infos, snapshot) = derniere(mc).await?.ok_or_else(|| anyhow::anyhow!("LiteLoader indisponible pour {mc}"))?;
+    let (infos, snapshot) = derniere(mc)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("LiteLoader indisponible pour {mc}"))?;
     let id = format!("{mc}-LiteLoader{mc}");
     let version_ll = infos["version"].as_str().unwrap_or(mc).to_string();
-    let tweak = infos["tweakClass"].as_str().unwrap_or("com.mumfrey.liteloader.launch.LiteLoaderTweaker");
+    let tweak = infos["tweakClass"]
+        .as_str()
+        .unwrap_or("com.mumfrey.liteloader.launch.LiteLoaderTweaker");
 
     let mut libs = vec![if snapshot {
         json!({ "name": format!("com.mumfrey:liteloader:{version_ll}"), "url": "http://repo.mumfrey.com/content/repositories/snapshots/" })

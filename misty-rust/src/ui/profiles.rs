@@ -75,7 +75,13 @@ pub fn installer(app: &Rc<App>) {
 }
 
 fn trouver(app: &App, id: &str) -> Option<Instance> {
-    app.profiles.borrow().liste.iter().find(|i| i.id == id).cloned().or_else(|| instances::trouver(id))
+    app.profiles
+        .borrow()
+        .liste
+        .iter()
+        .find(|i| i.id == id)
+        .cloned()
+        .or_else(|| instances::trouver(id))
 }
 
 /// Recharge la liste (appelé à chaque ouverture de la page).
@@ -108,7 +114,9 @@ pub fn rafraichir_liste(app: &Rc<App>) {
         _ => i.loader == filtre,
     };
     let liste: Vec<Instance> = toutes.into_iter().filter(|i| garder(i)).collect();
-    p(app).set_filters(modele_textes(&filtres.iter().map(|f| f.to_uppercase()).collect::<Vec<_>>()));
+    p(app).set_filters(modele_textes(
+        &filtres.iter().map(|f| f.to_uppercase()).collect::<Vec<_>>(),
+    ));
     p(app).set_filter_index(choisi as i32);
 
     let cartes: Vec<ProfileCard> = liste
@@ -177,7 +185,12 @@ pub async fn supprimer(app: &Rc<App>, instance: &Instance) -> bool {
     match instances::supprimer(instance) {
         Ok(()) => true,
         Err(e) => {
-            dialogs::erreur(app, &loc::t("Commun_SuppressionImpossible"), &format!("{e}\n\n{}", loc::t("Commun_JeuOuvert"))).await;
+            dialogs::erreur(
+                app,
+                &loc::t("Commun_SuppressionImpossible"),
+                &format!("{e}\n\n{}", loc::t("Commun_JeuOuvert")),
+            )
+            .await;
             false
         }
     }
@@ -209,16 +222,32 @@ async fn nouveau(app: &Rc<App>) {
 }
 
 async fn version_choisie(app: &Rc<App>, i: i32) {
-    let Some(version) = app.profiles.borrow().versions.get(i.max(0) as usize).cloned() else { return };
+    let Some(version) = app
+        .profiles
+        .borrow()
+        .versions
+        .get(i.max(0) as usize)
+        .cloned()
+    else {
+        return;
+    };
     let s = p(app);
     s.set_create_loader_enabled(false);
     s.set_create_enabled(false);
     s.set_create_info(loc::tf("Commun_RechercheLoaders", &[&version]).into());
 
     let v = version.clone();
-    let modes = app.bg(async move { loaders::modes_disponibles(&v).await }).await;
+    let modes = app
+        .bg(async move { loaders::modes_disponibles(&v).await })
+        .await;
     // Version changée entre-temps
-    if app.profiles.borrow().versions.get(s.get_create_version_index().max(0) as usize) != Some(&version) {
+    if app
+        .profiles
+        .borrow()
+        .versions
+        .get(s.get_create_version_index().max(0) as usize)
+        != Some(&version)
+    {
         return;
     }
     // Un profil sert souvent à installer des mods : on propose Fabric par défaut s'il existe
@@ -236,11 +265,17 @@ fn creer(app: &Rc<App>) {
     let (version, loader) = {
         let e = app.profiles.borrow();
         (
-            e.versions.get(s.get_create_version_index().max(0) as usize).cloned(),
-            e.loaders.get(s.get_create_loader_index().max(0) as usize).cloned(),
+            e.versions
+                .get(s.get_create_version_index().max(0) as usize)
+                .cloned(),
+            e.loaders
+                .get(s.get_create_loader_index().max(0) as usize)
+                .cloned(),
         )
     };
-    let (Some(version), Some(loader)) = (version, loader) else { return };
+    let (Some(version), Some(loader)) = (version, loader) else {
+        return;
+    };
     let mut nom = s.get_create_name().trim().to_string();
     if nom.is_empty() {
         nom = format!("{version} {loader}");
@@ -252,7 +287,9 @@ fn creer(app: &Rc<App>) {
         }
         Err(e) => {
             let a = app.clone();
-            lancer(async move { dialogs::erreur(&a, &loc::t("Erreur_Inattendue"), &e.to_string()).await });
+            lancer(async move {
+                dialogs::erreur(&a, &loc::t("Erreur_Inattendue"), &e.to_string()).await
+            });
         }
     }
 }
@@ -263,7 +300,10 @@ fn creer(app: &Rc<App>) {
 pub fn modpack_installe(projet: &ProjetDistant) -> bool {
     instances::lister().iter().any(|i| {
         i.modpack_project_id.as_deref() == Some(projet.id.as_str())
-            && i.modpack_source.as_deref().unwrap_or(crate::services::catalogue::MODRINTH) == projet.source
+            && i.modpack_source
+                .as_deref()
+                .unwrap_or(crate::services::catalogue::MODRINTH)
+                == projet.source
     })
 }
 
@@ -276,12 +316,19 @@ pub async fn installer_modpack(app: &Rc<App>, projet: ProjetDistant) -> bool {
     s.set_wait_text(loc::t("Commun_Preparation").into());
     s.set_waiting(true);
     let a_lister = projet.clone();
-    let versions = app.bg(async move { modpack::versions_disponibles(&a_lister).await }).await;
+    let versions = app
+        .bg(async move { modpack::versions_disponibles(&a_lister).await })
+        .await;
     s.set_waiting(false);
     let versions = match versions {
         Ok(v) if !v.is_empty() => v,
         Ok(_) => {
-            dialogs::erreur(app, &loc::t("Profil_ModpackImpossible"), &loc::t("Erreur_ModpackSansVersion")).await;
+            dialogs::erreur(
+                app,
+                &loc::t("Profil_ModpackImpossible"),
+                &loc::t("Erreur_ModpackSansVersion"),
+            )
+            .await;
             return false;
         }
         Err(e) => {
@@ -292,14 +339,26 @@ pub async fn installer_modpack(app: &Rc<App>, projet: ProjetDistant) -> bool {
 
     // 2. Choix de la version (la plus récente est en haut), puis confirmation
     let libelles: Vec<String> = versions.iter().map(|v| v.libelle.clone()).collect();
-    let Some(choix) = dialogs::choisir(app, &loc::t("Profil_VersionPack_Titre"), &loc::tf("Profil_VersionPack_Texte", &[&projet.titre]), &libelles).await else {
+    let Some(choix) = dialogs::choisir(
+        app,
+        &loc::t("Profil_VersionPack_Titre"),
+        &loc::tf("Profil_VersionPack_Texte", &[&projet.titre]),
+        &libelles,
+    )
+    .await
+    else {
         return false;
     };
-    let Some(version) = versions.get(choix).cloned() else { return false };
+    let Some(version) = versions.get(choix).cloned() else {
+        return false;
+    };
     let ok = dialogs::confirmer(
         app,
         &loc::t("Profil_ConfirmerPack_Titre"),
-        &loc::tf("Profil_ConfirmerPack_Texte", &[&projet.titre, &version.libelle]),
+        &loc::tf(
+            "Profil_ConfirmerPack_Texte",
+            &[&projet.titre, &version.libelle],
+        ),
         Some(&loc::t("Profil_ConfirmerPack_Oui")),
         None,
         false,
@@ -314,8 +373,11 @@ pub async fn installer_modpack(app: &Rc<App>, projet: ProjetDistant) -> bool {
     s.set_wait_text(loc::t("Commun_Preparation").into());
     s.set_waiting(true);
 
-    let progression = app.progression(|ui, texte| ui.global::<ProfilesState>().set_wait_text(texte.into()));
-    let resultat = app.bg(async move { modpack::installer(&projet, version_id, progression).await }).await;
+    let progression =
+        app.progression(|ui, texte| ui.global::<ProfilesState>().set_wait_text(texte.into()));
+    let resultat = app
+        .bg(async move { modpack::installer(&projet, version_id, progression).await })
+        .await;
     s.set_waiting(false);
 
     match resultat {
@@ -335,17 +397,29 @@ pub async fn installer_modpack(app: &Rc<App>, projet: ProjetDistant) -> bool {
 
 /// Import d'un modpack depuis un fichier (.mrpack Modrinth ou .zip CurseForge) choisi par l'utilisateur.
 async fn importer_modpack(app: &Rc<App>) {
-    let Some(fichier) = dialogs::choisir_fichier(&loc::t("Profil_ImporterTitre"), &loc::t("Profil_ImporterFiltre"), &["mrpack", "zip"]).await else {
+    let Some(fichier) = dialogs::choisir_fichier(
+        &loc::t("Profil_ImporterTitre"),
+        &loc::t("Profil_ImporterFiltre"),
+        &["mrpack", "zip"],
+    )
+    .await
+    else {
         return;
     };
     let s = p(app);
-    let nom = fichier.file_stem().map(|n| n.to_string_lossy().to_uppercase()).unwrap_or_default();
+    let nom = fichier
+        .file_stem()
+        .map(|n| n.to_string_lossy().to_uppercase())
+        .unwrap_or_default();
     s.set_wait_title(nom.into());
     s.set_wait_text(loc::t("Commun_Preparation").into());
     s.set_waiting(true);
 
-    let progression = app.progression(|ui, texte| ui.global::<ProfilesState>().set_wait_text(texte.into()));
-    let resultat = app.bg(async move { modpack::importer_fichier(&fichier, progression).await }).await;
+    let progression =
+        app.progression(|ui, texte| ui.global::<ProfilesState>().set_wait_text(texte.into()));
+    let resultat = app
+        .bg(async move { modpack::importer_fichier(&fichier, progression).await })
+        .await;
     s.set_waiting(false);
 
     match resultat {
@@ -364,7 +438,12 @@ async fn importer_modpack(app: &Rc<App>) {
 /// Certains auteurs CurseForge interdisent le téléchargement par des applications tierces :
 /// on liste ces fichiers et on propose d'ouvrir leur page pour les télécharger à la main.
 pub async fn proposer_telechargements_manuels(app: &Rc<App>, r: &modpack::Resultat) {
-    let mut liste: Vec<String> = r.bloques.iter().take(12).map(|b| format!("• {}", loc::tf("Manuel_Ligne", &[&b.nom, &b.dossier]))).collect();
+    let mut liste: Vec<String> = r
+        .bloques
+        .iter()
+        .take(12)
+        .map(|b| format!("• {}", loc::tf("Manuel_Ligne", &[&b.nom, &b.dossier])))
+        .collect();
     if r.bloques.len() > 12 {
         liste.push(loc::tf("Manuel_Autres", &[&(r.bloques.len() - 12)]));
     }

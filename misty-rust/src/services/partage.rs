@@ -33,7 +33,9 @@ fn reference() -> PathBuf {
 
 /// Le .minecraft du launcher officiel.
 fn minecraft_officiel() -> Option<PathBuf> {
-    dirs::data_dir().map(|d| d.join(".minecraft")).filter(|d| d.is_dir())
+    dirs::data_dir()
+        .map(|d| d.join(".minecraft"))
+        .filter(|d| d.is_dir())
 }
 
 /// Avant de lancer le jeu dans `dossier_jeu`.
@@ -168,7 +170,8 @@ mod nbt {
             self.octets(2).map(|o| u16::from_be_bytes([o[0], o[1]]))
         }
         fn i32(&mut self) -> Option<i32> {
-            self.octets(4).map(|o| i32::from_be_bytes([o[0], o[1], o[2], o[3]]))
+            self.octets(4)
+                .map(|o| i32::from_be_bytes([o[0], o[1], o[2], o[3]]))
         }
         fn chaine(&mut self) -> Option<String> {
             let n = self.u16()? as usize;
@@ -262,7 +265,11 @@ mod nbt {
         }
         let fin_champs = l.p - 1; // avant le tag de fin de la racine
         let (debut, fin, liste) = resultat.unwrap_or((fin_champs, fin_champs, Vec::new()));
-        Some(Serveurs { avant: d[..debut].to_vec(), apres: d[fin..fin_champs].to_vec(), liste })
+        Some(Serveurs {
+            avant: d[..debut].to_vec(),
+            apres: d[fin..fin_champs].to_vec(),
+            liste,
+        })
     }
 
     /// Lit un serveur (composé) et renvoie son adresse, en minuscules.
@@ -341,7 +348,12 @@ mod nbt {
         }
 
         fn adresses(d: &[u8]) -> Vec<String> {
-            lire(d).unwrap().liste.into_iter().map(|(ip, _)| ip).collect()
+            lire(d)
+                .unwrap()
+                .liste
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect()
         }
 
         #[test]
@@ -349,7 +361,10 @@ mod nbt {
             let a = fichier(&[("Hypixel", "mc.hypixel.net"), ("Local", "localhost")]);
             let b = fichier(&[("hypixel", "MC.Hypixel.net "), ("Ami", "ami.example:25566")]);
             let f = fusionner_serveurs(&a, &b).unwrap();
-            assert_eq!(adresses(&f), ["mc.hypixel.net", "localhost", "ami.example:25566"]);
+            assert_eq!(
+                adresses(&f),
+                ["mc.hypixel.net", "localhost", "ami.example:25566"]
+            );
             // le résultat se relit et refusionner ne change rien
             assert_eq!(fusionner_serveurs(&f, &b).unwrap(), f);
         }
@@ -374,8 +389,16 @@ mod tests {
         let (reference, profil) = (racine.join("ref"), racine.join("profil"));
         fs::create_dir_all(&reference).unwrap();
         fs::create_dir_all(&profil).unwrap();
-        fs::write(reference.join(SERVEURS), nbt::tests::fichier(&[("A", "a.net")])).unwrap();
-        fs::write(profil.join(SERVEURS), nbt::tests::fichier(&[("B", "b.net")])).unwrap();
+        fs::write(
+            reference.join(SERVEURS),
+            nbt::tests::fichier(&[("A", "a.net")]),
+        )
+        .unwrap();
+        fs::write(
+            profil.join(SERVEURS),
+            nbt::tests::fichier(&[("B", "b.net")]),
+        )
+        .unwrap();
         fs::write(profil.join(BARRES), b"barres").unwrap();
 
         fusionner_premiere_fois(&profil, &reference, true);

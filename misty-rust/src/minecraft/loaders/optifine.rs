@@ -19,8 +19,14 @@ async fn liste() -> anyhow::Result<Vec<(String, String)>> {
     }
     let html = http::get_text("https://optifine.net/downloads").await?;
     // Les versions > 1.21.11 (26.x) n'existent que en préversion ("preview_OptiFine_26.2_HD_U_K2_pre5.jar") : on les garde.
-    let re = regex::Regex::new(r"adloadx\?f=((?:preview_)?OptiFine_([0-9][0-9.]*)_HD_[^\x22'&<>\s]+\.jar)").unwrap();
-    let mut liste: Vec<(String, String)> = re.captures_iter(&html).map(|c| (c[2].to_string(), c[1].to_string())).collect();
+    let re = regex::Regex::new(
+        r"adloadx\?f=((?:preview_)?OptiFine_([0-9][0-9.]*)_HD_[^\x22'&<>\s]+\.jar)",
+    )
+    .unwrap();
+    let mut liste: Vec<(String, String)> = re
+        .captures_iter(&html)
+        .map(|c| (c[2].to_string(), c[1].to_string()))
+        .collect();
     // Les versions stables passent avant les préversions (tri stable : l'ordre « plus récente d'abord » est conservé)
     liste.sort_by_key(|(_, f)| f.starts_with("preview_"));
     *cache = Some(liste.clone());
@@ -28,10 +34,16 @@ async fn liste() -> anyhow::Result<Vec<(String, String)>> {
 }
 
 pub async fn disponible(version: &str) -> bool {
-    liste().await.is_ok_and(|l| l.iter().any(|(v, _)| v == version))
+    liste()
+        .await
+        .is_ok_and(|l| l.iter().any(|(v, _)| v == version))
 }
 
-pub async fn installer(dirs: &McDirs, mc: &str, progression: &FileProgress) -> anyhow::Result<String> {
+pub async fn installer(
+    dirs: &McDirs,
+    mc: &str,
+    progression: &FileProgress,
+) -> anyhow::Result<String> {
     let fichier = liste()
         .await?
         .into_iter()
@@ -40,10 +52,16 @@ pub async fn installer(dirs: &McDirs, mc: &str, progression: &FileProgress) -> a
         .ok_or_else(|| anyhow::anyhow!("OptiFine indisponible pour {mc}"))?;
 
     // "OptiFine_1.20.1_HD_U_I6.jar" → édition "HD_U_I6"
-    let edition = fichier.trim_end_matches(".jar").trim_start_matches("preview_").trim_start_matches(&format!("OptiFine_{mc}_")).to_string();
+    let edition = fichier
+        .trim_end_matches(".jar")
+        .trim_start_matches("preview_")
+        .trim_start_matches(&format!("OptiFine_{mc}_"))
+        .to_string();
     let id = format!("{mc}-OptiFine_{edition}");
     let lib_version = format!("{mc}_{edition}");
-    let jar_lib = dirs.libraries().join(format!("optifine/OptiFine/{lib_version}/OptiFine-{lib_version}.jar"));
+    let jar_lib = dirs.libraries().join(format!(
+        "optifine/OptiFine/{lib_version}/OptiFine-{lib_version}.jar"
+    ));
 
     if dirs.version_json(&id).exists() && jar_lib.exists() {
         return Ok(id);
@@ -58,7 +76,8 @@ pub async fn installer(dirs: &McDirs, mc: &str, progression: &FileProgress) -> a
         .map(|m| format!("https://optifine.net/{}", m.as_str()))
         .ok_or_else(|| anyhow::anyhow!("Lien de téléchargement OptiFine introuvable"))?;
 
-    let travail = std::env::temp_dir().join(format!("misty-optifine-{}", uuid::Uuid::new_v4().simple()));
+    let travail =
+        std::env::temp_dir().join(format!("misty-optifine-{}", uuid::Uuid::new_v4().simple()));
     std::fs::create_dir_all(&travail)?;
     let installateur = travail.join(&fichier);
     let resultat = async {
@@ -67,14 +86,27 @@ pub async fn installer(dirs: &McDirs, mc: &str, progression: &FileProgress) -> a
         // 1. Patch du jar du jeu
         let vanilla = version::lire(dirs, mc)?;
         let (composant, majeure) = version::java_requis(&vanilla);
-        let java = java::java_console(&java::assurer(dirs, &composant, majeure, progression).await?);
+        let java =
+            java::java_console(&java::assurer(dirs, &composant, majeure, progression).await?);
         std::fs::create_dir_all(jar_lib.parent().unwrap())?;
         let mut commande = std::process::Command::new(&java);
-        commande.arg("-cp").arg(&installateur).arg("optifine.Patcher").arg(dirs.version_jar(mc)).arg(&installateur).arg(&jar_lib);
+        commande
+            .arg("-cp")
+            .arg(&installateur)
+            .arg("optifine.Patcher")
+            .arg(dirs.version_jar(mc))
+            .arg(&installateur)
+            .arg(&jar_lib);
         sans_console(&mut commande);
         let sortie = commande.output()?;
         if !sortie.status.success() || !jar_lib.exists() {
-            anyhow::bail!("Échec du patch OptiFine : {}", String::from_utf8_lossy(&sortie.stderr).lines().last().unwrap_or_default());
+            anyhow::bail!(
+                "Échec du patch OptiFine : {}",
+                String::from_utf8_lossy(&sortie.stderr)
+                    .lines()
+                    .last()
+                    .unwrap_or_default()
+            );
         }
 
         // 2. launchwrapper-of, fourni dans le jar d'OptiFine (sinon le launchwrapper de Mojang)
@@ -87,7 +119,9 @@ pub async fn installer(dirs: &McDirs, mc: &str, progression: &FileProgress) -> a
         let lib_lw = if version_lw.is_empty() {
             json!({ "name": "net.minecraft:launchwrapper:1.12" })
         } else {
-            let destination = dirs.libraries().join(format!("optifine/launchwrapper-of/{version_lw}/launchwrapper-of-{version_lw}.jar"));
+            let destination = dirs.libraries().join(format!(
+                "optifine/launchwrapper-of/{version_lw}/launchwrapper-of-{version_lw}.jar"
+            ));
             if let Ok(mut e) = zip.by_name(&format!("launchwrapper-of-{version_lw}.jar")) {
                 std::fs::create_dir_all(destination.parent().unwrap())?;
                 std::io::copy(&mut e, &mut std::fs::File::create(&destination)?)?;
@@ -109,7 +143,8 @@ pub async fn installer(dirs: &McDirs, mc: &str, progression: &FileProgress) -> a
             v["arguments"] = json!({ "game": ["--tweakClass", "optifine.OptiFineTweaker"] });
         } else {
             let base = vanilla["minecraftArguments"].as_str().unwrap_or_default();
-            v["minecraftArguments"] = Value::String(format!("{base} --tweakClass optifine.OptiFineTweaker"));
+            v["minecraftArguments"] =
+                Value::String(format!("{base} --tweakClass optifine.OptiFineTweaker"));
         }
         let chemin = dirs.version_json(&id);
         std::fs::create_dir_all(chemin.parent().unwrap())?;

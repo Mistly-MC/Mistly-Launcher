@@ -37,7 +37,10 @@ impl ApplicationHandler<Fin> for Connexion {
         let fenetre = boucle
             .create_window(
                 Window::default_attributes()
-                    .with_title(format!("Mistly Launcher — {}", loc::t("Compte_SeConnecter")))
+                    .with_title(format!(
+                        "Mistly Launcher — {}",
+                        loc::t("Compte_SeConnecter")
+                    ))
                     .with_inner_size(LogicalSize::new(520.0, 680.0)),
             )
             .expect("fenêtre de connexion");
@@ -51,7 +54,10 @@ impl ApplicationHandler<Fin> for Connexion {
             if !deja_fini.swap(true, Ordering::SeqCst) {
                 let fin = match parametre(&url, "code") {
                     Some(code) => Fin::Code(code),
-                    None => Fin::Erreur(parametre(&url, "error_description").unwrap_or_else(|| loc::t("Compte_Annule"))),
+                    None => Fin::Erreur(
+                        parametre(&url, "error_description")
+                            .unwrap_or_else(|| loc::t("Compte_Annule")),
+                    ),
                 };
                 let _ = proxy.send_event(fin);
             }
@@ -89,7 +95,9 @@ impl ApplicationHandler<Fin> for Connexion {
 pub fn executer() {
     loc::initialiser();
 
-    let boucle = EventLoop::<Fin>::with_user_event().build().expect("boucle d'événements");
+    let boucle = EventLoop::<Fin>::with_user_event()
+        .build()
+        .expect("boucle d'événements");
     boucle.set_control_flow(ControlFlow::Wait);
 
     // Cookies stockés dans le dossier de Misty (pas à côté de l'exe)
@@ -108,6 +116,10 @@ fn parametre(url: &str, nom: &str) -> Option<String> {
     let requete = url.split_once(['?', '#'])?.1;
     requete.split(['&', '#']).find_map(|p| {
         let (k, v) = p.split_once('=')?;
-        (k == nom).then(|| urlencoding::decode(&v.replace('+', " ")).map(|s| s.into_owned()).unwrap_or_default())
+        (k == nom).then(|| {
+            urlencoding::decode(&v.replace('+', " "))
+                .map(|s| s.into_owned())
+                .unwrap_or_default()
+        })
     })
 }

@@ -27,4 +27,3 @@ pub async fn get_text(url: &str) -> anyhow::Result<String> {
     let reponse = client().get(url).send().await?.error_for_status()?;
     Ok(reponse.text().await?)
 }
-

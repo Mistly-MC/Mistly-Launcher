@@ -47,7 +47,12 @@ pub async fn manifeste() -> anyhow::Result<Vec<VersionManifest>> {
 /// Versions des listes déroulantes (nouveau profil, nouveau pack) : les releases. Snapshots, bêtas et
 /// alphas restent dans la fenêtre de choix de version, qui a ses propres filtres.
 pub async fn versions_proposees() -> anyhow::Result<Vec<String>> {
-    Ok(manifeste().await?.into_iter().filter(|v| v.type_ == "release").map(|v| v.id).collect())
+    Ok(manifeste()
+        .await?
+        .into_iter()
+        .filter(|v| v.type_ == "release")
+        .map(|v| v.id)
+        .collect())
 }
 
 /// Une version prête à être lancée.
@@ -76,7 +81,11 @@ pub async fn assurer_json(dirs: &McDirs, id: &str) -> anyhow::Result<()> {
 }
 
 /// Installe tout ce qu'il faut pour lancer `id` (déjà présent : vérification rapide).
-pub async fn installer(dirs: &McDirs, id: &str, progression: FileProgress) -> anyhow::Result<VersionInstallee> {
+pub async fn installer(
+    dirs: &McDirs,
+    id: &str,
+    progression: FileProgress,
+) -> anyhow::Result<VersionInstallee> {
     // JSON de la version et de ses parents
     let mut courant = id.to_string();
     loop {
@@ -99,7 +108,10 @@ pub async fn installer(dirs: &McDirs, id: &str, progression: FileProgress) -> an
             fichiers.push(Tache {
                 chemin: jar_vanilla.clone(),
                 url: url.to_string(),
-                sha1: client.get("sha1").and_then(Value::as_str).map(str::to_string),
+                sha1: client
+                    .get("sha1")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
                 taille: client.get("size").and_then(Value::as_u64),
             });
         }
@@ -109,7 +121,12 @@ pub async fn installer(dirs: &McDirs, id: &str, progression: FileProgress) -> an
     let libs = version::bibliotheques(dirs, &json);
     for lib in &libs {
         match &lib.url {
-            Some(url) => fichiers.push(Tache { chemin: lib.chemin.clone(), url: url.clone(), sha1: lib.sha1.clone(), taille: lib.taille }),
+            Some(url) => fichiers.push(Tache {
+                chemin: lib.chemin.clone(),
+                url: url.clone(),
+                sha1: lib.sha1.clone(),
+                taille: lib.taille,
+            }),
             None if !lib.chemin.exists() => {
                 anyhow::bail!("Bibliothèque manquante : {}", lib.chemin.display());
             }
@@ -121,9 +138,18 @@ pub async fn installer(dirs: &McDirs, id: &str, progression: FileProgress) -> an
     let mut logging = None;
     if let Some(client) = json.get("logging").and_then(|l| l.get("client")) {
         let fichier = &client["file"];
-        if let (Some(idf), Some(url), Some(arg)) = (fichier["id"].as_str(), fichier["url"].as_str(), client["argument"].as_str()) {
+        if let (Some(idf), Some(url), Some(arg)) = (
+            fichier["id"].as_str(),
+            fichier["url"].as_str(),
+            client["argument"].as_str(),
+        ) {
             let chemin = dirs.assets().join("log_configs").join(idf);
-            fichiers.push(Tache { chemin: chemin.clone(), url: url.to_string(), sha1: fichier["sha1"].as_str().map(str::to_string), taille: None });
+            fichiers.push(Tache {
+                chemin: chemin.clone(),
+                url: url.to_string(),
+                sha1: fichier["sha1"].as_str().map(str::to_string),
+                taille: None,
+            });
             logging = Some((arg.to_string(), chemin));
         }
     }
@@ -131,7 +157,8 @@ pub async fn installer(dirs: &McDirs, id: &str, progression: FileProgress) -> an
     telecharger_tout(fichiers, &progression).await?;
 
     // Assets
-    let (assets_index, game_assets, map_to_resources) = installer_assets(dirs, &json, &progression).await?;
+    let (assets_index, game_assets, map_to_resources) =
+        installer_assets(dirs, &json, &progression).await?;
 
     // Java
     let (composant, majeure) = version::java_requis(&json);
@@ -149,23 +176,43 @@ pub async fn installer(dirs: &McDirs, id: &str, progression: FileProgress) -> an
                 }
                 std::fs::copy(&jar_vanilla, &propre)?;
             }
-            if propre.exists() { propre } else { jar_vanilla }
+            if propre.exists() {
+                propre
+            } else {
+                jar_vanilla
+            }
         }
     };
 
-    Ok(VersionInstallee { id: id.to_string(), json, jar, java, assets_index, game_assets, map_to_resources, logging })
+    Ok(VersionInstallee {
+        id: id.to_string(),
+        json,
+        jar,
+        java,
+        assets_index,
+        game_assets,
+        map_to_resources,
+        logging,
+    })
 }
 
 /// Extrait les DLL des bibliothèques natives dans `dossier`.
 pub fn extraire_natives(libs: &[FichierLib], dossier: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(dossier)?;
     for lib in libs.iter().filter(|l| l.natif) {
-        let Ok(f) = std::fs::File::open(&lib.chemin) else { continue };
-        let Ok(mut zip) = zip::ZipArchive::new(f) else { continue };
+        let Ok(f) = std::fs::File::open(&lib.chemin) else {
+            continue;
+        };
+        let Ok(mut zip) = zip::ZipArchive::new(f) else {
+            continue;
+        };
         for i in 0..zip.len() {
             let mut entree = zip.by_index(i)?;
             let nom = entree.name()?.to_string();
-            if nom.ends_with('/') || nom.starts_with("META-INF") || lib.exclure.iter().any(|e| nom.starts_with(e.as_str())) {
+            if nom.ends_with('/')
+                || nom.starts_with("META-INF")
+                || lib.exclure.iter().any(|e| nom.starts_with(e.as_str()))
+            {
                 continue;
             }
             let destination = if lib.natif_seul {
@@ -174,7 +221,8 @@ pub fn extraire_natives(libs: &[FichierLib], dossier: &Path) -> anyhow::Result<(
             } else {
                 // Nouveau format : seulement les DLL, rangées par architecture ("windows/x64/...") → on aplatit
                 let n = nom.to_lowercase();
-                let autre_arch = cfg!(target_arch = "x86_64") && (n.contains("/arm64/") || n.contains("/x86/"));
+                let autre_arch =
+                    cfg!(target_arch = "x86_64") && (n.contains("/arm64/") || n.contains("/x86/"));
                 if !n.ends_with(".dll") || autre_arch {
                     continue;
                 }
@@ -194,7 +242,11 @@ pub fn extraire_natives(libs: &[FichierLib], dossier: &Path) -> anyhow::Result<(
 
 // ───────────────────────── Assets ─────────────────────────
 
-async fn installer_assets(dirs: &McDirs, json: &Value, progression: &FileProgress) -> anyhow::Result<(String, PathBuf, bool)> {
+async fn installer_assets(
+    dirs: &McDirs,
+    json: &Value,
+    progression: &FileProgress,
+) -> anyhow::Result<(String, PathBuf, bool)> {
     let Some(index) = json.get("assetIndex") else {
         return Ok(("legacy".into(), dirs.assets(), false));
     };
@@ -206,13 +258,25 @@ async fn installer_assets(dirs: &McDirs, json: &Value, progression: &FileProgres
         }
     }
     let contenu: Value = serde_json::from_str(&std::fs::read_to_string(&chemin_index)?)?;
-    let virtuel = contenu.get("virtual").and_then(Value::as_bool).unwrap_or(false);
-    let map_to_resources = contenu.get("map_to_resources").and_then(Value::as_bool).unwrap_or(false);
+    let virtuel = contenu
+        .get("virtual")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let map_to_resources = contenu
+        .get("map_to_resources")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
-    let objets = contenu.get("objects").and_then(Value::as_object).cloned().unwrap_or_default();
+    let objets = contenu
+        .get("objects")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
     let mut taches = Vec::new();
     for objet in objets.values() {
-        let Some(hash) = objet["hash"].as_str() else { continue };
+        let Some(hash) = objet["hash"].as_str() else {
+            continue;
+        };
         let prefixe = &hash[..2];
         taches.push(Tache {
             chemin: dirs.assets().join("objects").join(prefixe).join(hash),
@@ -228,13 +292,18 @@ async fn installer_assets(dirs: &McDirs, json: &Value, progression: &FileProgres
     if virtuel || map_to_resources {
         let dossier = dirs.assets().join("virtual").join(&id);
         for (nom, objet) in &objets {
-            let Some(hash) = objet["hash"].as_str() else { continue };
+            let Some(hash) = objet["hash"].as_str() else {
+                continue;
+            };
             let destination = dossier.join(nom);
             if !destination.exists() {
                 if let Some(parent) = destination.parent() {
                     std::fs::create_dir_all(parent)?;
                 }
-                let _ = std::fs::copy(dirs.assets().join("objects").join(&hash[..2]).join(hash), &destination);
+                let _ = std::fs::copy(
+                    dirs.assets().join("objects").join(&hash[..2]).join(hash),
+                    &destination,
+                );
             }
         }
         game_assets = dossier;
@@ -245,7 +314,9 @@ async fn installer_assets(dirs: &McDirs, json: &Value, progression: &FileProgres
 /// Copie les assets dans <jeu>/resources (versions d'avant 1.6).
 pub fn copier_resources(assets_virtuels: &Path, dossier_jeu: &Path) {
     fn copier(source: &Path, destination: &Path) {
-        let Ok(entrees) = std::fs::read_dir(source) else { return };
+        let Ok(entrees) = std::fs::read_dir(source) else {
+            return;
+        };
         for e in entrees.flatten() {
             let cible = destination.join(e.file_name());
             if e.path().is_dir() {
@@ -277,7 +348,10 @@ fn deja_la(t: &Tache) -> bool {
 }
 
 /// Télécharge les fichiers manquants, 16 à la fois, en signalant l'avancement.
-pub async fn telecharger_tout(taches: Vec<Tache>, progression: &FileProgress) -> anyhow::Result<()> {
+pub async fn telecharger_tout(
+    taches: Vec<Tache>,
+    progression: &FileProgress,
+) -> anyhow::Result<()> {
     let manquants: Vec<Tache> = taches.into_iter().filter(|t| !deja_la(t)).collect();
     let total = manquants.len();
     if total == 0 {
@@ -295,7 +369,11 @@ pub async fn telecharger_tout(taches: Vec<Tache>, progression: &FileProgress) ->
             }
             resultat.map_err(|e| anyhow::anyhow!("{} : {e}", t.url))?;
             let n = faits.fetch_add(1, Ordering::SeqCst) + 1;
-            let nom = t.chemin.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            let nom = t
+                .chemin
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
             progression(n, total, &nom);
             Ok::<(), anyhow::Error>(())
         }

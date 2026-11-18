@@ -99,7 +99,9 @@ impl Instance {
 
     /// "Jamais joué", "Joué aujourd'hui", "Il y a 3 jours"…
     pub fn dernier_lancement_texte(&self) -> String {
-        let Some(d) = self.dernier_lancement else { return loc::t("Profil_Jamais") };
+        let Some(d) = self.dernier_lancement else {
+            return loc::t("Profil_Jamais");
+        };
         let aujourdhui = Local::now().date_naive();
         let jours = (aujourdhui - d.date_naive()).num_days();
         match jours {
@@ -107,7 +109,11 @@ impl Instance {
             1 => loc::t("Profil_Hier"),
             j if j < 30 => loc::tf("Profil_IlYa", &[&j]),
             _ => {
-                let format = if loc::code() == "fr" { "%d/%m/%Y" } else { "%m/%d/%Y" };
+                let format = if loc::code() == "fr" {
+                    "%d/%m/%Y"
+                } else {
+                    "%m/%d/%Y"
+                };
                 loc::tf("Profil_Le", &[&d.format(format)])
             }
         }
@@ -125,12 +131,20 @@ pub fn dossier(id: &str) -> PathBuf {
 /// Tous les profils, du plus récemment joué au plus ancien.
 pub fn lister() -> Vec<Instance> {
     let mut instances = Vec::new();
-    let Ok(entrees) = fs::read_dir(racine()) else { return instances };
+    let Ok(entrees) = fs::read_dir(racine()) else {
+        return instances;
+    };
     for entree in entrees.flatten() {
         let chemin = entree.path().join(FICHIER);
-        let Ok(texte) = fs::read_to_string(&chemin) else { continue };
+        let Ok(texte) = fs::read_to_string(&chemin) else {
+            continue;
+        };
         // instance.json illisible : on l'ignore
-        let Ok(mut instance) = serde_json::from_str::<Instance>(texte.trim_start_matches('\u{feff}')) else { continue };
+        let Ok(mut instance) =
+            serde_json::from_str::<Instance>(texte.trim_start_matches('\u{feff}'))
+        else {
+            continue;
+        };
         instance.id = entree.file_name().to_string_lossy().to_string(); // le dossier fait foi
         instances.push(instance);
     }
@@ -145,7 +159,12 @@ pub fn trouver(id: &str) -> Option<Instance> {
     lister().into_iter().find(|i| i.id == id)
 }
 
-pub fn creer(nom: &str, version_mc: &str, loader: &str, loader_version: Option<String>) -> anyhow::Result<Instance> {
+pub fn creer(
+    nom: &str,
+    version_mc: &str,
+    loader: &str,
+    loader_version: Option<String>,
+) -> anyhow::Result<Instance> {
     let instance = Instance {
         id: nouvel_id(nom),
         nom: nom.trim().to_string(),
@@ -170,7 +189,10 @@ pub fn creer(nom: &str, version_mc: &str, loader: &str, loader_version: Option<S
 
 pub fn sauver(instance: &Instance) -> anyhow::Result<()> {
     fs::create_dir_all(instance.dossier())?;
-    fs::write(instance.dossier().join(FICHIER), serde_json::to_string_pretty(instance)?)?;
+    fs::write(
+        instance.dossier().join(FICHIER),
+        serde_json::to_string_pretty(instance)?,
+    )?;
     Ok(())
 }
 

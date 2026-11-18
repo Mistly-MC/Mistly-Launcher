@@ -36,14 +36,20 @@ impl Cache {
 
 /// Le nuage de Misty (vignettes sans image, fond, carte de version).
 pub fn logo_nuage() -> Image {
-    decoder(include_bytes!("../../assets/logo-nuage.png"), 0).map(Image::from_rgba8).unwrap_or_default()
+    decoder(include_bytes!("../../assets/logo-nuage.png"), 0)
+        .map(Image::from_rgba8)
+        .unwrap_or_default()
 }
 
 /// Décode une image (fichier ou octets) en tampon de pixels, réduite à `max` pixels de large.
 pub fn decoder(octets: &[u8], max: u32) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
     let img = image::load_from_memory(octets).ok()?;
     let img = if max > 0 && img.width() > max {
-        img.resize(max, max * img.height() / img.width().max(1), image::imageops::FilterType::Triangle)
+        img.resize(
+            max,
+            max * img.height() / img.width().max(1),
+            image::imageops::FilterType::Triangle,
+        )
     } else {
         img
     };
@@ -78,7 +84,11 @@ pub fn logo_chargement() -> Image {
         "10000100001000010000100001000011111",
         "10001100010101000100001000010000100",
     ];
-    let (blanc, ligne, ardoise) = (image::Rgba([255, 255, 255, 255]), image::Rgba([0xDC, 0xE6, 0xFF, 255]), image::Rgba([0x3C, 0x54, 0x86, 255]));
+    let (blanc, ligne, ardoise) = (
+        image::Rgba([255, 255, 255, 255]),
+        image::Rgba([0xDC, 0xE6, 0xFF, 255]),
+        image::Rgba([0x3C, 0x54, 0x86, 255]),
+    );
     let mut img = image::RgbaImage::new(40, 40);
     for (rang, motif) in NUAGE.iter().enumerate() {
         for (col, c) in motif.chars().enumerate() {
@@ -115,7 +125,6 @@ pub fn depuis_fichier(chemin: &Path, max: u32) -> Option<Image> {
     decoder(&octets, max).map(Image::from_rgba8)
 }
 
-
 /// Image distante (icône de projet…), téléchargée en arrière-plan et gardée en cache.
 pub async fn depuis_url(app: &App, url: &str) -> Option<Image> {
     if url.is_empty() {
@@ -127,9 +136,17 @@ pub async fn depuis_url(app: &App, url: &str) -> Option<Image> {
     let u = url.to_string();
     let tampon = app
         .bg(async move {
-            let reponse = crate::services::http::client().get(&u).send().await.ok()?.error_for_status().ok()?;
+            let reponse = crate::services::http::client()
+                .get(&u)
+                .send()
+                .await
+                .ok()?
+                .error_for_status()
+                .ok()?;
             let octets = reponse.bytes().await.ok()?;
-            tokio::task::spawn_blocking(move || decoder(&octets, 96)).await.ok()?
+            tokio::task::spawn_blocking(move || decoder(&octets, 96))
+                .await
+                .ok()?
         })
         .await;
     let image = tampon.map(Image::from_rgba8);

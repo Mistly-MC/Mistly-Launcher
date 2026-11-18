@@ -35,7 +35,10 @@ pub fn active() -> bool {
 
 pub fn activer(oui: bool) {
     settings::set_bool(settings::TELEMETRIE, oui);
-    journal::info(&format!("Télémétrie {}", if oui { "activée" } else { "désactivée" }));
+    journal::info(&format!(
+        "Télémétrie {}",
+        if oui { "activée" } else { "désactivée" }
+    ));
 }
 
 /// Identifiant d'installation (aléatoire, sans lien avec le compte).
@@ -79,7 +82,12 @@ pub fn evenement(nom: &str, donnees: Value) {
 }
 
 /// Envoie les dernières lignes de la console. Renvoie le code du rapport.
-pub async fn rapport(raison: &str, jeu: &str, lignes: Vec<String>, pseudo: &str) -> anyhow::Result<String> {
+pub async fn rapport(
+    raison: &str,
+    jeu: &str,
+    lignes: Vec<String>,
+    pseudo: &str,
+) -> anyhow::Result<String> {
     let mut corps = contexte();
     corps["reason"] = json!(raison);
     corps["game"] = json!(jeu);
@@ -158,6 +166,9 @@ mod tests {
     #[test]
     fn nettoyage() {
         let t = super::nettoyer("Setting user: Steve --accessToken abc123 next eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig ok", "Steve");
-        assert_eq!(t, "Setting user: <player> --accessToken <hidden> next <token> ok");
+        assert_eq!(
+            t,
+            "Setting user: <player> --accessToken <hidden> next <token> ok"
+        );
     }
 }

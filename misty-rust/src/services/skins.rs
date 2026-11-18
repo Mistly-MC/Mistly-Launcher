@@ -75,20 +75,40 @@ pub async fn profil() -> anyhow::Result<Profil> {
     if cfg!(debug_assertions) && std::env::var_os("MISTY_FAKE_429").is_some() {
         return Err(Limite { attente: 4 }.into());
     }
-    let r = http::client().get(API).bearer_auth(jeton().await?).send().await?;
+    let r = http::client()
+        .get(API)
+        .bearer_auth(jeton().await?)
+        .send()
+        .await?;
     if r.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-        let attente = r.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
+        let attente = r
+            .headers()
+            .get("retry-after")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0);
         return Err(Limite { attente }.into());
     }
     let p: ProfilJson = r.error_for_status()?.json().await?;
-    let skin = p.skins.iter().find(|s| s.state == "ACTIVE").or(p.skins.first());
+    let skin = p
+        .skins
+        .iter()
+        .find(|s| s.state == "ACTIVE")
+        .or(p.skins.first());
     Ok(Profil {
         skin_url: skin.map(|s| s.url.clone()).unwrap_or_default(),
-        fin: skin.map(|s| s.variant.eq_ignore_ascii_case("slim")).unwrap_or(false),
+        fin: skin
+            .map(|s| s.variant.eq_ignore_ascii_case("slim"))
+            .unwrap_or(false),
         capes: p
             .capes
             .into_iter()
-            .map(|c| Cape { active: c.state == "ACTIVE", nom: majuscule(&c.alias), id: c.id, url: c.url })
+            .map(|c| Cape {
+                active: c.state == "ACTIVE",
+                nom: majuscule(&c.alias),
+                id: c.id,
+                url: c.url,
+            })
             .collect(),
     })
 }
@@ -122,7 +142,10 @@ pub fn ajouter_historique(png: &[u8], fin: bool) {
     // le même skin avec l'autre modèle de bras : on remplace
     let _ = std::fs::remove_file(dossier.join(format!("{base}.png")));
     let _ = std::fs::remove_file(dossier.join(format!("{base}-fin.png")));
-    let _ = std::fs::write(dossier.join(format!("{base}{}.png", if fin { "-fin" } else { "" })), png);
+    let _ = std::fs::write(
+        dossier.join(format!("{base}{}.png", if fin { "-fin" } else { "" })),
+        png,
+    );
     for (ancien, _) in historique().into_iter().skip(HISTORIQUE_MAX) {
         let _ = std::fs::remove_file(ancien);
     }
@@ -130,18 +153,29 @@ pub fn ajouter_historique(png: &[u8], fin: bool) {
 
 /// Les skins de l'historique (fichier, bras fins), du plus récent au plus ancien.
 pub fn historique() -> Vec<(std::path::PathBuf, bool)> {
-    let Ok(entrees) = std::fs::read_dir(dossier_historique()) else { return Vec::new() };
+    let Ok(entrees) = std::fs::read_dir(dossier_historique()) else {
+        return Vec::new();
+    };
     let mut liste: Vec<(std::time::SystemTime, std::path::PathBuf)> = entrees
         .flatten()
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|x| x == "png"))
-        .map(|p| (std::fs::metadata(&p).and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH), p))
+        .map(|p| {
+            (
+                std::fs::metadata(&p)
+                    .and_then(|m| m.modified())
+                    .unwrap_or(std::time::UNIX_EPOCH),
+                p,
+            )
+        })
         .collect();
     liste.sort_by(|a, b| b.0.cmp(&a.0));
     liste
         .into_iter()
         .map(|(_, p)| {
-            let fin = p.file_stem().is_some_and(|n| n.to_string_lossy().ends_with("-fin"));
+            let fin = p
+                .file_stem()
+                .is_some_and(|n| n.to_string_lossy().ends_with("-fin"));
             (p, fin)
         })
         .collect()
@@ -168,7 +202,14 @@ pub async fn telecharger(url: &str) -> anyhow::Result<Vec<u8>> {
     if url.starts_with("local:") {
         anyhow::bail!("skin local introuvable"); // pas une vraie adresse : seulement sur le disque
     }
-    let octets = http::client().get(url).send().await?.error_for_status()?.bytes().await?.to_vec();
+    let octets = http::client()
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?
+        .to_vec();
     let _ = std::fs::create_dir_all(dossier_cache());
     let _ = std::fs::write(&fichier, &octets);
     Ok(octets)
@@ -179,7 +220,10 @@ pub fn profil_en_cache(uuid: &str) -> Option<Profil> {
     if uuid.is_empty() {
         return None;
     }
-    serde_json::from_str(&std::fs::read_to_string(dossier_cache().join(format!("profil-{uuid}.json"))).ok()?).ok()
+    serde_json::from_str(
+        &std::fs::read_to_string(dossier_cache().join(format!("profil-{uuid}.json"))).ok()?,
+    )
+    .ok()
 }
 
 pub fn enregistrer_profil(uuid: &str, profil: &Profil) {
@@ -187,14 +231,20 @@ pub fn enregistrer_profil(uuid: &str, profil: &Profil) {
         return;
     }
     let _ = std::fs::create_dir_all(dossier_cache());
-    let _ = std::fs::write(dossier_cache().join(format!("profil-{uuid}.json")), serde_json::to_string(profil).unwrap_or_default());
+    let _ = std::fs::write(
+        dossier_cache().join(format!("profil-{uuid}.json")),
+        serde_json::to_string(profil).unwrap_or_default(),
+    );
 }
 
 /// Après l'envoi d'un skin : on le garde sur le disque, pour l'afficher même si Mojang ne répond pas ensuite.
 pub fn memoriser_skin_envoye(uuid: &str, png: &[u8], fin: bool) {
     let adresse = format!("local:{uuid}");
     let _ = std::fs::create_dir_all(dossier_cache());
-    let _ = std::fs::write(dossier_cache().join(format!("{:x}.png", md5::compute(&adresse))), png);
+    let _ = std::fs::write(
+        dossier_cache().join(format!("{:x}.png", md5::compute(&adresse))),
+        png,
+    );
     let mut profil = profil_en_cache(uuid).unwrap_or_default();
     profil.skin_url = adresse;
     profil.fin = fin;
@@ -204,7 +254,9 @@ pub fn memoriser_skin_envoye(uuid: &str, png: &[u8], fin: bool) {
 /// Steve en entier : toujours le même, calculé une seule fois puis gardé en mémoire.
 pub fn steve_tour() -> Option<&'static Vec<RgbaImage>> {
     static STEVE: std::sync::OnceLock<Option<Vec<RgbaImage>>> = std::sync::OnceLock::new();
-    STEVE.get_or_init(|| rendre_tour(include_bytes!("../../assets/steve.png"), false, None)).as_ref()
+    STEVE
+        .get_or_init(|| rendre_tour(include_bytes!("../../assets/steve.png"), false, None))
+        .as_ref()
 }
 
 /// Envoie un nouveau skin (PNG 64×64 ou 64×32).
@@ -223,7 +275,10 @@ pub async fn changer_skin(png: Vec<u8>, fin: bool) -> anyhow::Result<()> {
     let r = http::client()
         .post(format!("{API}/skins"))
         .bearer_auth(jeton().await?)
-        .header("Content-Type", format!("multipart/form-data; boundary={limite}"))
+        .header(
+            "Content-Type",
+            format!("multipart/form-data; boundary={limite}"),
+        )
         .body(corps)
         .send()
         .await?;
@@ -238,7 +293,14 @@ pub async fn activer_cape(id: Option<&str>) -> anyhow::Result<()> {
     let jeton = jeton().await?;
     let url = format!("{API}/capes/active");
     let r = match id {
-        Some(id) => http::client().put(url).bearer_auth(jeton).json(&serde_json::json!({ "capeId": id })).send().await?,
+        Some(id) => {
+            http::client()
+                .put(url)
+                .bearer_auth(jeton)
+                .json(&serde_json::json!({ "capeId": id }))
+                .send()
+                .await?
+        }
         None => http::client().delete(url).bearer_auth(jeton).send().await?,
     };
     verifier(r).await
@@ -249,21 +311,33 @@ async fn verifier(r: reqwest::Response) -> anyhow::Result<()> {
         return Ok(());
     }
     if r.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-        let attente = r.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
+        let attente = r
+            .headers()
+            .get("retry-after")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0);
         return Err(Limite { attente }.into());
     }
     let statut = r.status();
     let texte = r.text().await.unwrap_or_default();
     let detail = serde_json::from_str::<serde_json::Value>(&texte)
         .ok()
-        .and_then(|v| v["errorMessage"].as_str().or(v["error"].as_str()).map(str::to_string))
+        .and_then(|v| {
+            v["errorMessage"]
+                .as_str()
+                .or(v["error"].as_str())
+                .map(str::to_string)
+        })
         .unwrap_or(texte);
     anyhow::bail!("{statut} {detail}")
 }
 
 /// Un skin est valide s'il fait 64×64 ou 64×32 pixels.
 pub fn skin_valide(png: &[u8]) -> bool {
-    image::load_from_memory(png).map(|i| i.width() == 64 && (i.height() == 64 || i.height() == 32)).unwrap_or(false)
+    image::load_from_memory(png)
+        .map(|i| i.width() == 64 && (i.height() == 64 || i.height() == 32))
+        .unwrap_or(false)
 }
 
 /// Modèle d'un skin : vrai pour les bras fins (Alex, « slim »), faux pour les bras larges (Steve).
@@ -271,16 +345,25 @@ pub fn skin_valide(png: &[u8]) -> bool {
 /// zone de chaque bras restent vides (bras droit : x 54–55, y 20–31 ; bras gauche : x 46–47, y 52–63).
 /// Les anciens skins 64 × 32 sont toujours larges.
 pub fn est_fin(png: &[u8]) -> bool {
-    let Ok(img) = image::load_from_memory(png) else { return false };
+    let Ok(img) = image::load_from_memory(png) else {
+        return false;
+    };
     let img = img.to_rgba8();
     if img.width() != 64 || img.height() != 64 {
         return false;
     }
-    let vide = |x0: u32, y0: u32| (x0..x0 + 2).all(|x| (y0..y0 + 12).all(|y| img.get_pixel(x, y)[3] == 0));
+    let vide =
+        |x0: u32, y0: u32| (x0..x0 + 2).all(|x| (y0..y0 + 12).all(|y| img.get_pixel(x, y)[3] == 0));
     vide(54, 20) && vide(46, 52)
 }
 
-fn coller(dest: &mut RgbaImage, skin: &RgbaImage, src: (u32, u32, u32, u32), vers: (u32, u32), miroir: bool) {
+fn coller(
+    dest: &mut RgbaImage,
+    skin: &RgbaImage,
+    src: (u32, u32, u32, u32),
+    vers: (u32, u32),
+    miroir: bool,
+) {
     let (sx, sy, w, h) = src;
     for y in 0..h {
         for x in 0..w {
@@ -338,7 +421,13 @@ struct Boite {
 }
 
 /// Box of the player model, with the layout of the Minecraft skin (origin u,v and size w,h,d).
-fn boite_skin(origine: (u32, u32), taille: (u32, u32, u32), min: [f32; 3], gonfle: f32, miroir: bool) -> Boite {
+fn boite_skin(
+    origine: (u32, u32),
+    taille: (u32, u32, u32),
+    min: [f32; 3],
+    gonfle: f32,
+    miroir: bool,
+) -> Boite {
     let (u, v) = origine;
     let (w, h, d) = taille;
     let droite = Region(u, v + d, d, h);
@@ -347,8 +436,16 @@ fn boite_skin(origine: (u32, u32), taille: (u32, u32, u32), min: [f32; 3], gonfl
     let dos = Region(u + 2 * d + w, v + d, w, h);
     Boite {
         min: [min[0] - gonfle, min[1] - gonfle, min[2] - gonfle],
-        max: [min[0] + w as f32 + gonfle, min[1] + h as f32 + gonfle, min[2] + d as f32 + gonfle],
-        faces: if miroir { [devant, dos, gauche, droite] } else { [devant, dos, droite, gauche] },
+        max: [
+            min[0] + w as f32 + gonfle,
+            min[1] + h as f32 + gonfle,
+            min[2] + d as f32 + gonfle,
+        ],
+        faces: if miroir {
+            [devant, dos, gauche, droite]
+        } else {
+            [devant, dos, droite, gauche]
+        },
         miroir,
         incline: 0.0,
         roulis: 0.0,
@@ -363,7 +460,12 @@ fn boite_cape(f: u32) -> Boite {
     Boite {
         min: [-5.0, 8.0, -3.25],
         max: [5.0, 24.0, -2.25],
-        faces: [Region(12 * f, f, 10 * f, 16 * f), Region(f, f, 10 * f, 16 * f), Region(0, f, f, 16 * f), Region(11 * f, f, f, 16 * f)],
+        faces: [
+            Region(12 * f, f, 10 * f, 16 * f),
+            Region(f, f, 10 * f, 16 * f),
+            Region(0, f, f, 16 * f),
+            Region(11 * f, f, f, 16 * f),
+        ],
         miroir: false,
         incline: CAPE_INCLINAISON,
         roulis: 0.0,
@@ -410,7 +512,11 @@ fn echantillon(b: &Boite, texture: &RgbaImage, p: [f32; 3], axe: usize, positif:
                 fu = 1.0 - fu;
             }
             let profondeur = b.max[2] - b.min[2];
-            let (Region(x, y, w, h), fv) = if positif { (haut, (p[2] - b.min[2]) / profondeur) } else { (bas, (b.max[2] - p[2]) / profondeur) };
+            let (Region(x, y, w, h), fv) = if positif {
+                (haut, (p[2] - b.min[2]) / profondeur)
+            } else {
+                (bas, (b.max[2] - p[2]) / profondeur)
+            };
             let tx = x + (fu.clamp(0.0, 0.9999) * w as f32) as u32;
             let ty = y + (fv.clamp(0.0, 0.9999) * h as f32) as u32;
             return *texture.get_pixel(tx.min(texture.width() - 1), ty.min(texture.height() - 1));
@@ -450,12 +556,22 @@ pub fn rendre_tour(png: &[u8], fin: bool, cape: Option<&[u8]>) -> Option<Vec<Rgb
 }
 
 /// Seulement certaines vues du tour (ex. [0] : la face, pour afficher le personnage tout de suite).
-pub fn rendre_vues(png: &[u8], fin: bool, cape: Option<&[u8]>, indices: &[usize]) -> Option<Vec<RgbaImage>> {
+pub fn rendre_vues(
+    png: &[u8],
+    fin: bool,
+    cape: Option<&[u8]>,
+    indices: &[usize],
+) -> Option<Vec<RgbaImage>> {
     rendre_vues_pose(png, fin, cape, indices, 0.0, false)
 }
 
 /// Le tour complet, avec des élytres à la place de la cape.
-pub fn rendre_tour_elytres(png: &[u8], fin: bool, cape: Option<&[u8]>, elytres: bool) -> Option<Vec<RgbaImage>> {
+pub fn rendre_tour_elytres(
+    png: &[u8],
+    fin: bool,
+    cape: Option<&[u8]>,
+    elytres: bool,
+) -> Option<Vec<RgbaImage>> {
     let toutes: Vec<usize> = (0..IMAGES_TOUR).collect();
     rendre_vues_pose(png, fin, cape, &toutes, 0.0, elytres)
 }
@@ -464,7 +580,11 @@ pub fn rendre_tour_elytres(png: &[u8], fin: bool, cape: Option<&[u8]>, elytres: 
 fn elytres_par_defaut() -> RgbaImage {
     static ELYTRES: std::sync::OnceLock<RgbaImage> = std::sync::OnceLock::new();
     ELYTRES
-        .get_or_init(|| image::load_from_memory(texture_misty()).map(|i| i.to_rgba8()).unwrap_or_else(|_| RgbaImage::from_pixel(64, 32, Rgba([60, 80, 140, 255]))))
+        .get_or_init(|| {
+            image::load_from_memory(texture_misty())
+                .map(|i| i.to_rgba8())
+                .unwrap_or_else(|_| RgbaImage::from_pixel(64, 32, Rgba([60, 80, 140, 255])))
+        })
         .clone()
 }
 
@@ -473,27 +593,52 @@ pub const POSES_MARCHE: usize = 12;
 pub const ANGLES_MARCHE: usize = 12;
 
 /// Le personnage qui marche : POSES_MARCHE poses x ANGLES_MARCHE angles (pose d'abord).
-pub fn rendre_marche(png: &[u8], fin: bool, cape: Option<&[u8]>, elytres: bool) -> Option<Vec<RgbaImage>> {
-    let angles: Vec<usize> = (0..ANGLES_MARCHE).map(|a| a * IMAGES_TOUR / ANGLES_MARCHE).collect();
+pub fn rendre_marche(
+    png: &[u8],
+    fin: bool,
+    cape: Option<&[u8]>,
+    elytres: bool,
+) -> Option<Vec<RgbaImage>> {
+    let angles: Vec<usize> = (0..ANGLES_MARCHE)
+        .map(|a| a * IMAGES_TOUR / ANGLES_MARCHE)
+        .collect();
     let mut toutes = Vec::new();
     for pose in 0..POSES_MARCHE {
         let balancement = 0.5 * (pose as f32 * std::f32::consts::TAU / POSES_MARCHE as f32).sin();
-        toutes.extend(rendre_vues_pose(png, fin, cape, &angles, balancement, elytres)?);
+        toutes.extend(rendre_vues_pose(
+            png,
+            fin,
+            cape,
+            &angles,
+            balancement,
+            elytres,
+        )?);
     }
     Some(toutes)
 }
 
 /// Comme `rendre_vues`, avec les bras et les jambes balancés de `balancement` radians (marche).
-pub fn rendre_vues_pose(png: &[u8], fin: bool, cape: Option<&[u8]>, indices: &[usize], balancement: f32, elytres: bool) -> Option<Vec<RgbaImage>> {
+pub fn rendre_vues_pose(
+    png: &[u8],
+    fin: bool,
+    cape: Option<&[u8]>,
+    indices: &[usize],
+    balancement: f32,
+    elytres: bool,
+) -> Option<Vec<RgbaImage>> {
     let skin = image::load_from_memory(png).ok()?.to_rgba8();
     if skin.width() != 64 || skin.height() < 32 {
         return None;
     }
-    let mut cape_img = cape.and_then(|c| image::load_from_memory(c).ok()).map(|i| i.to_rgba8());
+    let mut cape_img = cape
+        .and_then(|c| image::load_from_memory(c).ok())
+        .map(|i| i.to_rgba8());
     if elytres {
         // les élytres utilisent la texture de la cape (64x32), ou une texture grise par défaut
         cape_img = Some(match cape_img {
-            Some(c) if c.width() != 64 || c.height() != 32 => imageops::resize(&c, 64, 32, imageops::FilterType::Nearest),
+            Some(c) if c.width() != 64 || c.height() != 32 => {
+                imageops::resize(&c, 64, 32, imageops::FilterType::Nearest)
+            }
             Some(c) => c,
             None => elytres_par_defaut(),
         });
@@ -509,20 +654,74 @@ pub fn rendre_vues_pose(png: &[u8], fin: bool, cape: Option<&[u8]>, indices: &[u
         boite_skin((0, 16), (4, 12, 4), [-4.0, 0.0, -2.0], 0.0, false),
     ];
     if moderne {
-        boites.push(boite_skin((32, 48), (bras, 12, 4), [4.0, 12.0, -2.0], 0.0, false));
-        boites.push(boite_skin((16, 48), (4, 12, 4), [0.0, 0.0, -2.0], 0.0, false));
+        boites.push(boite_skin(
+            (32, 48),
+            (bras, 12, 4),
+            [4.0, 12.0, -2.0],
+            0.0,
+            false,
+        ));
+        boites.push(boite_skin(
+            (16, 48),
+            (4, 12, 4),
+            [0.0, 0.0, -2.0],
+            0.0,
+            false,
+        ));
     } else {
-        boites.push(boite_skin((40, 16), (bras, 12, 4), [4.0, 12.0, -2.0], 0.0, true));
+        boites.push(boite_skin(
+            (40, 16),
+            (bras, 12, 4),
+            [4.0, 12.0, -2.0],
+            0.0,
+            true,
+        ));
         boites.push(boite_skin((0, 16), (4, 12, 4), [0.0, 0.0, -2.0], 0.0, true));
     }
     // Clothes layer, a little bigger than the base layer
-    boites.push(boite_skin((32, 0), (8, 8, 8), [-4.0, 24.0, -4.0], 0.5, false));
+    boites.push(boite_skin(
+        (32, 0),
+        (8, 8, 8),
+        [-4.0, 24.0, -4.0],
+        0.5,
+        false,
+    ));
     if moderne {
-        boites.push(boite_skin((16, 32), (8, 12, 4), [-4.0, 12.0, -2.0], 0.25, false));
-        boites.push(boite_skin((40, 32), (bras, 12, 4), [-4.0 - b, 12.0, -2.0], 0.25, false));
-        boites.push(boite_skin((48, 48), (bras, 12, 4), [4.0, 12.0, -2.0], 0.25, false));
-        boites.push(boite_skin((0, 32), (4, 12, 4), [-4.0, 0.0, -2.0], 0.25, false));
-        boites.push(boite_skin((0, 48), (4, 12, 4), [0.0, 0.0, -2.0], 0.25, false));
+        boites.push(boite_skin(
+            (16, 32),
+            (8, 12, 4),
+            [-4.0, 12.0, -2.0],
+            0.25,
+            false,
+        ));
+        boites.push(boite_skin(
+            (40, 32),
+            (bras, 12, 4),
+            [-4.0 - b, 12.0, -2.0],
+            0.25,
+            false,
+        ));
+        boites.push(boite_skin(
+            (48, 48),
+            (bras, 12, 4),
+            [4.0, 12.0, -2.0],
+            0.25,
+            false,
+        ));
+        boites.push(boite_skin(
+            (0, 32),
+            (4, 12, 4),
+            [-4.0, 0.0, -2.0],
+            0.25,
+            false,
+        ));
+        boites.push(boite_skin(
+            (0, 48),
+            (4, 12, 4),
+            [0.0, 0.0, -2.0],
+            0.25,
+            false,
+        ));
     }
     let nb_skin = boites.len();
     if balancement != 0.0 {
@@ -533,16 +732,29 @@ pub fn rendre_vues_pose(png: &[u8], fin: bool, cape: Option<&[u8]>, indices: &[u
                 b.pivot = [0.0, y, 0.0];
             }
         };
-        for (i, angle, y) in [(2, balancement, 22.0), (3, -balancement, 12.0), (4, -balancement, 22.0), (5, balancement, 12.0)] {
+        for (i, angle, y) in [
+            (2, balancement, 22.0),
+            (3, -balancement, 12.0),
+            (4, -balancement, 22.0),
+            (5, balancement, 12.0),
+        ] {
             pencher(i, angle, y);
         }
         if moderne {
-            for (i, angle, y) in [(8, balancement, 22.0), (9, -balancement, 22.0), (10, -balancement, 12.0), (11, balancement, 12.0)] {
+            for (i, angle, y) in [
+                (8, balancement, 22.0),
+                (9, -balancement, 22.0),
+                (10, -balancement, 12.0),
+                (11, balancement, 12.0),
+            ] {
                 pencher(i, angle, y);
             }
         }
     }
-    let facteur = cape_img.as_ref().map(|c| (c.width() / 64).max(1)).unwrap_or(1);
+    let facteur = cape_img
+        .as_ref()
+        .map(|c| (c.width() / 64).max(1))
+        .unwrap_or(1);
     if elytres {
         // like in the game: the wings hang from the shoulders, tilted backwards and spread outward
         for (cote, miroir) in [(1.0f32, false), (-1.0, true)] {
@@ -568,7 +780,11 @@ pub fn rendre_vues_pose(png: &[u8], fin: bool, cape: Option<&[u8]>, indices: &[u
             let sy = (HAUTEUR as f32 / 2.0 - (py as f32 + 0.5)) / ECHELLE + 16.0;
             for px in 0..LARGEUR {
                 let sx = (px as f32 + 0.5 - LARGEUR as f32 / 2.0) / ECHELLE;
-                let o = [droite[0] * sx - regard[0] * 100.0, sy, droite[2] * sx - regard[2] * 100.0];
+                let o = [
+                    droite[0] * sx - regard[0] * 100.0,
+                    sy,
+                    droite[2] * sx - regard[2] * 100.0,
+                ];
                 let mut meilleur: Option<(f32, Rgba<u8>)> = None;
                 for (i, boite) in boites.iter().enumerate() {
                     let (ol, dl) = if boite.incline == 0.0 && boite.roulis == 0.0 {
@@ -585,12 +801,18 @@ pub fn rendre_vues_pose(png: &[u8], fin: bool, cape: Option<&[u8]>, indices: &[u
                         let po = inverse([o[0] - px, o[1] - py, o[2] - pz]);
                         ([po[0] + px, po[1] + py, po[2] + pz], inverse(regard))
                     };
-                    let Some((t, axe, positif)) = entrer(ol, dl, boite) else { continue };
+                    let Some((t, axe, positif)) = entrer(ol, dl, boite) else {
+                        continue;
+                    };
                     if meilleur.map(|(m, _)| t >= m).unwrap_or(false) {
                         continue;
                     }
                     let p = [ol[0] + dl[0] * t, ol[1] + dl[1] * t, ol[2] + dl[2] * t];
-                    let texture = if i >= nb_skin { cape_img.as_ref().unwrap() } else { &skin };
+                    let texture = if i >= nb_skin {
+                        cape_img.as_ref().unwrap()
+                    } else {
+                        &skin
+                    };
                     let couleur = echantillon(boite, texture, p, axe, positif);
                     if couleur[3] >= 128 {
                         meilleur = Some((t, Rgba([couleur[0], couleur[1], couleur[2], 255])));
@@ -605,12 +827,24 @@ pub fn rendre_vues_pose(png: &[u8], fin: bool, cape: Option<&[u8]>, indices: &[u
     };
 
     // Les vues sont indépendantes : on les calcule en parallèle sur tous les cœurs
-    let fils = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, indices.len().max(1));
+    let fils = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .clamp(1, indices.len().max(1));
     let mut resultats: Vec<(usize, RgbaImage)> = Vec::with_capacity(indices.len());
     std::thread::scope(|sc| {
         let rendre = &rendre;
         let poignees: Vec<_> = (0..fils)
-            .map(|t| sc.spawn(move || indices.iter().skip(t).step_by(fils).map(|&k| (k, rendre(k))).collect::<Vec<_>>()))
+            .map(|t| {
+                sc.spawn(move || {
+                    indices
+                        .iter()
+                        .skip(t)
+                        .step_by(fils)
+                        .map(|&k| (k, rendre(k)))
+                        .collect::<Vec<_>>()
+                })
+            })
             .collect();
         for p in poignees {
             if let Ok(v) = p.join() {
@@ -631,7 +865,8 @@ pub fn rendre_tete(png: &[u8]) -> Option<RgbaImage> {
     coller(&mut r, &skin, (8, 8, 8, 8), (0, 0), false);
     // anciens skins 64 × 32 : un calque du chapeau sans aucun pixel transparent est ignoré, comme
     // le fait Minecraft (sinon, souvent une tête toute noire)
-    let chapeau_opaque = skin.height() == 32 && (0..32).all(|x| (0..16).all(|y| skin.get_pixel(32 + x, y)[3] == 255));
+    let chapeau_opaque = skin.height() == 32
+        && (0..32).all(|x| (0..16).all(|y| skin.get_pixel(32 + x, y)[3] == 255));
     if !chapeau_opaque {
         coller(&mut r, &skin, (40, 8, 8, 8), (0, 0), false);
     }
@@ -675,7 +910,13 @@ pub fn apercu_cloudly() -> RgbaImage {
     const LIGNES: [(u32, u32); 7] = [(6, 4), (4, 8), (3, 10), (1, 14), (0, 16), (0, 16), (1, 14)];
     let mut img = RgbaImage::new(64, 32);
     for (r, &(debut, long)) in LIGNES.iter().enumerate() {
-        let couleur = if r < 2 { [255, 255, 255, 255] } else if r < 5 { [241, 246, 255, 255] } else { [214, 226, 255, 255] };
+        let couleur = if r < 2 {
+            [255, 255, 255, 255]
+        } else if r < 5 {
+            [241, 246, 255, 255]
+        } else {
+            [214, 226, 255, 255]
+        };
         for x in debut..debut + long {
             for dy in 0..4 {
                 for dx in 0..4 {
@@ -692,14 +933,29 @@ pub fn texture_misty() -> &'static [u8] {
     PNG.get_or_init(|| {
         let mut img = RgbaImage::new(64, 32);
         let mut pose = |x: u32, y: u32, r: f32, g: f32, b: f32| {
-            img.put_pixel(x, y, image::Rgba([r.clamp(0.0, 255.0) as u8, g.clamp(0.0, 255.0) as u8, b.clamp(0.0, 255.0) as u8, 255]));
+            img.put_pixel(
+                x,
+                y,
+                image::Rgba([
+                    r.clamp(0.0, 255.0) as u8,
+                    g.clamp(0.0, 255.0) as u8,
+                    b.clamp(0.0, 255.0) as u8,
+                    255,
+                ]),
+            );
         };
         // Cape : face extérieure (1,1) en dégradé avec un léger grain
         for y in 0..16u32 {
             for x in 1..11u32 {
                 let t = y as f32 / 16.0;
                 let d = ((x + y) % 2) as f32 * 6.0 - 3.0 + (((x - 1) * 7 + y * 3) % 5) as f32 - 2.0;
-                pose(x, y + 1, (26.0 + 70.0 * t + d).round(), (40.0 + 105.0 * t + d).round(), (77.0 + 160.0 * t + d).round());
+                pose(
+                    x,
+                    y + 1,
+                    (26.0 + 70.0 * t + d).round(),
+                    (40.0 + 105.0 * t + d).round(),
+                    (77.0 + 160.0 * t + d).round(),
+                );
             }
         }
         // Nuage sur la cape
@@ -707,7 +963,11 @@ pub fn texture_misty() -> &'static [u8] {
         for (y, ligne) in nuage.iter().enumerate() {
             for (x, c) in ligne.chars().enumerate() {
                 if c == '#' {
-                    let (r, g, b) = if y == 4 { (185.0, 205.0, 245.0) } else { (234.0, 241.0, 255.0) };
+                    let (r, g, b) = if y == 4 {
+                        (185.0, 205.0, 245.0)
+                    } else {
+                        (234.0, 241.0, 255.0)
+                    };
                     pose(2 + x as u32, 5 + y as u32, r, g, b);
                 }
             }
@@ -729,14 +989,41 @@ pub fn texture_misty() -> &'static [u8] {
             pose(x, 0, 28.0, 42.0, 77.0);
         }
         // Élytres : seule la face de dos est peinte (même masque que les capes de Mojang)
-        const MASQUE: [(u32, u32); 22] = [(31, 33), (32, 33), (34, 42), (34, 42), (35, 42), (35, 42), (35, 42), (35, 42), (35, 42), (35, 42), (35, 42), (35, 42), (36, 42), (36, 42), (36, 42), (36, 42), (37, 41), (37, 41), (37, 41), (37, 41), (38, 40), (38, 39)];
+        const MASQUE: [(u32, u32); 22] = [
+            (31, 33),
+            (32, 33),
+            (34, 42),
+            (34, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (35, 42),
+            (36, 42),
+            (36, 42),
+            (36, 42),
+            (36, 42),
+            (37, 41),
+            (37, 41),
+            (37, 41),
+            (37, 41),
+            (38, 40),
+            (38, 39),
+        ];
         const LUNE: [&str; 6] = ["..##", ".#..", "#...", "#...", ".#..", "..##"];
         for (y, (x0, x1)) in MASQUE.iter().enumerate() {
             let y = y as u32;
             for x in *x0..=*x1 {
                 let t = y as f32 / 21.0;
                 let d = ((x * 7 + y * 3) % 5) as f32 - 2.0;
-                let (mut r, mut g, mut b) = (24.0 + 62.0 * t + d, 36.0 + 98.0 * t + d, 70.0 + 150.0 * t + d * 1.5);
+                let (mut r, mut g, mut b) = (
+                    24.0 + 62.0 * t + d,
+                    36.0 + 98.0 * t + d,
+                    70.0 + 150.0 * t + d * 1.5,
+                );
                 let k = ((y as f32 - (x as f32 - 35.0) * 0.7) % 4.5 + 4.5) % 4.5;
                 if y > 7 && y < 20 && k < 1.0 {
                     r += 70.0;
@@ -748,15 +1035,27 @@ pub fn texture_misty() -> &'static [u8] {
                     g += 45.0;
                     b += 28.0;
                 }
-                let lune = y >= 4 && x >= 37 && LUNE.get((y - 4) as usize).and_then(|l| l.as_bytes().get((x - 37) as usize)) == Some(&b'#');
+                let lune = y >= 4
+                    && x >= 37
+                    && LUNE
+                        .get((y - 4) as usize)
+                        .and_then(|l| l.as_bytes().get((x - 37) as usize))
+                        == Some(&b'#');
                 if lune {
                     (r, g, b) = (234.0, 241.0, 255.0);
                 }
-                pose(x, y, r.min(245.0).floor(), g.min(248.0).floor(), b.min(255.0).floor());
+                pose(
+                    x,
+                    y,
+                    r.min(245.0).floor(),
+                    g.min(248.0).floor(),
+                    b.min(255.0).floor(),
+                );
             }
         }
         let mut png = Vec::new();
-        let _ = image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png);
+        let _ = image::DynamicImage::ImageRgba8(img)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png);
         png
     })
 }
@@ -818,7 +1117,10 @@ struct Pose {
 
 fn pose(anim: Anim, t: f32, b: f32) -> Pose {
     use std::f32::consts::TAU;
-    let m = |pivot: [f32; 3]| Membre { pivot, ..Default::default() };
+    let m = |pivot: [f32; 3]| Membre {
+        pivot,
+        ..Default::default()
+    };
     let mut p = Pose {
         tete: m([0.0, 24.0, 0.0]),
         corps: m([0.0, 24.0, 0.0]),
@@ -838,7 +1140,11 @@ fn pose(anim: Anim, t: f32, b: f32) -> Pose {
     match anim {
         Anim::Repos => {}
         Anim::Marche | Anim::Course => {
-            let (amp, freq) = if anim == Anim::Course { (0.95, 1.55) } else { (0.55, 0.95) };
+            let (amp, freq) = if anim == Anim::Course {
+                (0.95, 1.55)
+            } else {
+                (0.55, 0.95)
+            };
             let s = (t * TAU * freq).sin();
             p.bras_d.incline = amp * s;
             p.bras_g.incline = -amp * s;
@@ -921,7 +1227,10 @@ pub mod partie {
 fn fils_du_rendu() -> &'static rayon::ThreadPool {
     static FILS: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
     FILS.get_or_init(|| {
-        let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 8);
+        let n = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .clamp(1, 8);
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .thread_name(|i| format!("studio-{i}"))
@@ -930,12 +1239,24 @@ fn fils_du_rendu() -> &'static rayon::ThreadPool {
     })
 }
 
-pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool, elytres: bool, anim: Anim, t: f32, yaw: f32, pitch: f32, surbrillance: &[u8]) -> Option<(RgbaImage, Vec<u8>)> {
+pub fn rendre_live_parties(
+    skin: &RgbaImage,
+    cape: Option<&RgbaImage>,
+    fin: bool,
+    elytres: bool,
+    anim: Anim,
+    t: f32,
+    yaw: f32,
+    pitch: f32,
+    surbrillance: &[u8],
+) -> Option<(RgbaImage, Vec<u8>)> {
     if skin.width() != 64 || skin.height() < 32 {
         return None;
     }
     let cape_img: Option<RgbaImage> = match (elytres, cape) {
-        (true, Some(c)) if c.width() != 64 || c.height() != 32 => Some(imageops::resize(c, 64, 32, imageops::FilterType::Nearest)),
+        (true, Some(c)) if c.width() != 64 || c.height() != 32 => {
+            Some(imageops::resize(c, 64, 32, imageops::FilterType::Nearest))
+        }
         (true, Some(c)) => Some(c.clone()),
         (true, None) => Some(elytres_par_defaut()),
         (false, c) => c.cloned(),
@@ -947,24 +1268,69 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
 
     // (boîte, partie du corps) ; 0 tête, 1 corps, 2 bras d, 3 bras g, 4 jambe d, 5 jambe g
     let mut boites: Vec<(Boite, usize)> = vec![
-        (boite_skin((0, 0), (8, 8, 8), [-4.0, 24.0, -4.0], 0.0, false), 0),
-        (boite_skin((16, 16), (8, 12, 4), [-4.0, 12.0, -2.0], 0.0, false), 1),
-        (boite_skin((40, 16), (bras, 12, 4), [-4.0 - b, 12.0, -2.0], 0.0, false), 2),
-        (boite_skin((0, 16), (4, 12, 4), [-4.0, 0.0, -2.0], 0.0, false), 4),
+        (
+            boite_skin((0, 0), (8, 8, 8), [-4.0, 24.0, -4.0], 0.0, false),
+            0,
+        ),
+        (
+            boite_skin((16, 16), (8, 12, 4), [-4.0, 12.0, -2.0], 0.0, false),
+            1,
+        ),
+        (
+            boite_skin((40, 16), (bras, 12, 4), [-4.0 - b, 12.0, -2.0], 0.0, false),
+            2,
+        ),
+        (
+            boite_skin((0, 16), (4, 12, 4), [-4.0, 0.0, -2.0], 0.0, false),
+            4,
+        ),
     ];
     if moderne {
-        boites.push((boite_skin((32, 48), (bras, 12, 4), [4.0, 12.0, -2.0], 0.0, false), 3));
-        boites.push((boite_skin((16, 48), (4, 12, 4), [0.0, 0.0, -2.0], 0.0, false), 5));
-        boites.push((boite_skin((32, 0), (8, 8, 8), [-4.0, 24.0, -4.0], 0.5, false), 0));
-        boites.push((boite_skin((16, 32), (8, 12, 4), [-4.0, 12.0, -2.0], 0.25, false), 1));
-        boites.push((boite_skin((40, 32), (bras, 12, 4), [-4.0 - b, 12.0, -2.0], 0.25, false), 2));
-        boites.push((boite_skin((48, 48), (bras, 12, 4), [4.0, 12.0, -2.0], 0.25, false), 3));
-        boites.push((boite_skin((0, 32), (4, 12, 4), [-4.0, 0.0, -2.0], 0.25, false), 4));
-        boites.push((boite_skin((0, 48), (4, 12, 4), [0.0, 0.0, -2.0], 0.25, false), 5));
+        boites.push((
+            boite_skin((32, 48), (bras, 12, 4), [4.0, 12.0, -2.0], 0.0, false),
+            3,
+        ));
+        boites.push((
+            boite_skin((16, 48), (4, 12, 4), [0.0, 0.0, -2.0], 0.0, false),
+            5,
+        ));
+        boites.push((
+            boite_skin((32, 0), (8, 8, 8), [-4.0, 24.0, -4.0], 0.5, false),
+            0,
+        ));
+        boites.push((
+            boite_skin((16, 32), (8, 12, 4), [-4.0, 12.0, -2.0], 0.25, false),
+            1,
+        ));
+        boites.push((
+            boite_skin((40, 32), (bras, 12, 4), [-4.0 - b, 12.0, -2.0], 0.25, false),
+            2,
+        ));
+        boites.push((
+            boite_skin((48, 48), (bras, 12, 4), [4.0, 12.0, -2.0], 0.25, false),
+            3,
+        ));
+        boites.push((
+            boite_skin((0, 32), (4, 12, 4), [-4.0, 0.0, -2.0], 0.25, false),
+            4,
+        ));
+        boites.push((
+            boite_skin((0, 48), (4, 12, 4), [0.0, 0.0, -2.0], 0.25, false),
+            5,
+        ));
     } else {
-        boites.push((boite_skin((40, 16), (bras, 12, 4), [4.0, 12.0, -2.0], 0.0, true), 3));
-        boites.push((boite_skin((0, 16), (4, 12, 4), [0.0, 0.0, -2.0], 0.0, true), 5));
-        boites.push((boite_skin((32, 0), (8, 8, 8), [-4.0, 24.0, -4.0], 0.5, false), 0));
+        boites.push((
+            boite_skin((40, 16), (bras, 12, 4), [4.0, 12.0, -2.0], 0.0, true),
+            3,
+        ));
+        boites.push((
+            boite_skin((0, 16), (4, 12, 4), [0.0, 0.0, -2.0], 0.0, true),
+            5,
+        ));
+        boites.push((
+            boite_skin((32, 0), (8, 8, 8), [-4.0, 24.0, -4.0], 0.5, false),
+            0,
+        ));
     }
     let nb_skin = boites.len();
     let membres = [p.tete, p.corps, p.bras_d, p.bras_g, p.jambe_d, p.jambe_g];
@@ -976,7 +1342,10 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
         boite.decale = m.decale;
     }
     // cape ou élytres, accrochées au dos (elles suivent l'inclinaison du corps)
-    let facteur = cape_img.as_ref().map(|c| (c.width() / 64).max(1)).unwrap_or(1);
+    let facteur = cape_img
+        .as_ref()
+        .map(|c| (c.width() / 64).max(1))
+        .unwrap_or(1);
     if elytres {
         for (cote, miroir) in [(1.0f32, false), (-1.0, true)] {
             let mut aile = boite_skin((22, 0), (10, 20, 2), [-5.0, 4.0, -4.0], 0.0, miroir);
@@ -1006,7 +1375,11 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
         vers_camera[0] * droite[1] - vers_camera[1] * droite[0],
     ];
     let centre = [0.0, 16.0 - 4.0 * (p.global / 1.25).clamp(0.0, 1.0), 0.0];
-    let origine = [centre[0] + vers_camera[0] * 100.0, centre[1] + vers_camera[1] * 100.0, centre[2] + vers_camera[2] * 100.0];
+    let origine = [
+        centre[0] + vers_camera[0] * 100.0,
+        centre[1] + vers_camera[1] * 100.0,
+        centre[2] + vers_camera[2] * 100.0,
+    ];
 
     // tout le modèle basculé (vol) autour de la taille, puis chaque boîte dans son propre repère
     let taille = [0.0f32, 12.0, 0.0];
@@ -1015,27 +1388,54 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
             return v;
         }
         if point {
-            let r = tourner_inverse([v[0] - taille[0], v[1] - taille[1], v[2] - taille[2]], p.global, 0.0);
+            let r = tourner_inverse(
+                [v[0] - taille[0], v[1] - taille[1], v[2] - taille[2]],
+                p.global,
+                0.0,
+            );
             [r[0] + taille[0], r[1] + taille[1], r[2] + taille[2]]
         } else {
             tourner_inverse(v, p.global, 0.0)
         }
     };
-    let (o_m, d_m, h_m, r_m) = (vers_modele(origine, true), vers_modele(droite, false), vers_modele(haut, false), vers_modele(regard, false));
+    let (o_m, d_m, h_m, r_m) = (
+        vers_modele(origine, true),
+        vers_modele(droite, false),
+        vers_modele(haut, false),
+        vers_modele(regard, false),
+    );
     // partie du corps de chaque boîte : celles du skin, puis la cape ou les élytres
     let parties: Vec<u8> = boites
         .iter()
         .enumerate()
-        .map(|(i, (_, partie))| if i >= nb_skin { if elytres { partie::ELYTRES } else { partie::CAPE } } else { *partie as u8 })
+        .map(|(i, (_, partie))| {
+            if i >= nb_skin {
+                if elytres {
+                    partie::ELYTRES
+                } else {
+                    partie::CAPE
+                }
+            } else {
+                *partie as u8
+            }
+        })
         .collect();
     let posees: Vec<BoitePosee> = boites
         .iter()
         .enumerate()
         .map(|(i, (boite, _))| {
-            let texture = if i >= nb_skin { cape_img.as_ref().unwrap() } else { skin };
+            let texture = if i >= nb_skin {
+                cape_img.as_ref().unwrap()
+            } else {
+                skin
+            };
             let [px, py, pz] = boite.pivot;
             let [dx, dy, dz] = boite.decale;
-            let o = tourner_inverse([o_m[0] - dx - px, o_m[1] - dy - py, o_m[2] - dz - pz], boite.incline, boite.roulis);
+            let o = tourner_inverse(
+                [o_m[0] - dx - px, o_m[1] - dy - py, o_m[2] - dz - pz],
+                boite.incline,
+                boite.roulis,
+            );
             BoitePosee {
                 boite,
                 texture,
@@ -1054,14 +1454,35 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
     let rectangles: Vec<[u32; 4]> = posees
         .iter()
         .map(|bp| {
-            let (mut x0, mut x1, mut y0, mut y1) = (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY, f32::NEG_INFINITY);
+            let (mut x0, mut x1, mut y0, mut y1) = (
+                f32::INFINITY,
+                f32::NEG_INFINITY,
+                f32::INFINITY,
+                f32::NEG_INFINITY,
+            );
             for coin in 0..8 {
                 let q = [
-                    if coin & 1 == 0 { bp.boite.min[0] } else { bp.boite.max[0] },
-                    if coin & 2 == 0 { bp.boite.min[1] } else { bp.boite.max[1] },
-                    if coin & 4 == 0 { bp.boite.min[2] } else { bp.boite.max[2] },
+                    if coin & 1 == 0 {
+                        bp.boite.min[0]
+                    } else {
+                        bp.boite.max[0]
+                    },
+                    if coin & 2 == 0 {
+                        bp.boite.min[1]
+                    } else {
+                        bp.boite.max[1]
+                    },
+                    if coin & 4 == 0 {
+                        bp.boite.min[2]
+                    } else {
+                        bp.boite.max[2]
+                    },
                 ];
-                let v = [q[0] - bp.origine[0], q[1] - bp.origine[1], q[2] - bp.origine[2]];
+                let v = [
+                    q[0] - bp.origine[0],
+                    q[1] - bp.origine[1],
+                    q[2] - bp.origine[2],
+                ];
                 let sx = v[0] * bp.droite[0] + v[1] * bp.droite[1] + v[2] * bp.droite[2];
                 let sy = v[0] * bp.haut[0] + v[1] * bp.haut[1] + v[2] * bp.haut[2];
                 // pixel dont le centre est en (sx, sy) : voir le calcul de sx et sy plus bas
@@ -1073,10 +1494,17 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
             }
             // un pixel de marge contre les arrondis
             let borne = |v: f32| v.clamp(0.0, LIVE as f32) as u32;
-            [borne(x0.floor() - 1.0), borne(x1.ceil() + 2.0), borne(y0.floor() - 1.0), borne(y1.ceil() + 2.0)]
+            [
+                borne(x0.floor() - 1.0),
+                borne(x1.ceil() + 2.0),
+                borne(y0.floor() - 1.0),
+                borne(y1.ceil() + 2.0),
+            ]
         })
         .collect();
-    let lignes_utiles = rectangles.iter().fold((LIVE, 0), |(a, b), r| (a.min(r[2]), b.max(r[3])));
+    let lignes_utiles = rectangles
+        .iter()
+        .fold((LIVE, 0), |(a, b), r| (a.min(r[2]), b.max(r[3])));
 
     // Rendu en bandes de lignes, directement dans l'image, sur plusieurs cœurs. Les fils sont
     // gardés d'une image à l'autre (en créer jusqu'à 8 par image, 60 fois par seconde, coûtait
@@ -1093,18 +1521,37 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
         fils_du_rendu().scope(|sc| {
             let (posees, rectangles, parties) = (&posees, &rectangles, &parties);
             let surbrillance = surbrillance;
-            for (f, (morceau, morceau_carte)) in utiles.chunks_mut(bande as usize * largeur).zip(carte_utile.chunks_mut((bande * LIVE) as usize)).enumerate() {
+            for (f, (morceau, morceau_carte)) in utiles
+                .chunks_mut(bande as usize * largeur)
+                .zip(carte_utile.chunks_mut((bande * LIVE) as usize))
+                .enumerate()
+            {
                 sc.spawn(move |_| {
                     let mut candidates: Vec<usize> = Vec::with_capacity(posees.len());
-                    for (l, (ligne, ligne_carte)) in morceau.chunks_mut(largeur).zip(morceau_carte.chunks_mut(LIVE as usize)).enumerate() {
+                    for (l, (ligne, ligne_carte)) in morceau
+                        .chunks_mut(largeur)
+                        .zip(morceau_carte.chunks_mut(LIVE as usize))
+                        .enumerate()
+                    {
                         let py = premiere + f as u32 * bande + l as u32;
                         candidates.clear();
-                        candidates.extend((0..posees.len()).filter(|&i| (rectangles[i][2]..rectangles[i][3]).contains(&py)));
+                        candidates.extend(
+                            (0..posees.len())
+                                .filter(|&i| (rectangles[i][2]..rectangles[i][3]).contains(&py)),
+                        );
                         if candidates.is_empty() {
                             continue;
                         }
-                        let x0 = candidates.iter().map(|&i| rectangles[i][0]).min().unwrap_or(0);
-                        let x1 = candidates.iter().map(|&i| rectangles[i][1]).max().unwrap_or(0);
+                        let x0 = candidates
+                            .iter()
+                            .map(|&i| rectangles[i][0])
+                            .min()
+                            .unwrap_or(0);
+                        let x1 = candidates
+                            .iter()
+                            .map(|&i| rectangles[i][1])
+                            .max()
+                            .unwrap_or(0);
                         let sy = (demi - (py as f32 + 0.5)) / ECHELLE;
                         for px in x0..x1 {
                             let sx = (px as f32 + 0.5 - demi) / ECHELLE;
@@ -1119,14 +1566,25 @@ pub fn rendre_live_parties(skin: &RgbaImage, cape: Option<&RgbaImage>, fin: bool
                                     bp.origine[1] + bp.droite[1] * sx + bp.haut[1] * sy,
                                     bp.origine[2] + bp.droite[2] * sx + bp.haut[2] * sy,
                                 ];
-                                let Some((t, axe, positif)) = entrer(o, bp.regard, bp.boite) else { continue };
+                                let Some((t, axe, positif)) = entrer(o, bp.regard, bp.boite) else {
+                                    continue;
+                                };
                                 if meilleur.map(|(m, _, _)| t >= m).unwrap_or(false) {
                                     continue;
                                 }
-                                let point = [o[0] + bp.regard[0] * t, o[1] + bp.regard[1] * t, o[2] + bp.regard[2] * t];
-                                let couleur = echantillon(bp.boite, bp.texture, point, axe, positif);
+                                let point = [
+                                    o[0] + bp.regard[0] * t,
+                                    o[1] + bp.regard[1] * t,
+                                    o[2] + bp.regard[2] * t,
+                                ];
+                                let couleur =
+                                    echantillon(bp.boite, bp.texture, point, axe, positif);
                                 if couleur[3] >= 128 {
-                                    meilleur = Some((t, Rgba([couleur[0], couleur[1], couleur[2], 255]), parties[i]));
+                                    meilleur = Some((
+                                        t,
+                                        Rgba([couleur[0], couleur[1], couleur[2], 255]),
+                                        parties[i],
+                                    ));
                                 }
                             }
                             if let Some((_, c, partie)) = meilleur {
@@ -1169,7 +1627,8 @@ mod tests_modele {
             }
         }
         let mut png = Vec::new();
-        alex.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        alex.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
         assert!(est_fin(&png));
     }
 }
@@ -1180,25 +1639,81 @@ mod tests_live {
 
     #[test]
     fn carte_des_parties() {
-        let steve = image::load_from_memory(include_bytes!("../../assets/steve.png")).unwrap().to_rgba8();
+        let steve = image::load_from_memory(include_bytes!("../../assets/steve.png"))
+            .unwrap()
+            .to_rgba8();
         let cape = image::load_from_memory(texture_misty()).unwrap().to_rgba8();
         // de face : la tête est en haut, au milieu
-        let (_, face) = rendre_live_parties(&steve, Some(&cape), false, false, Anim::Repos, 0.0, 0.0, 0.0, &[]).unwrap();
-        let tete = (0..LIVE as usize).find_map(|y| (face[y * LIVE as usize + LIVE as usize / 2] != partie::AUCUNE).then_some(y)).unwrap();
+        let (_, face) = rendre_live_parties(
+            &steve,
+            Some(&cape),
+            false,
+            false,
+            Anim::Repos,
+            0.0,
+            0.0,
+            0.0,
+            &[],
+        )
+        .unwrap();
+        let tete = (0..LIVE as usize)
+            .find_map(|y| {
+                (face[y * LIVE as usize + LIVE as usize / 2] != partie::AUCUNE).then_some(y)
+            })
+            .unwrap();
         assert_eq!(face[tete * LIVE as usize + LIVE as usize / 2], partie::TETE);
         // de dos : la cape couvre le milieu du corps
-        let (_, dos) = rendre_live_parties(&steve, Some(&cape), false, false, Anim::Repos, 0.0, std::f32::consts::PI, 0.0, &[]).unwrap();
-        assert_eq!(dos[(LIVE as usize / 2) * LIVE as usize + LIVE as usize / 2], partie::CAPE);
+        let (_, dos) = rendre_live_parties(
+            &steve,
+            Some(&cape),
+            false,
+            false,
+            Anim::Repos,
+            0.0,
+            std::f32::consts::PI,
+            0.0,
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            dos[(LIVE as usize / 2) * LIVE as usize + LIVE as usize / 2],
+            partie::CAPE
+        );
         // avec des élytres
-        let (_, ailes) = rendre_live_parties(&steve, Some(&cape), false, true, Anim::Repos, 0.0, std::f32::consts::PI, 0.0, &[]).unwrap();
+        let (_, ailes) = rendre_live_parties(
+            &steve,
+            Some(&cape),
+            false,
+            true,
+            Anim::Repos,
+            0.0,
+            std::f32::consts::PI,
+            0.0,
+            &[],
+        )
+        .unwrap();
         assert!(ailes.contains(&partie::ELYTRES));
     }
 
     #[test]
     fn toutes_les_animations_se_dessinent() {
-        let steve = image::load_from_memory(include_bytes!("../../assets/steve.png")).unwrap().to_rgba8();
+        let steve = image::load_from_memory(include_bytes!("../../assets/steve.png"))
+            .unwrap()
+            .to_rgba8();
         for a in 0..5 {
-            let img = rendre_live_parties(&steve, None, false, a == 3, Anim::depuis(a), 0.4, 0.5, 0.3, &[]).unwrap().0;
+            let img = rendre_live_parties(
+                &steve,
+                None,
+                false,
+                a == 3,
+                Anim::depuis(a),
+                0.4,
+                0.5,
+                0.3,
+                &[],
+            )
+            .unwrap()
+            .0;
             assert_eq!(img.dimensions(), (LIVE, LIVE));
             assert!(img.pixels().any(|p| p[3] == 255), "animation {a} vide");
         }
@@ -1209,7 +1724,9 @@ mod tests_live {
     #[test]
     #[ignore]
     fn temps_du_studio() {
-        let steve = image::load_from_memory(include_bytes!("../../assets/steve.png")).unwrap().to_rgba8();
+        let steve = image::load_from_memory(include_bytes!("../../assets/steve.png"))
+            .unwrap()
+            .to_rgba8();
         let cape = image::load_from_memory(texture_misty()).unwrap().to_rgba8();
         let dossier = std::env::var("MISTY_STUDIO").ok();
         let debut = std::time::Instant::now();
@@ -1217,14 +1734,29 @@ mod tests_live {
         for a in 0..5 {
             for i in 0..24 {
                 let yaw = i as f32 * 0.27;
-                let img = rendre_live_parties(&steve, Some(&cape), i % 2 == 0, a == 3, Anim::depuis(a), i as f32 * 0.13, yaw, 0.2 + (i % 5) as f32 * 0.1, &[]).unwrap().0;
+                let img = rendre_live_parties(
+                    &steve,
+                    Some(&cape),
+                    i % 2 == 0,
+                    a == 3,
+                    Anim::depuis(a),
+                    i as f32 * 0.13,
+                    yaw,
+                    0.2 + (i % 5) as f32 * 0.1,
+                    &[],
+                )
+                .unwrap()
+                .0;
                 n += 1;
                 if let Some(d) = &dossier {
                     img.save(format!("{d}/{a}-{i}.png")).unwrap();
                 }
             }
         }
-        println!("studio : {:.2} ms par image", debut.elapsed().as_secs_f64() * 1000.0 / n as f64);
+        println!(
+            "studio : {:.2} ms par image",
+            debut.elapsed().as_secs_f64() * 1000.0 / n as f64
+        );
     }
 }
 
@@ -1236,18 +1768,41 @@ mod tests_planche {
     #[test]
     #[ignore]
     fn planche_des_poses() {
-        let Ok(dossier) = std::env::var("MISTY_POSES") else { return };
-        let steve = image::load_from_memory(include_bytes!("../../assets/steve.png")).unwrap().to_rgba8();
+        let Ok(dossier) = std::env::var("MISTY_POSES") else {
+            return;
+        };
+        let steve = image::load_from_memory(include_bytes!("../../assets/steve.png"))
+            .unwrap()
+            .to_rgba8();
         let cape = image::load_from_memory(texture_misty()).unwrap().to_rgba8();
         let mut planche = RgbaImage::from_pixel(LIVE * 5, LIVE * 3, Rgba([30, 40, 70, 255]));
         for a in 0..5 {
             for (ligne, yaw) in [(0u32, 0.35f32), (1, std::f32::consts::FRAC_PI_2), (2, 2.6)] {
                 let elytres = a == 3 || a == 4;
-                let img = rendre_live_parties(&steve, Some(&cape), false, elytres, Anim::depuis(a), 0.3, yaw, 0.15, &[]).unwrap().0;
-                imageops::overlay(&mut planche, &img, (a as u32 * LIVE) as i64, (ligne * LIVE) as i64);
+                let img = rendre_live_parties(
+                    &steve,
+                    Some(&cape),
+                    false,
+                    elytres,
+                    Anim::depuis(a),
+                    0.3,
+                    yaw,
+                    0.15,
+                    &[],
+                )
+                .unwrap()
+                .0;
+                imageops::overlay(
+                    &mut planche,
+                    &img,
+                    (a as u32 * LIVE) as i64,
+                    (ligne * LIVE) as i64,
+                );
             }
         }
-        planche.save(std::path::Path::new(&dossier).join("poses.png")).unwrap();
+        planche
+            .save(std::path::Path::new(&dossier).join("poses.png"))
+            .unwrap();
     }
 }
 
@@ -1263,8 +1818,12 @@ mod tests_misty {
         assert!(cape.pixels().filter(|p| p[3] > 0).count() > 100);
         assert!(ailes.pixels().filter(|p| p[3] > 0).count() > 200);
         if let Ok(d) = std::env::var("MISTY_APERCUS") {
-            image::imageops::resize(&cape, 100, 160, image::imageops::FilterType::Nearest).save(format!("{d}/cape.png")).unwrap();
-            image::imageops::resize(&ailes, 250, 220, image::imageops::FilterType::Nearest).save(format!("{d}/elytres.png")).unwrap();
+            image::imageops::resize(&cape, 100, 160, image::imageops::FilterType::Nearest)
+                .save(format!("{d}/cape.png"))
+                .unwrap();
+            image::imageops::resize(&ailes, 250, 220, image::imageops::FilterType::Nearest)
+                .save(format!("{d}/elytres.png"))
+                .unwrap();
         }
     }
 }

@@ -49,7 +49,12 @@ pub fn installer(app: &Rc<App>) {
 
     let a = app.clone();
     c(app).on_filter_changed(move || {
-        ETAT.with(|e| e.borrow_mut().panneaux.iter_mut().for_each(|p| p.lues = u64::MAX));
+        ETAT.with(|e| {
+            e.borrow_mut()
+                .panneaux
+                .iter_mut()
+                .for_each(|p| p.lues = u64::MAX)
+        });
         rafraichir(&a);
     });
     c(app).on_copy(|id| copier(&journal::texte(id as u64)));
@@ -57,9 +62,14 @@ pub fn installer(app: &Rc<App>) {
     let a = app.clone();
     c(app).on_copy_lines(move |id, premiere, derniere| {
         let panneaux = c(&a).get_panes();
-        let Some(panneau) = panneaux.iter().find(|p| p.id == id) else { return };
+        let Some(panneau) = panneaux.iter().find(|p| p.id == id) else {
+            return;
+        };
         let fin = (derniere.max(0) as usize).min(panneau.lines.row_count().saturating_sub(1));
-        let texte: Vec<String> = (premiere.max(0) as usize..=fin).filter_map(|i| panneau.lines.row_data(i)).map(|l| l.text.to_string()).collect();
+        let texte: Vec<String> = (premiere.max(0) as usize..=fin)
+            .filter_map(|i| panneau.lines.row_data(i))
+            .map(|l| l.text.to_string())
+            .collect();
         if !texte.is_empty() {
             copier(&texte.join("\r\n"));
         }
@@ -86,17 +96,21 @@ pub fn installer(app: &Rc<App>) {
 
     let a = Rc::downgrade(app);
     let minuterie = slint::Timer::default();
-    minuterie.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(150), move || {
-        if let Some(a) = a.upgrade() {
-            // rien à suivre : ni console à l'écran, ni partie qui écrit. Un dernier passage après
-            // la fin d'une partie affiche son état final (et ouvre la console si elle a planté).
-            let actif = c(&a).get_open() || journal::partie_en_cours();
-            let avant = ETAT.with(|e| std::mem::replace(&mut e.borrow_mut().actif, actif));
-            if actif || avant {
-                rafraichir(&a);
+    minuterie.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(150),
+        move || {
+            if let Some(a) = a.upgrade() {
+                // rien à suivre : ni console à l'écran, ni partie qui écrit. Un dernier passage après
+                // la fin d'une partie affiche son état final (et ouvre la console si elle a planté).
+                let actif = c(&a).get_open() || journal::partie_en_cours();
+                let avant = ETAT.with(|e| std::mem::replace(&mut e.borrow_mut().actif, actif));
+                if actif || avant {
+                    rafraichir(&a);
+                }
             }
-        }
-    });
+        },
+    );
     std::mem::forget(minuterie);
 }
 
@@ -124,7 +138,10 @@ fn garde(filtre: i32, recherche: &str, l: &journal::Ligne) -> bool {
 
 fn vers_slint(l: journal::Ligne) -> LogLine {
     // une tabulation s'affiche comme un carré : des espaces à la place
-    LogLine { text: l.texte.replace('\t', "    ").into(), level: l.niveau }
+    LogLine {
+        text: l.texte.replace('\t', "    ").into(),
+        level: l.niveau,
+    }
 }
 
 fn duree_texte(d: std::time::Duration) -> String {
@@ -141,7 +158,10 @@ fn etat_texte(e: &journal::Etat) -> String {
     if e.en_cours {
         loc::tf("Console_EnCours", &[&duree])
     } else if e.plantee() {
-        loc::tf("Console_Plante", &[&e.code.unwrap_or(0).to_string(), &duree])
+        loc::tf(
+            "Console_Plante",
+            &[&e.code.unwrap_or(0).to_string(), &duree],
+        )
     } else {
         loc::tf("Console_Termine", &[&duree])
     }
@@ -158,7 +178,9 @@ fn rafraichir(app: &App) {
 
     ETAT.with(|e| {
         let mut e = e.borrow_mut();
-        let Some(modele) = e.modele.clone() else { return };
+        let Some(modele) = e.modele.clone() else {
+            return;
+        };
 
         // parties sorties de la console (fermées, ou remplacées par de nouvelles)
         let mut i = 0;
@@ -187,7 +209,9 @@ fn rafraichir(app: &App) {
         }
 
         for (i, partie) in parties.iter().enumerate() {
-            let Some(pan) = e.panneaux.iter_mut().find(|x| x.id == partie.id) else { continue };
+            let Some(pan) = e.panneaux.iter_mut().find(|x| x.id == partie.id) else {
+                continue;
+            };
             // lignes
             let tout = pan.lues == u64::MAX;
             if !ouverte {
@@ -195,8 +219,14 @@ fn rafraichir(app: &App) {
                     pan.lignes.set_vec(Vec::new());
                     pan.lues = u64::MAX;
                 }
-            } else if let Some((lignes, a_refaire)) = journal::nouvelles(pan.id, if tout { 0 } else { pan.lues }) {
-                let gardees: Vec<LogLine> = lignes.into_iter().filter(|l| garde(filtre, &recherche, l)).map(vers_slint).collect();
+            } else if let Some((lignes, a_refaire)) =
+                journal::nouvelles(pan.id, if tout { 0 } else { pan.lues })
+            {
+                let gardees: Vec<LogLine> = lignes
+                    .into_iter()
+                    .filter(|l| garde(filtre, &recherche, l))
+                    .map(vers_slint)
+                    .collect();
                 if tout || a_refaire {
                     let debut = gardees.len().saturating_sub(AFFICHEES);
                     pan.lignes.set_vec(gardees[debut..].to_vec());
@@ -205,7 +235,11 @@ fn rafraichir(app: &App) {
                         pan.lignes.push(l);
                     }
                     if pan.lignes.row_count() > AFFICHEES + 1000 {
-                        let garder: Vec<LogLine> = pan.lignes.iter().skip(pan.lignes.row_count() - AFFICHEES).collect();
+                        let garder: Vec<LogLine> = pan
+                            .lignes
+                            .iter()
+                            .skip(pan.lignes.row_count() - AFFICHEES)
+                            .collect();
                         pan.lignes.set_vec(garder);
                     }
                 }
@@ -277,8 +311,12 @@ async fn envoyer_rapport(app: &Rc<App>, id: u64) {
     rafraichir(app);
     let lignes = journal::dernieres(id, 2000);
     let jeu = journal::etat(id).map(|e| e.titre).unwrap_or_default();
-    let pseudo = account::session().map(|s| s.pseudo).unwrap_or_else(|| settings::get(settings::LAST_PSEUDO));
-    let resultat = app.bg(async move { telemetry::rapport("manual", &jeu, lignes, &pseudo).await }).await;
+    let pseudo = account::session()
+        .map(|s| s.pseudo)
+        .unwrap_or_else(|| settings::get(settings::LAST_PSEUDO));
+    let resultat = app
+        .bg(async move { telemetry::rapport("manual", &jeu, lignes, &pseudo).await })
+        .await;
     match resultat {
         Ok(code) => {
             copier(&code);

@@ -2,7 +2,10 @@
 //! comportement, ressources, dépannage.
 
 use super::{dialogs, lancer, modele, App};
-use crate::services::{account, app_info, client, discord, loc, paths, pseudos, settings, shortcut, storage, system_info};
+use crate::services::{
+    account, app_info, client, discord, loc, paths, pseudos, settings, shortcut, storage,
+    system_info,
+};
 use crate::{LangItem, PseudoRow, SettingResult, SettingsState, StorageRow};
 use slint::ComponentHandle;
 use std::path::Path;
@@ -21,29 +24,58 @@ fn s(app: &App) -> SettingsState<'_> {
 
 /// Catégories des options (dans l'ordre de SettingsState.section) : titre et sous-titre.
 const CATEGORIES: [&str; 9] = [
-    "Param_Apparence", "Param_Langue", "Param_Microsoft", "Param_HorsLigne", "Param_Memoire",
-    "Param_Comportement", "Param_Ressources", "Param_Depannage", "Param_Barre",
+    "Param_Apparence",
+    "Param_Langue",
+    "Param_Microsoft",
+    "Param_HorsLigne",
+    "Param_Memoire",
+    "Param_Comportement",
+    "Param_Ressources",
+    "Param_Depannage",
+    "Param_Barre",
 ];
 
 /// Réglages trouvables par la recherche : clé du titre (sa description est « clé_Texte ») et catégorie.
 const REGLAGES: [(&str, i32); 19] = [
-    ("Param_Theme", 0), ("Param_Saison", 0), ("Param_FondFlou", 0),
-    ("Param_Microsoft_Titre", 2), ("Param_Memoire_Titre", 4),
-    ("Param_Raccourci", 5), ("Param_Partage", 5), ("Param_Discord", 5), ("Param_Console", 5), ("Param_Telemetrie", 5),
-    ("Param_Stockage", 6), ("Param_Dossier", 6), ("Param_Telechargements", 6),
-    ("Param_Cache", 7), ("Param_Journaux", 7), ("Param_Debug", 7), ("Param_MiseAJour", 7), ("Param_PreRelease", 7), ("Param_MistyClient", 7),
+    ("Param_Theme", 0),
+    ("Param_Saison", 0),
+    ("Param_FondFlou", 0),
+    ("Param_Microsoft_Titre", 2),
+    ("Param_Memoire_Titre", 4),
+    ("Param_Raccourci", 5),
+    ("Param_Partage", 5),
+    ("Param_Discord", 5),
+    ("Param_Console", 5),
+    ("Param_Telemetrie", 5),
+    ("Param_Stockage", 6),
+    ("Param_Dossier", 6),
+    ("Param_Telechargements", 6),
+    ("Param_Cache", 7),
+    ("Param_Journaux", 7),
+    ("Param_Debug", 7),
+    ("Param_MiseAJour", 7),
+    ("Param_PreRelease", 7),
+    ("Param_MistyClient", 7),
 ];
 
 /// Texte d'une clé, ou vide si elle n'existe pas (loc::t renvoie alors la clé).
 fn texte_ou_vide(cle: &str) -> String {
     let t = loc::t(cle);
-    if t == cle { String::new() } else { t }
+    if t == cle {
+        String::new()
+    } else {
+        t
+    }
 }
 
 /// Minuscules sans accents, pour comparer « memoire » et « Mémoire ».
 fn simplifier(texte: &str) -> String {
     use unicode_normalization::UnicodeNormalization;
-    texte.nfd().filter(|c| !unicode_normalization::char::is_combining_mark(*c)).collect::<String>().to_lowercase()
+    texte
+        .nfd()
+        .filter(|c| !unicode_normalization::char::is_combining_mark(*c))
+        .collect::<String>()
+        .to_lowercase()
 }
 
 /// Réglages dont le titre, la description ou la catégorie contiennent la recherche.
@@ -57,13 +89,21 @@ fn chercher(recherche: &str) -> Vec<SettingResult> {
     for (i, cle) in CATEGORIES.iter().enumerate() {
         let (titre, sous) = (loc::t(cle), texte_ou_vide(&format!("{cle}_Sous")));
         if simplifier(&titre).contains(&r) || simplifier(&sous).contains(&r) {
-            resultats.push(SettingResult { title: titre.into(), category: sous.into(), section: i as i32 });
+            resultats.push(SettingResult {
+                title: titre.into(),
+                category: sous.into(),
+                section: i as i32,
+            });
         }
     }
     for (cle, section) in REGLAGES {
         let (titre, texte) = (loc::t(cle), texte_ou_vide(&format!("{cle}_Texte")));
         if simplifier(&titre).contains(&r) || simplifier(&texte).contains(&r) {
-            resultats.push(SettingResult { title: titre.into(), category: loc::t(CATEGORIES[section as usize]).into(), section });
+            resultats.push(SettingResult {
+                title: titre.into(),
+                category: loc::t(CATEGORIES[section as usize]).into(),
+                section,
+            });
         }
     }
     resultats
@@ -136,7 +176,11 @@ pub fn installer(app: &Rc<App>) {
     st.on_ms_forget(move |uuid| {
         let a = a.clone();
         lancer(async move {
-            let pseudo = account::comptes().into_iter().find(|c| c.uuid == uuid.as_str()).map(|c| c.pseudo).unwrap_or_default();
+            let pseudo = account::comptes()
+                .into_iter()
+                .find(|c| c.uuid == uuid.as_str())
+                .map(|c| c.pseudo)
+                .unwrap_or_default();
             let ok = dialogs::confirmer(
                 &a,
                 &loc::t("Compte_Oublier"),
@@ -162,8 +206,13 @@ pub fn installer(app: &Rc<App>) {
         let a = a.clone();
         lancer(async move {
             match account::deconnexion_totale() {
-                Ok(()) => dialogs::info(&a, &loc::t("Compte_Oublie"), &loc::t("Compte_Oublie_Texte")).await,
-                Err(e) => dialogs::erreur(&a, &loc::t("Compte_ErreurDeconnexion"), &e.to_string()).await,
+                Ok(()) => {
+                    dialogs::info(&a, &loc::t("Compte_Oublie"), &loc::t("Compte_Oublie_Texte"))
+                        .await
+                }
+                Err(e) => {
+                    dialogs::erreur(&a, &loc::t("Compte_ErreurDeconnexion"), &e.to_string()).await
+                }
             }
             super::home::session_changee(&a);
         });
@@ -259,7 +308,10 @@ pub fn installer(app: &Rc<App>) {
     st.on_misty_client_toggled(|actif| settings::set_bool(settings::MISTY_CLIENT, actif));
     st.on_prerelease_toggled(|actif| {
         settings::set_bool(settings::MAJ_PRERELEASE, actif);
-        crate::services::journal::info(&format!("Mises à jour pré-release : {}", if actif { "oui" } else { "non" }));
+        crate::services::journal::info(&format!(
+            "Mises à jour pré-release : {}",
+            if actif { "oui" } else { "non" }
+        ));
     });
     st.on_telemetry_toggled(crate::services::telemetry::activer);
     st.on_open_launcher_log(|| {
@@ -309,7 +361,9 @@ pub fn installer(app: &Rc<App>) {
     let a = app.clone();
     st.on_bg_blur_changed(move |v| {
         let niveau = v.round().clamp(0.0, 10.0) as u32;
-        if niveau == settings::fond_flou() && a.ui.global::<crate::Theme>().get_bg_blur() == niveau as i32 {
+        if niveau == settings::fond_flou()
+            && a.ui.global::<crate::Theme>().get_bg_blur() == niveau as i32
+        {
             return;
         }
         settings::set(settings::FOND_FLOU, &niveau.to_string());
@@ -317,7 +371,9 @@ pub fn installer(app: &Rc<App>) {
     });
 
     // Ressources
-    st.on_downloads_changed(|v| settings::set(settings::TELECHARGEMENTS, &(v.round() as u32).to_string()));
+    st.on_downloads_changed(|v| {
+        settings::set(settings::TELECHARGEMENTS, &(v.round() as u32).to_string())
+    });
 
     // Dépannage
     let a = app.clone();
@@ -382,7 +438,8 @@ fn calculer_depannage(app: &Rc<App>) {
         let (cache, logs) = a
             .bloquant(|| {
                 let d = paths::data_dir();
-                let logs = system_info::taille_dossier(&d.join("logs")) + system_info::taille_dossier(&d.join("crash-reports"));
+                let logs = system_info::taille_dossier(&d.join("logs"))
+                    + system_info::taille_dossier(&d.join("crash-reports"));
                 (system_info::taille_dossier(&d.join("cache")), logs)
             })
             .await;
@@ -393,22 +450,55 @@ fn calculer_depannage(app: &Rc<App>) {
 
 /// Fichier texte à joindre à un signalement de bug.
 fn infos_debug() -> String {
-    let theme = ["brume", "nuit", "systeme"].get(settings::theme() as usize).copied().unwrap_or("?");
+    let theme = ["brume", "nuit", "systeme"]
+        .get(settings::theme() as usize)
+        .copied()
+        .unwrap_or("?");
     [
         format!("Mistly {}", app_info::VERSION),
         system_info::version_windows(),
-        format!("RAM : {} Mo (allouee au jeu : {} Mo)", system_info::ram_totale_mo(), settings::ram_mo()),
+        format!(
+            "RAM : {} Mo (allouee au jeu : {} Mo)",
+            system_info::ram_totale_mo(),
+            settings::ram_mo()
+        ),
         format!("Langue : {}", loc::code()),
         format!("Theme : {theme}"),
-        format!("Telechargements simultanes : {}", settings::telechargements()),
+        format!(
+            "Telechargements simultanes : {}",
+            settings::telechargements()
+        ),
         format!("Dossier : {}", paths::data_dir().display()),
         format!("Profils : {}", crate::services::instances::lister().len()),
-        format!("Compte Microsoft : {}", if account::session().is_some() { "oui" } else { "non" }),
-        format!("Telemetrie : {}", if crate::services::telemetry::active() { "oui" } else { "non" }),
-        format!("Pre-releases : {}", if settings::get_bool(settings::MAJ_PRERELEASE, false) { "oui" } else { "non" }),
+        format!(
+            "Compte Microsoft : {}",
+            if account::session().is_some() {
+                "oui"
+            } else {
+                "non"
+            }
+        ),
+        format!(
+            "Telemetrie : {}",
+            if crate::services::telemetry::active() {
+                "oui"
+            } else {
+                "non"
+            }
+        ),
+        format!(
+            "Pre-releases : {}",
+            if settings::get_bool(settings::MAJ_PRERELEASE, false) {
+                "oui"
+            } else {
+                "non"
+            }
+        ),
     ]
-    .join("
-")
+    .join(
+        "
+",
+    )
 }
 
 /// Recharge l'affichage depuis les fichiers de config (appelé à chaque ouverture de la page).
@@ -419,10 +509,20 @@ pub fn rafraichir(app: &Rc<App>) {
     let langues = loc::disponibles();
     let items: Vec<LangItem> = langues
         .iter()
-        .map(|l| LangItem { name: l.nom.clone().into(), english: nom_anglais(&l.code).into(), flag: drapeau(&l.pays) })
+        .map(|l| LangItem {
+            name: l.nom.clone().into(),
+            english: nom_anglais(&l.code).into(),
+            flag: drapeau(&l.pays),
+        })
         .collect();
     st.set_langs(modele(items));
-    st.set_lang_index(langues.iter().position(|l| l.code == loc::code()).map(|i| i as i32).unwrap_or(-1));
+    st.set_lang_index(
+        langues
+            .iter()
+            .position(|l| l.code == loc::code())
+            .map(|i| i as i32)
+            .unwrap_or(-1),
+    );
     app.settings.borrow_mut().langues = langues.into_iter().map(|l| l.code).collect();
 
     charger_pseudos(app);
@@ -472,16 +572,31 @@ fn drapeau(pays: &str) -> slint::Image {
         "pt" => include_bytes!("../../assets/flags/pt.png"),
         _ => &[],
     };
-    super::images::decoder(octets, 0).map(slint::Image::from_rgba8).unwrap_or_default()
+    super::images::decoder(octets, 0)
+        .map(slint::Image::from_rgba8)
+        .unwrap_or_default()
 }
 
 /// Textes calculés en code (rappelé au changement de langue).
 pub fn maj_textes(app: &Rc<App>) {
     let st = s(app);
     st.set_about_text(loc::tf("Options_APropos_Texte", &[&app_info::VERSION]).into());
-    st.set_ram_total_text(loc::tf("Options_Ram_Texte", &[&format!("{:.1}", system_info::ram_totale_mo() as f64 / 1024.0).replace(".0", "")]).into());
+    st.set_ram_total_text(
+        loc::tf(
+            "Options_Ram_Texte",
+            &[&format!("{:.1}", system_info::ram_totale_mo() as f64 / 1024.0).replace(".0", "")],
+        )
+        .into(),
+    );
     let raccourci = settings::get(settings::RACCOURCI);
-    st.set_shortcut_path(if raccourci.is_empty() { loc::t("Options_AucunDossier") } else { raccourci }.into());
+    st.set_shortcut_path(
+        if raccourci.is_empty() {
+            loc::t("Options_AucunDossier")
+        } else {
+            raccourci
+        }
+        .into(),
+    );
     maj_microsoft(app);
     afficher_ram(app);
     calculer_taille(app);
@@ -491,7 +606,9 @@ fn charger_pseudos(app: &Rc<App>) {
     // Trois pseudos par ligne
     let lignes: Vec<PseudoRow> = pseudos::lire()
         .chunks(3)
-        .map(|c| PseudoRow { items: super::modele_textes(c) })
+        .map(|c| PseudoRow {
+            items: super::modele_textes(c),
+        })
         .collect();
     s(app).set_pseudo_rows(modele(lignes));
 }
@@ -511,7 +628,11 @@ pub fn maj_microsoft(app: &App) {
     st.set_ms_connected(session.is_some());
     let comptes: Vec<crate::MsCompte> = account::comptes()
         .into_iter()
-        .map(|c| crate::MsCompte { pseudo: c.pseudo.into(), uuid: c.uuid.into(), active: c.actif })
+        .map(|c| crate::MsCompte {
+            pseudo: c.pseudo.into(),
+            uuid: c.uuid.into(),
+            active: c.actif,
+        })
         .collect();
     st.set_ms_accounts(modele(comptes));
 }
@@ -547,7 +668,9 @@ async fn raccourci_change(app: &Rc<App>, actif: bool) {
 }
 
 async fn choisir_dossier_raccourci(app: &Rc<App>) {
-    let Some(dossier) = dialogs::choisir_dossier(&loc::t("Options_DossierRaccourci")).await else { return };
+    let Some(dossier) = dialogs::choisir_dossier(&loc::t("Options_DossierRaccourci")).await else {
+        return;
+    };
     shortcut::supprimer(Path::new(&settings::get(settings::RACCOURCI))); // ancien emplacement
     let texte = dossier.to_string_lossy().to_string();
     settings::set(settings::RACCOURCI, &texte);
@@ -557,7 +680,12 @@ async fn choisir_dossier_raccourci(app: &Rc<App>) {
 
 async fn creer_raccourci(app: &App, dossier: &str) {
     if let Err(e) = shortcut::creer(Path::new(dossier)) {
-        dialogs::erreur(app, &loc::t("Options_Raccourci"), &loc::tf("Options_RaccourciErreur", &[&e])).await;
+        dialogs::erreur(
+            app,
+            &loc::t("Options_Raccourci"),
+            &loc::tf("Options_RaccourciErreur", &[&e]),
+        )
+        .await;
     }
 }
 
@@ -578,7 +706,9 @@ fn calculer_taille(app: &Rc<App>) {
     s(app).set_size_text(loc::t("Options_Calcul").into());
     let a = app.clone();
     lancer(async move {
-        let octets = a.bloquant(|| system_info::taille_dossier(&paths::data_dir())).await;
+        let octets = a
+            .bloquant(|| system_info::taille_dossier(&paths::data_dir()))
+            .await;
         s(&a).set_size_text(taille_texte(octets).into());
     });
 }
@@ -593,7 +723,11 @@ fn stock_analyser(app: &Rc<App>) {
     let a = app.clone();
     lancer(async move {
         let lignes = a.bloquant(storage::analyser).await;
-        let total: u64 = lignes.iter().filter(|l| l.niveau == 0).map(|l| l.taille).sum();
+        let total: u64 = lignes
+            .iter()
+            .filter(|l| l.niveau == 0)
+            .map(|l| l.taille)
+            .sum();
         s(&a).set_storage_total(taille_texte(total).into());
         a.settings.borrow_mut().stock = lignes;
         stock_afficher(&a);
@@ -604,7 +738,14 @@ fn stock_analyser(app: &Rc<App>) {
 /// Reconstruit la liste affichée : les groupes, et le détail des groupes dépliés.
 fn stock_afficher(app: &Rc<App>) {
     let e = app.settings.borrow();
-    let max = e.stock.iter().filter(|l| l.niveau == 0 && !l.protege).map(|l| l.taille).max().unwrap_or(1).max(1);
+    let max = e
+        .stock
+        .iter()
+        .filter(|l| l.niveau == 0 && !l.protege)
+        .map(|l| l.taille)
+        .max()
+        .unwrap_or(1)
+        .max(1);
     let mut lignes = Vec::new();
     let mut groupe_ouvert = false;
     for l in &e.stock {
@@ -621,7 +762,14 @@ fn stock_afficher(app: &Rc<App>) {
             }
             (base, info)
         } else {
-            (l.nom.clone(), if l.reste { loc::t("Stock_Reste") } else { String::new() })
+            (
+                l.nom.clone(),
+                if l.reste {
+                    loc::t("Stock_Reste")
+                } else {
+                    String::new()
+                },
+            )
         };
         lignes.push(StorageRow {
             cle: l.cle.clone().into(),
@@ -643,12 +791,32 @@ fn stock_afficher(app: &Rc<App>) {
 async fn stock_supprimer(app: &Rc<App>, cle: String) {
     let (nom, taille) = {
         let e = app.settings.borrow();
-        let Some(l) = e.stock.iter().find(|l| l.cle == cle) else { return };
-        (if l.niveau == 0 { nom_groupe(&l.cle) } else { l.nom.clone() }, l.taille)
+        let Some(l) = e.stock.iter().find(|l| l.cle == cle) else {
+            return;
+        };
+        (
+            if l.niveau == 0 {
+                nom_groupe(&l.cle)
+            } else {
+                l.nom.clone()
+            },
+            l.taille,
+        )
     };
     let avertissement = loc::t(&format!("Stock_W_{}", storage::groupe_de(&cle)));
-    let texte = format!("{}\n\n{avertissement}", loc::tf("Stock_Confirm_Texte", &[&nom, &taille_texte(taille)]));
-    let ok = dialogs::confirmer(app, &loc::tf("Stock_Confirm_Titre", &[&nom]), &texte, Some(&loc::t("Stock_Supprimer")), None, true).await;
+    let texte = format!(
+        "{}\n\n{avertissement}",
+        loc::tf("Stock_Confirm_Texte", &[&nom, &taille_texte(taille)])
+    );
+    let ok = dialogs::confirmer(
+        app,
+        &loc::tf("Stock_Confirm_Titre", &[&nom]),
+        &texte,
+        Some(&loc::t("Stock_Supprimer")),
+        None,
+        true,
+    )
+    .await;
     if !ok {
         return;
     }
@@ -656,7 +824,12 @@ async fn stock_supprimer(app: &Rc<App>, cle: String) {
     let c = cle.clone();
     let resultat = app.bloquant(move || storage::supprimer(&c)).await;
     if let Err(e) = resultat {
-        dialogs::erreur(app, &loc::t("Options_SuppressionIncomplete"), &e.to_string()).await;
+        dialogs::erreur(
+            app,
+            &loc::t("Options_SuppressionIncomplete"),
+            &e.to_string(),
+        )
+        .await;
     }
     stock_analyser(app);
 }
@@ -683,7 +856,12 @@ async fn tout_supprimer(app: &Rc<App>) {
         }
     });
     if let Err(e) = resultat.await {
-        dialogs::erreur(app, &loc::t("Options_SuppressionIncomplete"), &e.to_string()).await;
+        dialogs::erreur(
+            app,
+            &loc::t("Options_SuppressionIncomplete"),
+            &e.to_string(),
+        )
+        .await;
     }
     calculer_taille(app);
 
@@ -708,7 +886,11 @@ const ONGLETS: &[&str] = &["skin", "profils", "notes", "packs", "amis", "dossier
 
 /// Onglets masqués, lus dans data.txt ("skin,notes").
 fn onglets_masques() -> Vec<String> {
-    settings::get(settings::BARRE_MASQUEE).split(',').map(|o| o.trim().to_string()).filter(|o| ONGLETS.contains(&o.as_str())).collect()
+    settings::get(settings::BARRE_MASQUEE)
+        .split(',')
+        .map(|o| o.trim().to_string())
+        .filter(|o| ONGLETS.contains(&o.as_str()))
+        .collect()
 }
 
 /// Affiche la barre latérale selon le réglage (au démarrage et à chaque changement).

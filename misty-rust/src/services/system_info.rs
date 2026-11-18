@@ -43,13 +43,18 @@ pub fn mode_eco(actif: bool) {
     #[cfg(windows)]
     {
         use windows_sys::Win32::System::Threading::{
-            GetCurrentProcess, ProcessPowerThrottling, SetProcessInformation, PROCESS_POWER_THROTTLING_CURRENT_VERSION,
-            PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE,
+            GetCurrentProcess, ProcessPowerThrottling, SetProcessInformation,
+            PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+            PROCESS_POWER_THROTTLING_STATE,
         };
         let etat = PROCESS_POWER_THROTTLING_STATE {
             Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
             ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
-            StateMask: if actif { PROCESS_POWER_THROTTLING_EXECUTION_SPEED } else { 0 },
+            StateMask: if actif {
+                PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+            } else {
+                0
+            },
         };
         // SAFETY : pseudo-handle du processus courant (toujours valide) et pointeur vers une
         // structure de la taille annoncée, comme l'exige l'API ; un refus de Windows est ignoré.
@@ -86,10 +91,14 @@ pub fn liberer_memoire() {
 
 /// Taille totale d'un dossier en octets (0 s'il n'existe pas).
 pub fn taille_dossier(dossier: &Path) -> u64 {
-    let Ok(entrees) = std::fs::read_dir(dossier) else { return 0 };
+    let Ok(entrees) = std::fs::read_dir(dossier) else {
+        return 0;
+    };
     let mut total = 0;
     for entree in entrees.flatten() {
-        let Ok(meta) = entree.metadata() else { continue };
+        let Ok(meta) = entree.metadata() else {
+            continue;
+        };
         if meta.is_dir() {
             total += taille_dossier(&entree.path());
         } else {
@@ -102,7 +111,9 @@ pub fn taille_dossier(dossier: &Path) -> u64 {
 /// Ouvre un dossier dans l'explorateur (le crée s'il n'existe pas).
 pub fn ouvrir_dossier(dossier: &Path) {
     let _ = std::fs::create_dir_all(dossier);
-    let _ = std::process::Command::new("explorer.exe").arg(dossier).spawn();
+    let _ = std::process::Command::new("explorer.exe")
+        .arg(dossier)
+        .spawn();
 }
 
 /// Ouvre l'explorateur avec un fichier sélectionné.
@@ -137,7 +148,9 @@ pub fn windows_sombre() -> bool {
 #[cfg(windows)]
 pub fn version_windows() -> String {
     use winreg::enums::HKEY_LOCAL_MACHINE;
-    let Ok(cle) = winreg::RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion") else {
+    let Ok(cle) = winreg::RegKey::predef(HKEY_LOCAL_MACHINE)
+        .open_subkey(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
+    else {
         return "Windows".into();
     };
     let majeure: u32 = cle.get_value("CurrentMajorVersionNumber").unwrap_or(10);

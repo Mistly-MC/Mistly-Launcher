@@ -9,8 +9,8 @@ pub mod client;
 pub mod content;
 pub mod curseforge;
 pub mod discord;
-pub mod export;
 pub mod download;
+pub mod export;
 pub mod horizon;
 pub mod http;
 pub mod instances;
@@ -37,4 +37,3 @@ pub mod version_compat;
 
 /// Fonction de progression (texte affiché à l'utilisateur), utilisable depuis n'importe quel thread.
 pub type Progress = std::sync::Arc<dyn Fn(String) + Send + Sync>;
-

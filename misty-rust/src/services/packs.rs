@@ -47,13 +47,17 @@ pub async fn template(version_mc: &str, progression: Progress) -> anyhow::Result
     let dossier = dossier_templates().join(version_mc);
     let marqueur = dossier.join(".ok");
     if marqueur.exists() {
-        if let Some(format) = fs::read_to_string(dossier.join(".format")).ok().and_then(|f| f.trim().parse().ok()) {
+        if let Some(format) = fs::read_to_string(dossier.join(".format"))
+            .ok()
+            .and_then(|f| f.trim().parse().ok())
+        {
             return Ok((dossier, format));
         }
     }
 
     progression(loc::t("Pack_RechercheVersion"));
-    let manifeste: serde_json::Value = http::get_json("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json").await?;
+    let manifeste: serde_json::Value =
+        http::get_json("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json").await?;
     let url_version = manifeste["versions"]
         .as_array()
         .and_then(|v| v.iter().find(|v| v["id"] == version_mc))
@@ -62,7 +66,9 @@ pub async fn template(version_mc: &str, progression: Progress) -> anyhow::Result
         .to_string();
     let version: serde_json::Value = http::get_json(&url_version).await?;
     let client = &version["downloads"]["client"];
-    let url = client["url"].as_str().ok_or_else(|| anyhow::anyhow!(loc::tf("Pack_VersionInconnue", &[&version_mc])))?;
+    let url = client["url"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!(loc::tf("Pack_VersionInconnue", &[&version_mc])))?;
 
     progression(loc::t("Pack_TelechargementTemplate"));
     let jar = std::env::temp_dir().join(format!("misty-{}.jar", uuid::Uuid::new_v4().simple()));
@@ -90,7 +96,9 @@ fn extraire_template(jar: &Path, dossier: &Path, version_mc: &str) -> anyhow::Re
     // Avant la 1.6, les textures sont à la racine du jar (terrain.png, gui/, mob/...), pas dans assets/minecraft/textures/.
     // On les range quand même dans assets/minecraft/textures/ du template pour que l'éditeur fonctionne partout ;
     // l'export remet l'ancienne disposition (voir `exporter`).
-    let ancien = !zip.file_names().any(|n| n.is_ok_and(|n| n.starts_with(RACINE_TEXTURES)));
+    let ancien = !zip
+        .file_names()
+        .any(|n| n.is_ok_and(|n| n.starts_with(RACINE_TEXTURES)));
     for i in 0..zip.len() {
         let mut entree = zip.by_index(i)?;
         let nom = entree.name()?.to_string();
@@ -100,12 +108,19 @@ fn extraire_template(jar: &Path, dossier: &Path, version_mc: &str) -> anyhow::Re
             format = lire_format(&texte);
             continue;
         }
-        let texture_ancienne = ancien && nom.to_lowercase().ends_with(".png") && nom != "pack.png" && !nom.starts_with("META-INF/");
+        let texture_ancienne = ancien
+            && nom.to_lowercase().ends_with(".png")
+            && nom != "pack.png"
+            && !nom.starts_with("META-INF/");
         let utile = nom.starts_with(RACINE_TEXTURES) || nom == "pack.png" || texture_ancienne;
         if !utile || nom.ends_with('/') {
             continue;
         }
-        let destination = if texture_ancienne { dossier.join(RACINE_TEXTURES).join(&nom) } else { dossier.join(&nom) };
+        let destination = if texture_ancienne {
+            dossier.join(RACINE_TEXTURES).join(&nom)
+        } else {
+            dossier.join(&nom)
+        };
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -132,7 +147,8 @@ fn lire_format(texte: &str) -> Option<i64> {
     if let Some(n) = pv.as_i64() {
         return Some(n); // anciennes versions
     }
-    pv.get("resource").and_then(|r| r.as_i64()) // 1.20.2+
+    pv.get("resource")
+        .and_then(|r| r.as_i64()) // 1.20.2+
         .or_else(|| pv.get("resource_major").and_then(|m| m.as_i64())) // 1.21.9+
 }
 
@@ -152,7 +168,12 @@ fn format_depuis_nom(version_mc: &str) -> i64 {
 }
 
 /// Crée le dossier du pack avec son pack.mcmeta. Renvoie le dossier.
-pub fn creer_pack(nom: &str, description: &str, format: i64, version_mc: &str) -> anyhow::Result<PathBuf> {
+pub fn creer_pack(
+    nom: &str,
+    description: &str,
+    format: i64,
+    version_mc: &str,
+) -> anyhow::Result<PathBuf> {
     let nom = download::nom_fichier_sur(nom);
     let nom = nom.trim().trim_end_matches('.');
     if nom.is_empty() {
@@ -170,38 +191,75 @@ pub fn creer_pack(nom: &str, description: &str, format: i64, version_mc: &str) -
         pack["min_format"] = format.into();
         pack["max_format"] = format.into();
     }
-    fs::write(dossier.join("pack.mcmeta"), serde_json::to_string_pretty(&serde_json::json!({ "pack": pack }))?)?;
+    fs::write(
+        dossier.join("pack.mcmeta"),
+        serde_json::to_string_pretty(&serde_json::json!({ "pack": pack }))?,
+    )?;
 
     // Infos propres à Misty (ignorées par Minecraft)
-    fs::write(dossier.join("misty.json"), serde_json::json!({ "versionMc": version_mc }).to_string())?;
+    fs::write(
+        dossier.join("misty.json"),
+        serde_json::json!({ "versionMc": version_mc }).to_string(),
+    )?;
     Ok(dossier)
 }
 
 /// Format d'un pack.mcmeta : `pack_format`, ou depuis 1.21.9 `min_format` (un nombre, ou
 /// [majeur, mineur]) quand `pack_format` n'y est plus.
 fn format_du_pack(pack: &serde_json::Value) -> Option<i64> {
-    pack["pack_format"].as_i64().or_else(|| match &pack["min_format"] {
-        serde_json::Value::Array(v) => v.first().and_then(|x| x.as_i64()),
-        v => v.as_i64(),
-    })
+    pack["pack_format"]
+        .as_i64()
+        .or_else(|| match &pack["min_format"] {
+            serde_json::Value::Array(v) => v.first().and_then(|x| x.as_i64()),
+            v => v.as_i64(),
+        })
 }
 
 /// Version de Minecraft qui correspond au pack_format d'un pack importé (la plus récente de ce format).
 fn version_du_format(format: i64) -> &'static str {
     const TABLE: [(i64, &str); 22] = [
-        (1, "1.8.9"), (2, "1.10.2"), (3, "1.12.2"), (4, "1.14.4"), (5, "1.15.2"), (6, "1.16.5"),
-        (7, "1.17.1"), (8, "1.18.1"), (9, "1.19.2"), (12, "1.19.3"), (13, "1.19.4"), (15, "1.20.1"),
-        (18, "1.20.2"), (22, "1.20.4"), (32, "1.20.6"), (34, "1.21.1"), (42, "1.21.3"), (46, "1.21.4"),
-        (55, "1.21.5"), (63, "1.21.6"), (64, "1.21.8"), (69, "1.21.10"),
+        (1, "1.8.9"),
+        (2, "1.10.2"),
+        (3, "1.12.2"),
+        (4, "1.14.4"),
+        (5, "1.15.2"),
+        (6, "1.16.5"),
+        (7, "1.17.1"),
+        (8, "1.18.1"),
+        (9, "1.19.2"),
+        (12, "1.19.3"),
+        (13, "1.19.4"),
+        (15, "1.20.1"),
+        (18, "1.20.2"),
+        (22, "1.20.4"),
+        (32, "1.20.6"),
+        (34, "1.21.1"),
+        (42, "1.21.3"),
+        (46, "1.21.4"),
+        (55, "1.21.5"),
+        (63, "1.21.6"),
+        (64, "1.21.8"),
+        (69, "1.21.10"),
     ];
-    TABLE.iter().rev().find(|(f, _)| *f <= format).map(|(_, v)| *v).unwrap_or("1.8.9")
+    TABLE
+        .iter()
+        .rev()
+        .find(|(f, _)| *f <= format)
+        .map(|(_, v)| *v)
+        .unwrap_or("1.8.9")
 }
 
 /// Importe un pack de ressources (.zip) dans les packs de Misty. Renvoie le nom du pack créé.
 pub fn importer(zip_fichier: &Path) -> anyhow::Result<String> {
     let mut archive = zip::ZipArchive::new(fs::File::open(zip_fichier)?)?;
-    let base = zip_fichier.file_stem().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "pack".into());
-    let base = download::nom_fichier_sur(&base).trim().trim_end_matches('.').to_string();
+    let base = zip_fichier
+        .file_stem()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "pack".into());
+    let base = download::nom_fichier_sur(&base)
+        .trim()
+        .trim_end_matches('.')
+        .to_string();
     anyhow::ensure!(!base.is_empty(), loc::t("Pack_NomInvalide"));
     // nom libre : « Pack », « Pack (2) »…
     let mut nom = base.clone();
@@ -220,8 +278,12 @@ pub fn importer(zip_fichier: &Path) -> anyhow::Result<String> {
     fs::create_dir_all(&dossier)?;
     for i in 0..archive.len() {
         let mut fichier = archive.by_index(i)?;
-        let Some(chemin) = fichier.enclosed_name() else { continue };
-        let Ok(relatif) = chemin.strip_prefix(&prefixe) else { continue };
+        let Some(chemin) = fichier.enclosed_name() else {
+            continue;
+        };
+        let Ok(relatif) = chemin.strip_prefix(&prefixe) else {
+            continue;
+        };
         if fichier.is_dir() || relatif.as_os_str().is_empty() {
             continue;
         }
@@ -241,7 +303,10 @@ pub fn importer(zip_fichier: &Path) -> anyhow::Result<String> {
         let _ = fs::remove_dir_all(&dossier);
         anyhow::bail!(loc::t("Pack_ImportPasUnPack"));
     };
-    fs::write(dossier.join("misty.json"), serde_json::json!({ "versionMc": version_du_format(format) }).to_string())?;
+    fs::write(
+        dossier.join("misty.json"),
+        serde_json::json!({ "versionMc": version_du_format(format) }).to_string(),
+    )?;
     Ok(nom)
 }
 
@@ -255,22 +320,42 @@ pub async fn importer_distant(source: &str, id: &str, titre: &str) -> anyhow::Re
         let fichiers = curseforge::fichiers(mod_id, None).await?;
         let disponibles: Vec<_> = fichiers.into_iter().filter(|f| f.is_available).collect();
         // les fichiers arrivent du plus récent au plus ancien : la dernière version stable d'abord
-        let fichier = disponibles.iter().find(|f| f.release_type == 1).or(disponibles.first()).cloned();
+        let fichier = disponibles
+            .iter()
+            .find(|f| f.release_type == 1)
+            .or(disponibles.first())
+            .cloned();
         let fichier = fichier.ok_or_else(|| anyhow::anyhow!(loc::t("Pack_DistantAucunFichier")))?;
         let Some(url) = fichier.download_url.clone().filter(|u| !u.is_empty()) else {
-            anyhow::bail!(loc::tf("Erreur_CFInterdit", &[&titre, &curseforge::page_fichier(None, mod_id, fichier.id)]));
+            anyhow::bail!(loc::tf(
+                "Erreur_CFInterdit",
+                &[&titre, &curseforge::page_fichier(None, mod_id, fichier.id)]
+            ));
         };
         (url, fichier.sha1().map(str::to_string))
     } else {
         let versions = modrinth::versions(id, None, None).await?;
-        let version = versions.iter().find(|v| v.version_type == "release").or(versions.first());
-        let fichier = version.and_then(|v| v.fichier_principal()).ok_or_else(|| anyhow::anyhow!(loc::t("Pack_DistantAucunFichier")))?;
+        let version = versions
+            .iter()
+            .find(|v| v.version_type == "release")
+            .or(versions.first());
+        let fichier = version
+            .and_then(|v| v.fichier_principal())
+            .ok_or_else(|| anyhow::anyhow!(loc::t("Pack_DistantAucunFichier")))?;
         (fichier.url.clone(), fichier.hashes.get("sha1").cloned())
     };
     // le nom du fichier devient celui du pack
     let nom = download::nom_fichier_sur(titre);
-    let dossier = std::env::temp_dir().join(format!("misty-pack-{}", uuid::Uuid::new_v4().simple()));
-    let zip = dossier.join(format!("{}.zip", if nom.trim().is_empty() { "pack" } else { nom.trim() }));
+    let dossier =
+        std::env::temp_dir().join(format!("misty-pack-{}", uuid::Uuid::new_v4().simple()));
+    let zip = dossier.join(format!(
+        "{}.zip",
+        if nom.trim().is_empty() {
+            "pack"
+        } else {
+            nom.trim()
+        }
+    ));
     download::fichier(&url, &zip, sha1.as_deref()).await?;
     let resultat = tokio::task::spawn_blocking({
         let zip = zip.clone();
@@ -289,14 +374,27 @@ pub fn definir_icone(pack: &PackInfo, image: &Path) -> anyhow::Result<()> {
 /// Réencode une image en PNG de 128 px de large.
 pub fn enregistrer_icone(source: &Path, destination: &Path) -> anyhow::Result<()> {
     let img = image::open(source)?;
-    let img = if img.width() > 128 { img.resize(128, 128 * img.height() / img.width().max(1), image::imageops::FilterType::Lanczos3) } else { img };
+    let img = if img.width() > 128 {
+        img.resize(
+            128,
+            128 * img.height() / img.width().max(1),
+            image::imageops::FilterType::Lanczos3,
+        )
+    } else {
+        img
+    };
     img.save_with_format(destination, image::ImageFormat::Png)?;
     Ok(())
 }
 
 /// Copie une texture du template vers le pack (si pas déjà fait) et l'ouvre dans l'éditeur externe.
 /// `chemin_relatif` ex. : "assets/minecraft/textures/block/stone.png"
-pub fn modifier_texture(dossier_pack: &Path, dossier_template: &Path, chemin_relatif: &str, editeur: Option<&str>) -> anyhow::Result<()> {
+pub fn modifier_texture(
+    dossier_pack: &Path,
+    dossier_template: &Path,
+    chemin_relatif: &str,
+    editeur: Option<&str>,
+) -> anyhow::Result<()> {
     let source = dossier_template.join(chemin_relatif);
     let copie = dossier_pack.join(chemin_relatif);
     if !copie.exists() {
@@ -326,7 +424,10 @@ pub fn restaurer(dossier_pack: &Path, chemin_relatif: &str) -> anyhow::Result<()
         if d.as_os_str().len() <= dossier_pack.as_os_str().len() || !d.exists() {
             break;
         }
-        if fs::read_dir(&d).map(|mut e| e.next().is_some()).unwrap_or(true) {
+        if fs::read_dir(&d)
+            .map(|mut e| e.next().is_some())
+            .unwrap_or(true)
+        {
             break;
         }
         fs::remove_dir(&d)?;
@@ -341,14 +442,23 @@ pub fn exporter(pack: &PackInfo, destination: &Path) -> anyhow::Result<()> {
         fs::remove_file(destination)?; // l'utilisateur a déjà confirmé l'écrasement
     }
     let mut zip = zip::ZipWriter::new(fs::File::create(destination)?);
-    let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
 
-    let ancien = dossier_templates().join(&pack.version_mc).join(".ancien").exists();
+    let ancien = dossier_templates()
+        .join(&pack.version_mc)
+        .join(".ancien")
+        .exists();
     let mut fichiers = Vec::new();
     lister_fichiers(&pack.dossier, &mut fichiers);
     for fichier in fichiers {
-        let mut relatif = fichier.strip_prefix(&pack.dossier)?.to_string_lossy().replace('\\', "/");
-        if relatif.eq_ignore_ascii_case("misty.json") || (ancien && relatif.eq_ignore_ascii_case("pack.mcmeta")) {
+        let mut relatif = fichier
+            .strip_prefix(&pack.dossier)?
+            .to_string_lossy()
+            .replace('\\', "/");
+        if relatif.eq_ignore_ascii_case("misty.json")
+            || (ancien && relatif.eq_ignore_ascii_case("pack.mcmeta"))
+        {
             continue;
         }
         if ancien {
@@ -379,7 +489,9 @@ pub fn exporter(pack: &PackInfo, destination: &Path) -> anyhow::Result<()> {
 }
 
 fn lister_fichiers(dossier: &Path, sortie: &mut Vec<PathBuf>) {
-    let Ok(entrees) = fs::read_dir(dossier) else { return };
+    let Ok(entrees) = fs::read_dir(dossier) else {
+        return;
+    };
     for e in entrees.flatten() {
         let p = e.path();
         if p.is_dir() {
@@ -392,7 +504,9 @@ fn lister_fichiers(dossier: &Path, sortie: &mut Vec<PathBuf>) {
 
 pub fn lister() -> Vec<PackInfo> {
     let mut liste = Vec::new();
-    let Ok(entrees) = fs::read_dir(dossier_packs()) else { return liste };
+    let Ok(entrees) = fs::read_dir(dossier_packs()) else {
+        return liste;
+    };
     for entree in entrees.flatten() {
         let dossier = entree.path();
         if !dossier.is_dir() {
@@ -411,13 +525,22 @@ pub fn lister() -> Vec<PackInfo> {
             .unwrap_or_default();
 
         let mut pngs = Vec::new();
-        lister_fichiers(&dossier.join("assets").join("minecraft").join("textures"), &mut pngs);
+        lister_fichiers(
+            &dossier.join("assets").join("minecraft").join("textures"),
+            &mut pngs,
+        );
         pngs.retain(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("png")));
         let nb = pngs.len();
         // aperçu : les blocs d'abord, puis les objets, puis le reste
         let rang = |p: &PathBuf| {
             let t = p.to_string_lossy().replace('\\', "/");
-            if t.contains("/block/") || t.contains("/blocks/") { 0 } else if t.contains("/item/") || t.contains("/items/") { 1 } else { 2 }
+            if t.contains("/block/") || t.contains("/blocks/") {
+                0
+            } else if t.contains("/item/") || t.contains("/items/") {
+                1
+            } else {
+                2
+            }
         };
         pngs.sort_by_key(|p| (rang(p), p.clone()));
         let apercus: Vec<PathBuf> = pngs.into_iter().take(8).collect();
@@ -441,7 +564,10 @@ fn fichier_editeur() -> PathBuf {
 
 /// Chemin de l'éditeur d'images choisi (ex. paintdotnet.exe), ou None.
 pub fn editeur() -> Option<String> {
-    fs::read_to_string(fichier_editeur()).ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty())
+    fs::read_to_string(fichier_editeur())
+        .ok()
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
 }
 
 pub fn definir_editeur(chemin: &str) {
@@ -450,13 +576,20 @@ pub fn definir_editeur(chemin: &str) {
 
 /// Toutes les textures PNG du template, ex. "block/stone.png".
 pub fn lister_textures(dossier_template: &Path) -> Vec<String> {
-    let racine = dossier_template.join("assets").join("minecraft").join("textures");
+    let racine = dossier_template
+        .join("assets")
+        .join("minecraft")
+        .join("textures");
     let mut fichiers = Vec::new();
     lister_fichiers(&racine, &mut fichiers);
     let mut liste: Vec<String> = fichiers
         .into_iter()
         .filter(|f| f.extension().is_some_and(|e| e.eq_ignore_ascii_case("png")))
-        .filter_map(|f| f.strip_prefix(&racine).ok().map(|r| r.to_string_lossy().replace('\\', "/")))
+        .filter_map(|f| {
+            f.strip_prefix(&racine)
+                .ok()
+                .map(|r| r.to_string_lossy().replace('\\', "/"))
+        })
         .collect();
     liste.sort();
     liste
@@ -467,9 +600,18 @@ mod tests {
     #[test]
     fn format_ancien_et_nouveau() {
         use serde_json::json;
-        assert_eq!(super::format_du_pack(&json!({ "pack_format": 46 })), Some(46));
-        assert_eq!(super::format_du_pack(&json!({ "min_format": 84, "max_format": 999 })), Some(84));
-        assert_eq!(super::format_du_pack(&json!({ "min_format": [69, 0] })), Some(69));
+        assert_eq!(
+            super::format_du_pack(&json!({ "pack_format": 46 })),
+            Some(46)
+        );
+        assert_eq!(
+            super::format_du_pack(&json!({ "min_format": 84, "max_format": 999 })),
+            Some(84)
+        );
+        assert_eq!(
+            super::format_du_pack(&json!({ "min_format": [69, 0] })),
+            Some(69)
+        );
         assert_eq!(super::format_du_pack(&json!({ "description": "" })), None);
     }
 

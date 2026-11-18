@@ -29,7 +29,11 @@ pub struct ReleaseInfo {
 /// Étape de l'installation, pour l'affichage.
 pub enum Etape {
     /// octets reçus, taille totale (0 si inconnue), téléchargement depuis le site
-    Telechargement { recu: u64, total: u64, site: bool },
+    Telechargement {
+        recu: u64,
+        total: u64,
+        site: bool,
+    },
     Extraction,
     Lancement,
 }
@@ -53,46 +57,80 @@ pub async fn verifier() -> anyhow::Result<Option<ReleaseInfo>> {
 
 async fn verifier_site() -> anyhow::Result<Option<ReleaseInfo>> {
     let doc: serde_json::Value = http::get_json(&format!("{SITE}/api/latest")).await?;
-    let version = doc["version"].as_str().unwrap_or("").trim_start_matches('v').to_string();
+    let version = doc["version"]
+        .as_str()
+        .unwrap_or("")
+        .trim_start_matches('v')
+        .to_string();
     if version.is_empty() {
         anyhow::bail!("{SITE}/api/latest : version absente");
     }
     let taille = doc["portableSize"].as_u64().unwrap_or(0);
-    Ok(est_plus_recente(&version, app_info::VERSION).then(|| ReleaseInfo { version, prerelease: false, sources: vec![url_site()], taille }))
+    Ok(
+        est_plus_recente(&version, app_info::VERSION).then(|| ReleaseInfo {
+            version,
+            prerelease: false,
+            sources: vec![url_site()],
+            taille,
+        }),
+    )
 }
 
 async fn verifier_github() -> anyhow::Result<Option<ReleaseInfo>> {
     // GitHub refuse les requêtes sans User-Agent (le client partagé en a un)
-    let doc: serde_json::Value = if super::settings::get_bool(super::settings::MAJ_PRERELEASE, false) {
-        // canal pré-release : la plus haute version parmi les releases publiées, bêtas comprises
-        let liste: serde_json::Value =
-            http::get_json(&format!("https://api.github.com/repos/{}/releases?per_page=30", app_info::GITHUB_REPO)).await?;
-        let mut candidates: Vec<serde_json::Value> = liste
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|r| !r["draft"].as_bool().unwrap_or(false) && r["tag_name"].as_str().is_some_and(|t| !t.is_empty()))
-            .cloned()
-            .collect();
-        let tag = |r: &serde_json::Value| r["tag_name"].as_str().unwrap_or("").trim_start_matches('v').to_string();
-        candidates.sort_by(|a, b| comparer_versions(&tag(a), &tag(b)));
-        match candidates.pop() {
-            Some(r) => r,
-            None => return Ok(None),
-        }
-    } else {
-        http::get_json(&format!("https://api.github.com/repos/{}/releases/latest", app_info::GITHUB_REPO)).await?
-    };
+    let doc: serde_json::Value =
+        if super::settings::get_bool(super::settings::MAJ_PRERELEASE, false) {
+            // canal pré-release : la plus haute version parmi les releases publiées, bêtas comprises
+            let liste: serde_json::Value = http::get_json(&format!(
+                "https://api.github.com/repos/{}/releases?per_page=30",
+                app_info::GITHUB_REPO
+            ))
+            .await?;
+            let mut candidates: Vec<serde_json::Value> = liste
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|r| {
+                    !r["draft"].as_bool().unwrap_or(false)
+                        && r["tag_name"].as_str().is_some_and(|t| !t.is_empty())
+                })
+                .cloned()
+                .collect();
+            let tag = |r: &serde_json::Value| {
+                r["tag_name"]
+                    .as_str()
+                    .unwrap_or("")
+                    .trim_start_matches('v')
+                    .to_string()
+            };
+            candidates.sort_by(|a, b| comparer_versions(&tag(a), &tag(b)));
+            match candidates.pop() {
+                Some(r) => r,
+                None => return Ok(None),
+            }
+        } else {
+            http::get_json(&format!(
+                "https://api.github.com/repos/{}/releases/latest",
+                app_info::GITHUB_REPO
+            ))
+            .await?
+        };
     let prerelease = doc["prerelease"].as_bool().unwrap_or(false);
 
-    let version = doc["tag_name"].as_str().unwrap_or("").trim_start_matches('v').to_string();
+    let version = doc["tag_name"]
+        .as_str()
+        .unwrap_or("")
+        .trim_start_matches('v')
+        .to_string();
     // Le zip "Misty-x.y.zip" (la release peut aussi contenir l'installateur .exe)
-    let zip = doc["assets"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .find(|a| a["browser_download_url"].as_str().is_some_and(|u| u.to_lowercase().ends_with(".zip")));
-    let url = zip.and_then(|a| a["browser_download_url"].as_str()).map(str::to_string);
+    let zip = doc["assets"].as_array().into_iter().flatten().find(|a| {
+        a["browser_download_url"]
+            .as_str()
+            .is_some_and(|u| u.to_lowercase().ends_with(".zip"))
+    });
+    let url = zip
+        .and_then(|a| a["browser_download_url"].as_str())
+        .map(str::to_string);
     let taille = zip.and_then(|a| a["size"].as_u64()).unwrap_or(0);
 
     if version.is_empty() {
@@ -103,8 +141,17 @@ async fn verifier_github() -> anyhow::Result<Option<ReleaseInfo>> {
     }
     // sans zip sur GitHub (pas encore envoyé), le site peut quand même l'avoir
     // (le site ne garde que la dernière version stable : pas de secours pour une pré-release)
-    let sources = if prerelease { url.into_iter().collect() } else { url.into_iter().chain([url_site()]).collect() };
-    Ok(Some(ReleaseInfo { version, prerelease, sources, taille }))
+    let sources = if prerelease {
+        url.into_iter().collect()
+    } else {
+        url.into_iter().chain([url_site()]).collect()
+    };
+    Ok(Some(ReleaseInfo {
+        version,
+        prerelease,
+        sources,
+        taille,
+    }))
 }
 
 /// Vrai si `distante` est plus récente que `locale` ("0.2.3.9.5.1" > "0.2.3.9.5",
@@ -120,16 +167,28 @@ pub fn comparer_versions(a: &str, b: &str) -> std::cmp::Ordering {
     // "0.3.7-beta.1" -> ([0, 3, 7], "beta.1")
     let decouper = |v: &str| -> (Vec<u64>, String) {
         let v = v.trim().trim_start_matches(['v', 'V']);
-        let fin = v.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(v.len());
-        let nombres = v[..fin].split('.').filter(|s| !s.is_empty()).map(|s| s.parse().unwrap_or(0)).collect();
-        (nombres, v[fin..].trim_start_matches(['-', '.', '_', '+']).to_lowercase())
+        let fin = v
+            .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+            .unwrap_or(v.len());
+        let nombres = v[..fin]
+            .split('.')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.parse().unwrap_or(0))
+            .collect();
+        (
+            nombres,
+            v[fin..]
+                .trim_start_matches(['-', '.', '_', '+'])
+                .to_lowercase(),
+        )
     };
     // "beta.10" -> ["beta", 10] : les nombres se comparent comme des nombres
     let morceaux = |s: &str| -> Vec<Result<u64, String>> {
         let mut liste = Vec::new();
         let mut courant = String::new();
         for c in s.chars() {
-            let change = !courant.is_empty() && courant.chars().last().is_some_and(|d| d.is_ascii_digit()) != c.is_ascii_digit();
+            let change = !courant.is_empty()
+                && courant.chars().last().is_some_and(|d| d.is_ascii_digit()) != c.is_ascii_digit();
             if !c.is_ascii_alphanumeric() || change {
                 if !courant.is_empty() {
                     liste.push(courant.parse::<u64>().map_err(|_| courant.clone()));
@@ -147,7 +206,10 @@ pub fn comparer_versions(a: &str, b: &str) -> std::cmp::Ordering {
     };
     let ((na, sa), (nb, sb)) = (decouper(a), decouper(b));
     for i in 0..na.len().max(nb.len()) {
-        let (x, y) = (na.get(i).copied().unwrap_or(0), nb.get(i).copied().unwrap_or(0));
+        let (x, y) = (
+            na.get(i).copied().unwrap_or(0),
+            nb.get(i).copied().unwrap_or(0),
+        );
         if x != y {
             return x.cmp(&y);
         }
@@ -188,7 +250,13 @@ fn racine() -> PathBuf {
 }
 
 /// Télécharge le zip depuis une source, en signalant l'avancement.
-async fn telecharger(url: &str, version: &str, taille: u64, zip: &Path, avancement: &(dyn Fn(Etape) + Send + Sync)) -> anyhow::Result<()> {
+async fn telecharger(
+    url: &str,
+    version: &str,
+    taille: u64,
+    zip: &Path,
+    avancement: &(dyn Fn(Etape) + Send + Sync),
+) -> anyhow::Result<()> {
     use futures::StreamExt;
     use tokio::io::AsyncWriteExt;
     let site = url.starts_with(SITE);
@@ -213,7 +281,10 @@ async fn telecharger(url: &str, version: &str, taille: u64, zip: &Path, avanceme
             anyhow::bail!("le site propose un autre fichier que {attendu}");
         }
     }
-    let total = reponse.content_length().filter(|&n| n > 0).unwrap_or(taille);
+    let total = reponse
+        .content_length()
+        .filter(|&n| n > 0)
+        .unwrap_or(taille);
     let tmp = zip.with_extension("zip.part");
     let mut recu = 0u64;
     avancement(Etape::Telechargement { recu, total, site });
@@ -243,7 +314,10 @@ async fn telecharger(url: &str, version: &str, taille: u64, zip: &Path, avanceme
 }
 
 /// Télécharge, extrait et lance la nouvelle version. L'appelant doit ensuite quitter l'application.
-pub async fn installer(release: &ReleaseInfo, avancement: impl Fn(Etape) + Send + Sync) -> anyhow::Result<()> {
+pub async fn installer(
+    release: &ReleaseInfo,
+    avancement: impl Fn(Etape) + Send + Sync,
+) -> anyhow::Result<()> {
     let racine = racine();
     let zip = racine.join(format!("Misty-{}.zip", release.version));
     let nouveau_dossier = racine.join(format!("Misty-{}", release.version));
@@ -278,14 +352,21 @@ pub async fn installer(release: &ReleaseInfo, avancement: impl Fn(Etape) + Send 
         anyhow::bail!("Misty.exe absent de l'archive (Misty-{})", release.version);
     }
 
-    settings::set(settings::SUPPR, &racine.join(format!("Misty-{}", app_info::VERSION)).to_string_lossy());
+    settings::set(
+        settings::SUPPR,
+        &racine
+            .join(format!("Misty-{}", app_info::VERSION))
+            .to_string_lossy(),
+    );
 
     if paths::custom_icon().exists() {
         let _ = fs::copy(paths::custom_icon(), nouveau_dossier.join("Icon.ico"));
     }
 
     avancement(Etape::Lancement);
-    std::process::Command::new(nouveau_dossier.join("Misty.exe")).current_dir(&nouveau_dossier).spawn()?;
+    std::process::Command::new(nouveau_dossier.join("Misty.exe"))
+        .current_dir(&nouveau_dossier)
+        .spawn()?;
     Ok(())
 }
 
@@ -326,9 +407,16 @@ const CLE_DESINSTALLATION: &str = r"Software\Microsoft\Windows\CurrentVersion\Un
 #[cfg(windows)]
 fn maj_entree_desinstallation() {
     use winreg::enums::{HKEY_CURRENT_USER, KEY_SET_VALUE};
-    let Ok(cle) = winreg::RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags(CLE_DESINSTALLATION, KEY_SET_VALUE) else { return };
+    let Ok(cle) = winreg::RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey_with_flags(CLE_DESINSTALLATION, KEY_SET_VALUE)
+    else {
+        return;
+    };
     let _ = cle.set_value("DisplayVersion", &app_info::VERSION);
-    let _ = cle.set_value("DisplayIcon", &paths::app_exe().to_string_lossy().to_string());
+    let _ = cle.set_value(
+        "DisplayIcon",
+        &paths::app_exe().to_string_lossy().to_string(),
+    );
 }
 
 #[cfg(not(windows))]
@@ -384,7 +472,11 @@ mod tests {
     #[ignore]
     async fn secours_site() {
         let doc: serde_json::Value = http::get_json(&format!("{SITE}/api/latest")).await.unwrap();
-        let version = doc["version"].as_str().unwrap().trim_start_matches('v').to_string();
+        let version = doc["version"]
+            .as_str()
+            .unwrap()
+            .trim_start_matches('v')
+            .to_string();
         let zip = std::env::temp_dir().join(format!("misty-test-{version}.zip"));
         let max = std::sync::Mutex::new((0u64, 0u64, 0usize));
         let taille = doc["portableSize"].as_u64().unwrap();
@@ -403,7 +495,9 @@ mod tests {
         zip::ZipArchive::new(fs::File::open(&zip).unwrap()).unwrap();
         let _ = fs::remove_file(&zip);
         // une version qui n'est pas celle du site est refusée
-        assert!(telecharger(&url_site(), "0.0.1", 0, &zip, &|_| {}).await.is_err());
+        assert!(telecharger(&url_site(), "0.0.1", 0, &zip, &|_| {})
+            .await
+            .is_err());
         println!("{version} : {total} octets, {appels} étapes");
     }
 }

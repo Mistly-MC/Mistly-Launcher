@@ -76,7 +76,9 @@ fn fichier_cache() -> std::path::PathBuf {
 }
 
 fn lire_fichier() -> Fichier {
-    let Ok(texte) = std::fs::read_to_string(fichier_cache()) else { return Fichier::default() };
+    let Ok(texte) = std::fs::read_to_string(fichier_cache()) else {
+        return Fichier::default();
+    };
     if let Ok(f) = serde_json::from_str::<Fichier>(&texte) {
         if !f.comptes.is_empty() {
             return f;
@@ -84,13 +86,19 @@ fn lire_fichier() -> Fichier {
     }
     // Ancien format : un seul compte à la racine
     match serde_json::from_str::<Cache>(&texte) {
-        Ok(c) if !c.uuid.is_empty() => Fichier { actif: c.uuid.clone(), comptes: vec![c] },
+        Ok(c) if !c.uuid.is_empty() => Fichier {
+            actif: c.uuid.clone(),
+            comptes: vec![c],
+        },
         _ => Fichier::default(),
     }
 }
 
 fn ecrire_fichier(f: &Fichier) {
-    let _ = std::fs::write(fichier_cache(), serde_json::to_string_pretty(f).unwrap_or_default());
+    let _ = std::fs::write(
+        fichier_cache(),
+        serde_json::to_string_pretty(f).unwrap_or_default(),
+    );
 }
 
 /// Ajoute ou met à jour un compte, et le rend actif.
@@ -107,14 +115,31 @@ fn enregistrer(cache: Cache) {
 /// Compte actif en cache (sinon le premier).
 fn compte_actif() -> Option<Cache> {
     let f = lire_fichier();
-    f.comptes.iter().find(|c| c.uuid == f.actif).or_else(|| f.comptes.first()).cloned()
+    f.comptes
+        .iter()
+        .find(|c| c.uuid == f.actif)
+        .or_else(|| f.comptes.first())
+        .cloned()
 }
 
 /// Tous les comptes Microsoft connus.
 pub fn comptes() -> Vec<CompteInfo> {
     let f = lire_fichier();
-    let actif = f.comptes.iter().find(|c| c.uuid == f.actif).or_else(|| f.comptes.first()).map(|c| c.uuid.clone()).unwrap_or_default();
-    f.comptes.iter().map(|c| CompteInfo { pseudo: c.pseudo.clone(), uuid: c.uuid.clone(), actif: c.uuid == actif }).collect()
+    let actif = f
+        .comptes
+        .iter()
+        .find(|c| c.uuid == f.actif)
+        .or_else(|| f.comptes.first())
+        .map(|c| c.uuid.clone())
+        .unwrap_or_default();
+    f.comptes
+        .iter()
+        .map(|c| CompteInfo {
+            pseudo: c.pseudo.clone(),
+            uuid: c.uuid.clone(),
+            actif: c.uuid == actif,
+        })
+        .collect()
 }
 
 /// Choisit le compte à utiliser, puis s'y connecte.
@@ -140,7 +165,11 @@ pub fn oublier(uuid: &str) {
     let mut f = lire_fichier();
     f.comptes.retain(|c| c.uuid != uuid);
     if f.actif == uuid {
-        f.actif = f.comptes.first().map(|c| c.uuid.clone()).unwrap_or_default();
+        f.actif = f
+            .comptes
+            .first()
+            .map(|c| c.uuid.clone())
+            .unwrap_or_default();
     }
     if f.comptes.is_empty() {
         let _ = std::fs::remove_file(fichier_cache());
@@ -163,9 +192,12 @@ pub async fn connecter() -> anyhow::Result<Session> {
     let cache = compte_actif();
 
     let session = match cache {
-        Some(c) if !c.mc_token.is_empty() && c.mc_expire > maintenant + 300 => {
-            Session { pseudo: c.pseudo, uuid: c.uuid, jeton: c.mc_token, xuid: c.xuid }
-        }
+        Some(c) if !c.mc_token.is_empty() && c.mc_expire > maintenant + 300 => Session {
+            pseudo: c.pseudo,
+            uuid: c.uuid,
+            jeton: c.mc_token,
+            xuid: c.xuid,
+        },
         Some(c) if !c.refresh_token.is_empty() => match renouveler(&c.refresh_token).await {
             Ok(s) => s,
             Err(_) => connexion_interactive().await?, // jeton expiré ou révoqué
@@ -190,10 +222,17 @@ pub async fn session_pour_jouer() -> Option<Session> {
     let session = session()?;
     let maintenant = chrono::Utc::now().timestamp();
     let f = lire_fichier();
-    let Some(cache) = f.comptes.iter().find(|c| c.uuid == session.uuid).cloned() else { return Some(session) };
+    let Some(cache) = f.comptes.iter().find(|c| c.uuid == session.uuid).cloned() else {
+        return Some(session);
+    };
     // le jeton du cache (le même, ou un plus récent renouvelé entre-temps) tient encore assez
     if cache.mc_expire > maintenant + MARGE && !cache.mc_token.is_empty() {
-        let s = Session { pseudo: cache.pseudo, uuid: cache.uuid, jeton: cache.mc_token, xuid: cache.xuid };
+        let s = Session {
+            pseudo: cache.pseudo,
+            uuid: cache.uuid,
+            jeton: cache.mc_token,
+            xuid: cache.xuid,
+        };
         *SESSION.write().unwrap() = Some(s.clone());
         return Some(s);
     }
@@ -208,7 +247,9 @@ pub async fn session_pour_jouer() -> Option<Session> {
         }
         Ok(_) => Some(session),
         Err(e) => {
-            super::journal::info(&format!("Jeton Minecraft non renouvelé ({e}) : la session actuelle est gardée"));
+            super::journal::info(&format!(
+                "Jeton Minecraft non renouvelé ({e}) : la session actuelle est gardée"
+            ));
             Some(session)
         }
     }
@@ -255,7 +296,11 @@ async fn connexion_interactive() -> anyhow::Result<Session> {
 }
 
 async fn renouveler(refresh_token: &str) -> anyhow::Result<Session> {
-    let jetons = jeton_microsoft(&[("refresh_token", refresh_token), ("grant_type", "refresh_token")]).await?;
+    let jetons = jeton_microsoft(&[
+        ("refresh_token", refresh_token),
+        ("grant_type", "refresh_token"),
+    ])
+    .await?;
     terminer(jetons).await
 }
 
@@ -267,9 +312,17 @@ struct JetonsMs {
 }
 
 async fn jeton_microsoft(parametres: &[(&str, &str)]) -> anyhow::Result<JetonsMs> {
-    let mut formulaire: Vec<(&str, &str)> = vec![("client_id", CLIENT_ID), ("redirect_uri", REDIRECT), ("scope", SCOPE)];
+    let mut formulaire: Vec<(&str, &str)> = vec![
+        ("client_id", CLIENT_ID),
+        ("redirect_uri", REDIRECT),
+        ("scope", SCOPE),
+    ];
     formulaire.extend_from_slice(parametres);
-    let reponse = http::client().post("https://login.live.com/oauth20_token.srf").form(&formulaire).send().await?;
+    let reponse = http::client()
+        .post("https://login.live.com/oauth20_token.srf")
+        .form(&formulaire)
+        .send()
+        .await?;
     if !reponse.status().is_success() {
         anyhow::bail!("Microsoft : {}", reponse.text().await.unwrap_or_default());
     }
@@ -288,7 +341,12 @@ async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
             "RelyingParty": "http://auth.xboxlive.com",
             "TokenType": "JWT"
         });
-        let r = client.post("https://user.auth.xboxlive.com/user/authenticate").header("Accept", "application/json").json(&corps).send().await?;
+        let r = client
+            .post("https://user.auth.xboxlive.com/user/authenticate")
+            .header("Accept", "application/json")
+            .json(&corps)
+            .send()
+            .await?;
         if r.status().is_success() {
             xbl = Some(r.json().await?);
             break;
@@ -303,7 +361,12 @@ async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
         "RelyingParty": "rp://api.minecraftservices.com/",
         "TokenType": "JWT"
     });
-    let r = client.post("https://xsts.auth.xboxlive.com/xsts/authorize").header("Accept", "application/json").json(&corps).send().await?;
+    let r = client
+        .post("https://xsts.auth.xboxlive.com/xsts/authorize")
+        .header("Accept", "application/json")
+        .json(&corps)
+        .send()
+        .await?;
     if !r.status().is_success() {
         let erreur: serde_json::Value = r.json().await.unwrap_or_default();
         let message = match erreur["XErr"].as_i64() {
@@ -317,8 +380,13 @@ async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
     }
     let xsts: serde_json::Value = r.json().await?;
     let jeton_xsts = xsts["Token"].as_str().unwrap_or_default();
-    let uhs = xsts["DisplayClaims"]["xui"][0]["uhs"].as_str().unwrap_or_default();
-    let xuid = xsts["DisplayClaims"]["xui"][0]["xid"].as_str().unwrap_or_default().to_string();
+    let uhs = xsts["DisplayClaims"]["xui"][0]["uhs"]
+        .as_str()
+        .unwrap_or_default();
+    let xuid = xsts["DisplayClaims"]["xui"][0]["xid"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
 
     // Minecraft
     let r = client
@@ -334,7 +402,11 @@ async fn terminer(jetons: JetonsMs) -> anyhow::Result<Session> {
     let expire = chrono::Utc::now().timestamp() + mc["expires_in"].as_i64().unwrap_or(86400);
 
     // Profil (404 = le compte ne possède pas Minecraft Java)
-    let r = client.get("https://api.minecraftservices.com/minecraft/profile").bearer_auth(&jeton_mc).send().await?;
+    let r = client
+        .get("https://api.minecraftservices.com/minecraft/profile")
+        .bearer_auth(&jeton_mc)
+        .send()
+        .await?;
     if r.status() == reqwest::StatusCode::NOT_FOUND {
         anyhow::bail!(loc::t("Compte_PasDeJeu"));
     }
