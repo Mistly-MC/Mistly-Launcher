@@ -1,0 +1,39 @@
+[package]
+name = "misty"
+description = "Launcher Minecraft"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+build = "build.rs"
+
+# L'exe s'appelle Misty.exe (attendu par la mise à jour automatique et les raccourcis)
+[[bin]]
+name = "Misty"
+path = "src/main.rs"
+
+[dependencies]
+misty-core.workspace = true
+misty-ui.workspace = true
+slint.workspace = true
+tokio.workspace = true
+futures.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+image.workspace = true
+anyhow.workspace = true
+regex.workspace = true
+unicode-normalization.workspace = true
+urlencoding.workspace = true
+rfd.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# Connexion Microsoft (fenêtre web lancée dans un sous-processus)
+wry.workspace = true
+winit.workspace = true
+windows-sys.workspace = true
+
+[build-dependencies]
+winresource.workspace = true

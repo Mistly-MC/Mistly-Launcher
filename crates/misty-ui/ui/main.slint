@@ -1,0 +1,874 @@
+// Fenêtre principale : cadre, barre latérale, pages, fenêtre des options, boîte de dialogue.
+
+import { Theme, Tr, Assets, Bulle } from "theme.slint";
+import { AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, PacksState, EditorState, FriendsState } from "state.slint";
+import { Icon, PixelLabel, BodyText, SectionTitle, IconButton, ChromeButton, MButton, SlimProgress, Spinner, OutlinedText } from "widgets.slint";
+import { Tuile, TuileIcone, Dock } from "dock.slint";
+import { ChoixCompte } from "bienvenue.slint";
+import { HomePage } from "home.slint";
+import { ProfilesPage, ProfileCreateOverlay, ProfileWaitOverlay } from "profiles.slint";
+import { InstancePage } from "instance.slint";
+import { SettingsModal, StorageOverlay } from "settings.slint";
+import { ChangelogPage } from "changelog.slint";
+import { FriendsPage } from "friends.slint";
+import { SkinState } from "skin.slint";
+import { PacksPage, PackCreateOverlay } from "packs.slint";
+import { EditorPage } from "editor.slint";
+import { ScrollView, Palette } from "std-widgets.slint";
+import { Paysage } from "scene.slint";
+import { VersionPicker } from "versions.slint";
+import { ConsoleOverlay, ConsoleState, LogLine, LogPane } from "console.slint";
+
+export { ConsoleState, LogLine, LogPane }
+export { Theme, Tr, Assets, Bulle, AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, PacksState, EditorState, SkinState, FriendsState }
+
+/// Onglet de la tuile du haut (Jouer, Skin, Profils…) : le texte, et un trait sous l'onglet actif.
+component OngletHaut inherits Rectangle {
+    in property <string> text;
+    in property <bool> actif;
+    callback clicked;
+    width: lib.preferred-width + 24px;
+    border-radius: 6px;
+    background: !root.actif && zone.has-hover ? Theme.glass-hover : transparent;
+    animate background { duration: Theme.fast; }
+    lib := Text {
+        y: (parent.height - self.height) / 2 - 2px;
+        text: root.text;
+        font-size: 14px;
+        font-weight: root.actif ? 700 : 600;
+        color: root.actif ? Theme.navy : Theme.text-muted;
+        animate color { duration: Theme.normal; }
+    }
+    Rectangle {
+        x: 12px;
+        y: parent.height - 9px;
+        width: root.actif ? parent.width - 24px : 0px;
+        height: 3px;
+        border-radius: 1.5px;
+        background: Theme.accent;
+        animate width { duration: 260ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+    }
+    zone := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            Bulle.visible = false;
+            root.clicked();
+        }
+    }
+}
+
+/// Colonne de gauche : le jeu rapide puis chaque profil, en tuiles carrées ; un clic le choisit pour
+/// JOUER. En bas, « + » mène aux profils. La colonne défile si les profils ne tiennent pas.
+component ColonneProfils inherits Rectangle {
+    in property <length> case: 64px;
+    in property <length> gouttiere: 12px;
+    property <length> pas: root.case + root.gouttiere;
+    property <length> hauteur-liste: max(0px, HomeState.profile-items.length * root.pas - root.gouttiere);
+    defile := Flickable {
+        height: parent.height - root.pas;
+        content-height: root.hauteur-liste;
+        interactive: true;
+        for p[i] in HomeState.profile-items: tuile := Rectangle {
+            property <bool> choisi: i == HomeState.profile-index && !HomeState.horizon-selected;
+            y: i * root.pas;
+            width: root.case;
+            height: root.case;
+            border-radius: 8px;
+            background: Theme.panel;
+            border-width: tuile.choisi ? 2px : 1px;
+            border-color: tuile.choisi ? Theme.accent : zone.has-hover ? Theme.accent.with-alpha(0.5) : Theme.glass-border;
+            clip: true;
+            animate border-color { duration: Theme.fast; }
+            // jeu rapide : le nuage ; profil : son icône, sinon l'image de sa version
+            if i == 0 || !p.has-icon: Rectangle {
+                x: 6px;
+                y: 6px;
+                width: parent.width - 12px;
+                height: parent.height - 12px;
+                border-radius: 5px;
+                clip: true;
+                background: Theme.dark ? #162140 : #1C2335;
+                if i > 0: Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: p.art;
+                    image-fit: cover;
+                    image-rendering: pixelated;
+                }
+                if i == 0: Image {
+                    width: 30px;
+                    height: 30px;
+                    source: Assets.logo;
+                    image-fit: contain;
+                }
+            }
+            if i > 0 && p.has-icon: Image {
+                x: 6px;
+                y: 6px;
+                width: parent.width - 12px;
+                height: parent.height - 12px;
+                source: p.icon;
+                image-fit: cover;
+            }
+            zone := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    Bulle.visible = false;
+                    HomeState.profile-index = i;
+                    HomeState.profile-selected(i);
+                }
+            }
+            property <bool> survol: zone.has-hover;
+            property <string> nom: i == 0 ? Tr.t("Onglet_JeuRapide") : p.name;
+            changed survol => {
+                if (self.survol) {
+                    Bulle.texte = tuile.nom;
+                    Bulle.x = tuile.absolute-position.x + tuile.width + 10px;
+                    Bulle.y = tuile.absolute-position.y + tuile.height / 2;
+                    Bulle.a-droite = true;
+                    Bulle.visible = true;
+                } else if (Bulle.texte == tuile.nom) {
+                    Bulle.visible = false;
+                }
+            }
+        }
+    }
+    TuileIcone {
+        y: parent.height - root.case;
+        width: root.case;
+        height: root.case;
+        icon: "\u{E710}";
+        tooltip: Tr.t("Onglet_NouveauProfil");
+        bulle-a-droite: true;
+        active: AppState.page == 1 || AppState.page == 5;
+        clicked => { AppState.nav-clicked(1); }
+    }
+}
+
+/// Brume du fond, par-dessus le paysage : de larges bandes douces qui ondulent lentement, et des
+/// nappes qui traversent la fenêtre de gauche à droite (chacune à son rythme). Plus dense le jour.
+component Brume inherits Rectangle {
+    property <color> c: Theme.dark ? #C8D8FF : #FFFFFF;
+    property <float> force: Theme.dark ? 0.35 : 0.55;
+    // bandes : hauteur, épaisseur, opacité, période (ms) de l'ondulation
+    for b in [
+        { y: 0.26, h: 0.24, a: 0.12, p: 61000 },
+        { y: 0.48, h: 0.28, a: 0.18, p: 47000 },
+        { y: 0.68, h: 0.32, a: 0.26, p: 73000 },
+    ]: Rectangle {
+        x: -root.width * 0.25 + root.width * 0.12 * sin((AppState.temps / (b.p * 1ms)) * 360deg);
+        y: root.height * b.y;
+        width: root.width * 1.5;
+        height: root.height * b.h;
+        background: @linear-gradient(180deg, root.c.with-alpha(0) 0%, root.c.with-alpha(b.a * root.force) 50%, root.c.with-alpha(0) 100%);
+    }
+    // nappes : hauteur, taille (px), période (ms) de la traversée, décalage de départ
+    for n in [
+        { y: 0.40, s: 520, p: 95000, o: 0.0 },
+        { y: 0.58, s: 640, p: 128000, o: 0.45 },
+        { y: 0.76, s: 460, p: 84000, o: 0.7 },
+        { y: 0.30, s: 380, p: 112000, o: 0.2 },
+        { y: 0.86, s: 700, p: 150000, o: 0.85 },
+    ]: Rectangle {
+        property <float> t: Math.mod(AppState.temps / (n.p * 1ms) + n.o, 1);
+        x: -n.s * 1px + (root.width + n.s * 2px) * self.t;
+        // carrée, le dégradé s'éteint avant les bords (sinon un bord net se voit), puis aplatie
+        y: root.height * n.y - n.s * 0.5px;
+        width: n.s * 1px;
+        height: n.s * 1px;
+        transform-scale-y: 0.6;
+        background: @radial-gradient(circle, root.c.with-alpha(0.26 * root.force) 0%, root.c.with-alpha(0) 65%);
+    }
+}
+
+/// Page qui apparaît en fondu en glissant vers le haut.
+component Apparition inherits Rectangle {
+    opacity: 0;
+    property <length> decalage: 14px;
+    animate opacity { duration: 280ms; easing: ease-out; }
+    animate decalage { duration: 380ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+    init => {
+        self.opacity = 1;
+        self.decalage = 0;
+    }
+    Rectangle {
+        y: root.decalage;
+        @children
+    }
+}
+
+/// Page principale gardée en mémoire : fondu + léger glissement quand elle devient active,
+/// invisible (et donc ni dessinée ni animée) le reste du temps.
+component Onglet inherits Rectangle {
+    in property <bool> actif;
+    opacity: root.actif ? 1 : 0;
+    visible: self.opacity > 0.01;
+    animate opacity { duration: root.actif ? 260ms : 120ms; easing: ease-out; }
+    Rectangle {
+        y: root.actif ? 0px : 12px;
+        animate y { duration: 360ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+        @children
+    }
+}
+
+/// Écran de chargement, le même que celui de Misty Client (MistyLoading.java) : le paysage de nuit
+/// qui défile vers la droite, le nuage et le nom MISTY en pixel art, et une barre bleue. En thème
+/// clair (Brume), le même paysage de jour : ciel bleu pâle, crêtes claires, sans étoiles.
+/// Il reste au moins 0,7 s (pas de flash) et au plus 2,5 s (on ne bloque jamais le launcher).
+component Chargement inherits Rectangle {
+    property <bool> fini: AppState.ready && self.minimum;
+    property <bool> minimum;
+    property <bool> maximum;
+    property <bool> lance;
+    opacity: root.fini || root.maximum ? 0 : 1;
+    visible: self.opacity > 0.01;
+    // le fondu attend que la barre soit pleine
+    animate opacity { delay: 220ms; duration: 380ms; easing: ease-in-out; }
+    Timer { interval: 700ms; running: !root.minimum; triggered => { root.minimum = true; } }
+    Timer { interval: 2500ms; running: !root.maximum; triggered => { root.maximum = true; } }
+    init => { root.lance = true; }
+
+    // ── Scène : mêmes proportions que le paysage du fond (1600 × 440, en bas) ──
+    property <float> s: max(root.width / 1600px, root.height * 0.74 / 440px);
+    property <length> sw: 1600px * root.s;
+    property <length> sh: 440px * root.s;
+    property <length> haut: root.height - root.sh;
+    // plus lue une fois l'écran effacé : rien ne redessine sans fin derrière le launcher
+    property <float> secondes: root.visible ? animation-tick() / 1s : 0;
+    property <[float]> vitesses: [4, 7, 11, 17];
+    // nuit (comme le client, et pour les thèmes de saison) ou jour (thème Brume)
+    property <bool> nuit: Theme.dark;
+    property <[color]> couleurs: root.nuit ? [#24345A, #1A2748, #121C36, #0D1528] : [#B7CDEB, #A0BBE2, #8BA9D7, #7896CA];
+    property <color> bas: root.nuit ? #070B16 : #6D8EC2;
+
+    background: root.nuit ? @linear-gradient(180deg, #0A0F1D 0%, #17264D 100%) : @linear-gradient(180deg, #DDEBFB 0%, #B4D0F1 55%, #95B9E4 100%);
+    clip: true;
+    TouchArea { }
+
+    // étoiles : le champ (symétrique) glisse lentement et se répète tous les 1600 px
+    property <length> decalage-etoiles: Math.mod(root.secondes * 1.5, 1600) * root.s * 1px;
+    for k in 2: Image {
+        visible: root.nuit;
+        x: root.decalage-etoiles - root.sw + k * root.sw;
+        y: root.haut;
+        width: root.sw;
+        height: root.sh;
+        source: AppState.loading-stars;
+        image-rendering: pixelated;
+        image-fit: fill;
+        colorize: #DBE7FF;
+        opacity: 0.55;
+    }
+    for k in 2: Image {
+        visible: root.nuit;
+        x: root.decalage-etoiles - root.sw + k * root.sw;
+        y: root.haut;
+        width: root.sw;
+        height: root.sh;
+        source: AppState.loading-twinkle;
+        image-rendering: pixelated;
+        image-fit: fill;
+        colorize: white;
+        opacity: root.visible ? 0.25 + 0.75 * (0.5 + 0.5 * sin((animation-tick() / 8000ms) * 360deg)) : 0;
+    }
+
+    // crêtes, de l'arrière vers l'avant, qui défilent vers la droite (les lointaines plus
+    // lentement) ; chaque crête est suivie de son miroir, le motif se répète tous les 3200 px
+    for crete[i] in AppState.loading-ridges: Rectangle {
+        property <length> tuile: 2 * root.sw;
+        property <length> decalage: Math.mod(root.secondes * root.vitesses[i], 3200) * root.s * 1px;
+        for k in 4: Image {
+            x: parent.decalage - parent.tuile + Math.floor(k / 2) * parent.tuile + Math.mod(k, 2) * root.sw;
+            y: root.haut;
+            width: root.sw;
+            height: root.sh;
+            source: crete;
+            image-rendering: pixelated;
+            image-fit: fill;
+            colorize: root.couleurs[i];
+            transform-scale-x: Math.mod(k, 2) == 1 ? -1 : 1;
+        }
+    }
+    Rectangle {
+        y: root.height - 96px * root.s;
+        height: 96px * root.s;
+        background: @linear-gradient(180deg, root.bas.with-alpha(0) 0%, root.bas 100%);
+    }
+
+    // ── Nuage, nom et barre, au milieu ──
+    property <length> pixel: max(2px, round(min(root.width, root.height) / 160px) * 1px);
+    property <length> y0: (root.height - 39 * root.pixel) / 2 - 12 * root.pixel;
+    Image {
+        x: (root.width - self.width) / 2;
+        y: root.y0;
+        width: 40 * root.pixel;
+        height: 40 * root.pixel;
+        source: AppState.loading-logo;
+        image-rendering: pixelated;
+        image-fit: fill;
+    }
+
+    // la barre se remplit pendant le chargement, puis d'un coup quand le launcher est prêt
+    property <float> avance: AppState.ready ? 1 : root.lance ? 0.85 : 0;
+    animate avance { duration: AppState.ready ? 240ms : 2200ms; easing: ease-out; }
+    Rectangle {
+        property <length> l: min(root.width - 40px, 60 * root.pixel);
+        property <length> h: max(2px, 2 * root.pixel);
+        x: (root.width - self.l) / 2 - 1px;
+        y: root.y0 + 49 * root.pixel - 1px;
+        width: self.l + 2px;
+        height: self.h + 2px;
+        background: root.nuit ? #FFFFFF2E : #FFFFFFB3;
+        Rectangle {
+            x: 1px;
+            y: 1px;
+            width: parent.l;
+            height: parent.h;
+            background: root.nuit ? #0E1527 : #FFFFFF73;
+            Rectangle {
+                x: 0;
+                width: parent.width * root.avance;
+                background: root.nuit ? #6F9CFF : #2F6FD6;
+                Rectangle {
+                    y: 0;
+                    height: max(1px, round(parent.height / 2 / 1px) * 1px);
+                    background: root.nuit ? #9CC0FF : #5B93EA;
+                }
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Mistly Launcher";
+    // Slint ne lit pas le format .ico : on utilise la version PNG
+    icon: @image-url("../../misty-app/assets/icone.png");
+    // Taille d'origine par défaut ; la fenêtre peut ensuite être agrandie ou redimensionnée
+    preferred-width: 1180px;
+    preferred-height: 720px;
+    min-width: 1040px;
+    min-height: 660px;
+    no-frame: true;
+    // horloge du décor : un pas toutes les 33 ms (30 images par seconde), arrêtée pendant les
+    // pauses ; elle repart d'où elle était
+    Timer {
+        interval: 33ms;
+        running: AppState.anime;
+        triggered => { AppState.temps += 33ms; }
+    }
+    resize-border-width: AppState.maximized ? 0px : 6px;
+    // transparent : les coins arrondis du fond laissent voir le bureau
+    background: transparent;
+    default-font-family: Theme.ui-font;
+
+    // Widgets standard (barres de défilement, champs…) aux couleurs du thème de Misty, pas de Windows
+    property <bool> sombre: Theme.dark;
+    init => {
+        Palette.color-scheme = self.sombre ? ColorScheme.dark : ColorScheme.light;
+        self.etroit = self.width < 1160px;
+    }
+    changed sombre => { Palette.color-scheme = self.sombre ? ColorScheme.dark : ColorScheme.light; }
+
+    // Changement de page : le bouton survolé a pu disparaître, on cache sa bulle
+    property <int> page: AppState.page;
+    changed page => {
+        Bulle.visible = false;
+    }
+    changed height => {
+        Bulle.fenetre-hauteur = self.height;
+    }
+
+    // Grille : tuiles carrées de 64 px, 12 px entre deux tuiles (comme les maquettes « bento »)
+    property <length> case: 64px;
+    property <length> gouttiere: 12px;
+    /// tuile des boutons de la fenêtre (en haut à droite)
+    property <length> largeur-boutons: 162px;
+    /// fenêtre étroite : certaines tuiles n'affichent que leur icône
+    property <bool> etroit;
+    // (posé quand la largeur change, pas lié : la largeur minimale de la fenêtre dépend des tuiles)
+    changed width => { self.etroit = self.width < 1160px; }
+
+    clavier := FocusScope {
+        key-pressed(e) => {
+            if (DialogState.visible && e.text == Key.Escape) {
+                DialogState.cancel();
+                return accept;
+            }
+            if (SettingsState.open && e.text == Key.Escape) {
+                SettingsState.close();
+                return accept;
+            }
+            return reject;
+        }
+
+        // Tout le contenu est découpé aux coins arrondis de la fenêtre
+        Rectangle {
+        clip: true;
+        border-radius: AppState.maximized ? 0px : 18px;
+        background: Theme.sky;
+
+        // ═══ Fond : ciel de brume le jour, nuit étoilée le soir ═══
+        Rectangle {
+            clip: true;
+            background: @linear-gradient(135deg, #BAD6F7 0%, #95B9E4 45%, #5B7FB0 100%);
+
+            // nuit : fond du site (dégradé bleu nuit) ; Halloween (violet) et Noël (bleu glacé) par-dessus
+            Rectangle {
+                opacity: Theme.dark ? 1 : 0;
+                animate opacity { duration: 450ms; easing: ease-in-out; }
+                background: @linear-gradient(160deg, #0E1527 0%, #0A0F1D 55%, #070B16 100%);
+            }
+            if Theme.halloween: Rectangle {
+                background: @linear-gradient(160deg, #2A1442 0%, #140A22 55%, #0A0612 100%);
+            }
+            if Theme.noel: Rectangle {
+                background: @linear-gradient(170deg, #12304F 0%, #0B1A2E 50%, #060D18 100%);
+            }
+
+            // vignette sombre en bas à droite
+            Rectangle {
+                property <length> r: 1060px;
+                x: parent.width - self.r;
+                y: parent.height - self.r;
+                width: self.r * 2;
+                height: self.r * 2;
+                background: Theme.dark ? @radial-gradient(circle, #16214099 0%, #16214000 60%) : @radial-gradient(circle, #3F4A5EAA 0%, #3F4A5E00 60%);
+            }
+            // halo en haut (lune la nuit)
+            Rectangle {
+                property <length> r: 700px;
+                x: parent.width * 0.45 - self.r;
+                y: -self.r;
+                width: self.r * 2;
+                height: self.r * 2;
+                background: Theme.halloween ? @radial-gradient(circle, #FF8A3D40 0%, #FF8A3D00 60%) : Theme.noel ? @radial-gradient(circle, #DCEBFF30 0%, #DCEBFF00 60%) : Theme.dark ? @radial-gradient(circle, #6F9CFF33 0%, #6F9CFF00 60%) : @radial-gradient(circle, #E4F1FF88 0%, #E4F1FF00 60%);
+            }
+            // paysage du site : montagnes, sapins, lune, brume qui dérive
+            Paysage { }
+            // brume en plus, qui dérive devant le paysage (le thème de Misty)
+            Brume { }
+        }
+
+        // ═══ La grille : des tuiles alignées, la même gouttière partout ═══
+        VerticalLayout {
+            padding: root.gouttiere + 2px;
+            spacing: root.gouttiere;
+
+            // ── En haut : logo · nom et onglets · place des boutons de la fenêtre ──
+            // (tout le haut sert aussi à déplacer la fenêtre, double-clic pour l'agrandir)
+            HorizontalLayout {
+                height: root.case;
+                spacing: root.gouttiere;
+                Tuile {
+                    width: root.case;
+                    // fond sombre : le nuage blanc ressort, en clair comme en sombre
+                    background: Theme.dark ? #162140 : #1C2335;
+                    border-color: Theme.dark ? #6F9CFF66 : #FFFFFF66;
+                    Image {
+                        width: 36px;
+                        height: 36px;
+                        source: @image-url("../../misty-app/assets/logo-nuage.png");
+                        image-fit: contain;
+                    }
+                    TouchArea {
+                        pointer-event(e) => {
+                            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                                AppState.drag();
+                            }
+                        }
+                        double-clicked => { AppState.toggle-maximize(); }
+                    }
+                }
+                Tuile {
+                    horizontal-stretch: 1;
+                    TouchArea {
+                        pointer-event(e) => {
+                            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                                AppState.drag();
+                            }
+                        }
+                        double-clicked => { AppState.toggle-maximize(); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 20px;
+                        padding-right: 12px;
+                        spacing: 18px;
+                        if !root.etroit: VerticalLayout {
+                            alignment: center;
+                            OutlinedText {
+                                text: "MISTLY";
+                                font-size: 24px;
+                                thickness: 2px;
+                                depth: 3px;
+                            }
+                        }
+                        if !root.etroit: Rectangle {
+                            width: 1px;
+                            height: 28px;
+                            y: (parent.height - self.height) / 2;
+                            background: Theme.line;
+                        }
+                        // onglets (ceux masqués dans Options → Barre latérale n'apparaissent pas)
+                        HorizontalLayout {
+                            padding-top: 12px;
+                            padding-bottom: 12px;
+                            spacing: 2px;
+                            OngletHaut {
+                                text: Tr.t("Onglet_Jouer");
+                                actif: AppState.nav == 0;
+                                clicked => { AppState.nav-clicked(0); }
+                            }
+                            if AppState.nav-skin: OngletHaut {
+                                text: Tr.t("Onglet_Skin");
+                                actif: AppState.nav == 7;
+                                clicked => { AppState.nav-clicked(7); }
+                            }
+                            if AppState.nav-profils: OngletHaut {
+                                text: Tr.t("Onglet_Profils");
+                                actif: AppState.nav == 1;
+                                clicked => { AppState.nav-clicked(1); }
+                            }
+                            if AppState.nav-notes: OngletHaut {
+                                text: Tr.t("Onglet_Notes");
+                                actif: AppState.nav == 3;
+                                clicked => { AppState.nav-clicked(3); }
+                            }
+                            if AppState.nav-packs: OngletHaut {
+                                text: Tr.t("Onglet_Packs");
+                                actif: AppState.nav == 4;
+                                clicked => { AppState.nav-clicked(4); }
+                            }
+                            if AppState.nav-amis: OngletHaut {
+                                text: Tr.t("Onglet_Amis");
+                                actif: AppState.nav == 8;
+                                clicked => { AppState.nav-clicked(8); }
+                            }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                }
+                // console du jeu : une tuile avec son nom, comme « Help Center » sur la maquette
+                Tuile {
+                    // fenêtre étroite : l'icône seule, pour que la rangée tienne
+                    width: root.etroit ? root.case : mesure-console.preferred-width + 64px;
+                    background: ConsoleState.open ? Theme.accent-soft : zone-console.has-hover ? Theme.panel-strong : Theme.panel;
+                    border-color: ConsoleState.open ? Theme.accent.with-alpha(0.5) : Theme.glass-border;
+                    mesure-console := Text {
+                        visible: false;
+                        text: Tr.t("Home_Bouton_Logs");
+                        font-size: 14px;
+                        font-weight: 600;
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 10px;
+                        Icon {
+                            text: "\u{E756}";
+                            font-size: 15px;
+                            color: ConsoleState.open ? Theme.accent : zone-console.has-hover ? Theme.navy : Theme.text-muted;
+                        }
+                        if !root.etroit: Text {
+                            text: Tr.t("Home_Bouton_Logs");
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: ConsoleState.open ? Theme.accent : zone-console.has-hover ? Theme.navy : Theme.text-muted;
+                            vertical-alignment: center;
+                        }
+                    }
+                    zone-console := TouchArea {
+                        mouse-cursor: pointer;
+                        // la tuile ouvre la console, et la referme
+                        clicked => {
+                            ConsoleState.focused = -1;
+                            ConsoleState.open = !ConsoleState.open;
+                        }
+                    }
+                }
+                if AppState.nav-dossier: TuileIcone {
+                    width: root.case;
+                    icon: "\u{E8B7}";
+                    tooltip: Tr.t("Nav_Dossier");
+                    bulle-dessous: true;
+                    clicked => { AppState.open-data-folder(); }
+                }
+                // les boutons réduire, agrandir, fermer sont dessinés par-dessus (fin du fichier),
+                // au-dessus des fenêtres de choix et des dialogues
+                Tuile {
+                    width: root.largeur-boutons;
+                    TouchArea {
+                        pointer-event(e) => {
+                            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                                AppState.drag();
+                            }
+                        }
+                        double-clicked => { AppState.toggle-maximize(); }
+                    }
+                }
+            }
+
+            // ── Au milieu : les profils à gauche, puis la page ──
+            HorizontalLayout {
+                vertical-stretch: 1;
+                spacing: root.gouttiere;
+                ColonneProfils {
+                    width: root.case;
+                    case: root.case;
+                    gouttiere: root.gouttiere;
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                    // la zone centrale prend la place qui reste, jamais plus : une page qui voudrait être
+                    // plus haute ne doit pas pousser la barre du bas hors de la fenêtre
+                    min-height: 0px;
+                    min-width: 0px;
+                    // La page s'efface quand le choix de version s'ouvre : il prend sa place.
+                    Rectangle {
+                        opacity: HomeState.picker-open || SettingsState.open ? 0 : 1;
+                        visible: self.opacity > 0.01;
+                        animate opacity { duration: HomeState.picker-open || SettingsState.open ? 160ms : 260ms; easing: ease-out; }
+                        // Les pages principales restent créées : changer d'onglet ne fait qu'un fondu.
+                        // Le détail d'un profil et l'éditeur sont recréés à chaque ouverture (ils dépendent de ce qu'on ouvre).
+                        Onglet { actif: AppState.page == 0; HomePage { } }
+                        Onglet { actif: AppState.page == 1; ProfilesPage { } }
+                        Onglet { actif: AppState.page == 3; ChangelogPage { } }
+                        Onglet { actif: AppState.page == 4; PacksPage { } }
+                        Onglet { actif: AppState.page == 8; FriendsPage { } }
+                        if AppState.page == 5: Apparition { InstancePage { } }
+                        if AppState.page == 6: Apparition { EditorPage { } }
+                    }
+                    // ═══ Choix de la version ou du profil : dans la zone centrale ═══
+                    VersionPicker { }
+                    // ═══ Options : dans la zone centrale aussi (toujours présentes, pour animer leur fermeture) ═══
+                    SettingsModal { }
+                }
+            }
+
+            // ── En bas : la barre de lancement (le détail d'un profil et l'éditeur ont la leur) ──
+            if AppState.page != 5 && AppState.page != 6: Dock {
+                // même hauteur que les tuiles carrées : la tuile Options reste un carré
+                height: root.case;
+                case: root.case;
+            }
+        }
+
+
+
+        // ═══ Écran de chargement (au lancement) ═══
+        // ═══ Premier lancement : Premium ou Hors ligne (sous l'écran de chargement, qui s'efface) ═══
+        if AppState.account-choice: ChoixCompte { }
+
+        Chargement { }
+
+        // ═══ Bulle d'aide (au-dessus des pages) ═══
+        if Bulle.visible && !DialogState.visible: Rectangle {
+            width: bulle-texte.preferred-width + 20px;
+            height: 28px;
+            // reste dans la fenêtre
+            x: clamp(Bulle.a-droite ? Bulle.x : Bulle.x - self.width / 2, 6px, root.width - self.width - 6px);
+            y: Bulle.a-droite ? Bulle.y - self.height / 2 : Bulle.y;
+            border-radius: 9px;
+            background: Theme.dark ? #162140 : #1C2335;
+            border-width: 1px;
+            border-color: Theme.dark ? #FFFFFF1F : transparent;
+            drop-shadow-blur: 10px;
+            drop-shadow-color: Theme.shadow;
+            opacity: 0;
+            animate opacity { delay: 300ms; duration: 150ms; }
+            init => { self.opacity = 0.97; }
+            bulle-texte := Text {
+                text: Bulle.texte;
+                color: white;
+                font-family: Theme.ui-font;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        // ═══ Fenêtres modales des pages (sur toute la fenêtre, barre latérale comprise) ═══
+        if ProfilesState.creating: ProfileCreateOverlay { }
+        if ProfilesState.waiting: ProfileWaitOverlay { }
+        if PacksState.creating: PackCreateOverlay { }
+        if SettingsState.storage-open: StorageOverlay { }
+
+        // ═══ Console du jeu ═══
+        // sous la rangée du haut, qui reste utilisable (onglets, tuile Logs, boutons de la fenêtre)
+        if ConsoleState.open: ConsoleOverlay {
+            x: root.gouttiere + 2px;
+            y: root.gouttiere * 2 + 2px + root.case;
+            width: parent.width - 2 * (root.gouttiere + 2px);
+            height: parent.height - self.y - root.gouttiere - 2px;
+        }
+
+        // ═══ Mise à jour : avancement (bloque la fenêtre jusqu'au redémarrage) ═══
+        if AppState.updating: Rectangle {
+            background: Theme.scrim;
+            TouchArea { }
+            Rectangle {
+                width: 420px;
+                height: maj.preferred-height;
+                border-radius: 24px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.glass-border;
+                drop-shadow-blur: 40px;
+                drop-shadow-color: Theme.shadow;
+                maj := VerticalLayout {
+                    padding: 28px;
+                    spacing: 14px;
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Rectangle {
+                            width: 34px;
+                            height: 34px;
+                            border-radius: 10px;
+                            background: Theme.blue;
+                            Icon {
+                                text: "\u{E896}";
+                                color: white;
+                            }
+                        }
+                        SectionTitle {
+                            horizontal-stretch: 1;
+                            text: AppState.update-title;
+                            vertical-alignment: center;
+                            wrap: word-wrap;
+                        }
+                        if AppState.update-progress >= 0: Text {
+                            text: Math.floor(AppState.update-progress * 100) + " %";
+                            font-family: Theme.ui-font;
+                            font-size: 20px;
+                            font-weight: 800;
+                            color: Theme.green-dark;
+                            vertical-alignment: center;
+                        }
+                    }
+                    if AppState.update-progress >= 0: SlimProgress {
+                        progress: AppState.update-progress;
+                    }
+                    if AppState.update-progress < 0: Spinner { }
+                    Text {
+                        text: AppState.update-status;
+                        font-family: Theme.ui-font;
+                        font-size: 13px;
+                        color: Theme.text-muted;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+
+        // ═══ Boîte de dialogue ═══
+        if DialogState.visible: Rectangle {
+            background: Theme.scrim;
+            opacity: 0;
+            animate opacity { duration: 200ms; }
+            init => {
+                self.opacity = 1;
+                clavier.focus();
+            }
+            TouchArea { }
+
+            carte := Rectangle {
+                width: 440px;
+                height: contenu.preferred-height;
+                border-radius: 24px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.glass-border;
+                drop-shadow-blur: 40px;
+                drop-shadow-color: Theme.shadow;
+                transform-scale: 0.94;
+                animate transform-scale { duration: 300ms; easing: cubic-bezier(0.34, 1.32, 0.64, 1); }
+                init => { self.transform-scale = 1; }
+
+                contenu := VerticalLayout {
+                    padding-left: 28px;
+                    padding-right: 28px;
+                    padding-top: 26px;
+                    padding-bottom: 26px;
+                    spacing: 12px;
+
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Rectangle {
+                            width: 34px;
+                            height: 34px;
+                            border-radius: 10px;
+                            background: DialogState.danger ? Theme.danger : Theme.blue;
+                            Icon {
+                                text: DialogState.icon;
+                                color: white;
+                            }
+                        }
+                        SectionTitle {
+                            horizontal-stretch: 1;
+                            text: DialogState.title;
+                            vertical-alignment: center;
+                            wrap: word-wrap;
+                        }
+                    }
+                    Text {
+                        text: DialogState.message;
+                        font-family: Theme.ui-font;
+                        font-size: 14px;
+                        color: Theme.navy2;
+                        wrap: word-wrap;
+                    }
+                    // options (mode « choix dans une liste »)
+                    if DialogState.choices.length > 0: ScrollView {
+                        height: min(260px, DialogState.choices.length * 50px);
+                        content-height: DialogState.choices.length * 50px;
+                        content-width: self.visible-width;
+                        for c[i] in DialogState.choices: MButton {
+                            x: 0;
+                            y: i * 50px;
+                            width: parent.width - 12px;
+                            text: c;
+                            clicked => { DialogState.choose(i); }
+                        }
+                    }
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 10px;
+                        padding-top: 12px;
+                        if DialogState.cancel-text != "": MButton {
+                            text: DialogState.cancel-text;
+                            clicked => { DialogState.cancel(); }
+                        }
+                        if DialogState.ok-text != "": MButton {
+                            kind: DialogState.danger && DialogState.cancel-text != "" ? 2 : 1;
+                            text: DialogState.ok-text;
+                            clicked => { DialogState.ok(); }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ═══ Boutons de la fenêtre : au-dessus de tout (fenêtres de choix, options, console,
+        // dialogues), pour toujours pouvoir réduire ou fermer Misty ═══
+        HorizontalLayout {
+            // centrés dans leur tuile, en haut à droite de la grille
+            x: parent.width - root.gouttiere - 2px - root.largeur-boutons + (root.largeur-boutons - self.width) / 2;
+            y: root.gouttiere + 2px + (root.case - self.height) / 2;
+            width: self.preferred-width;
+            height: self.preferred-height;
+            spacing: 4px;
+            ChromeButton {
+                icon: "\u{E921}";
+                clicked => { AppState.minimize(); }
+            }
+            ChromeButton {
+                icon: AppState.maximized ? "\u{E923}" : "\u{E922}";
+                clicked => { AppState.toggle-maximize(); }
+            }
+            ChromeButton {
+                icon: "\u{E8BB}";
+                close: true;
+                clicked => { AppState.close(); }
+            }
+        }
+        }
+    }
+}

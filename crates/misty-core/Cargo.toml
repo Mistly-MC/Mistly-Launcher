@@ -1,0 +1,45 @@
+[package]
+name = "misty-core"
+description = "Logique du launcher Mistly, sans interface : comptes, Minecraft, contenu, social, système, médias"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+build = "build.rs"
+
+[dependencies]
+tokio.workspace = true
+reqwest.workspace = true
+futures.workspace = true
+rayon.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+zip.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+minisign-verify.workspace = true
+hex.workspace = true
+image.workspace = true
+dirs.workspace = true
+anyhow.workspace = true
+rand.workspace = true
+regex.workspace = true
+unicode-normalization.workspace = true
+urlencoding.workspace = true
+open.workspace = true
+discord-rich-presence.workspace = true
+md5.workspace = true
+uuid.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+keyring.workspace = true
+winreg.workspace = true
+mslnk.workspace = true
+windows-sys.workspace = true
+windows.workspace = true
+
+[dev-dependencies]
+minisign.workspace = true

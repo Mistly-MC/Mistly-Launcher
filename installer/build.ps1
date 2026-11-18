@@ -9,7 +9,7 @@
                                     (c'est ce zip que télécharge la mise à jour automatique)
       - Misty-Setup-<version>.exe   l'installateur (nécessite Inno Setup 6.3+)
 
-    La version est lue dans misty-rust\Cargo.toml (seule source de la version).
+    La version est lue dans Cargo.toml à la racine ([workspace.package], seule source de la version).
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File installer\build.ps1
@@ -23,7 +23,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $racine = Split-Path -Parent $PSScriptRoot
-$projet = Join-Path $racine "misty-rust"
+# Workspace Cargo à la racine du repo (crates/misty-app produit Misty.exe)
+$projet = $racine
 
 # ── Version ──
 # Cargo.toml est la seule source de la version (app_info.rs la lit avec env!("CARGO_PKG_VERSION"))
@@ -42,7 +43,7 @@ $zip = Join-Path $publish "Misty-$version.zip"
 # ── Compilation (release : optimisée, sans console) ──
 Push-Location $projet
 try {
-    cargo build --release
+    cargo build --release -p misty
     if ($LASTEXITCODE -ne 0) { throw "cargo build a échoué" }
 } finally {
     Pop-Location

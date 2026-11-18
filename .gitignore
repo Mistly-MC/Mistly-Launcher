@@ -6,3 +6,4 @@ publish/
 *.user
 # Clé API CurseForge : privée (voir misty-rust/build.rs)
 curseforge.key
+/target

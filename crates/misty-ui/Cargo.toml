@@ -1,0 +1,19 @@
+[package]
+name = "misty-ui"
+description = "Interface Slint de Mistly (ui/*.slint), compilée à part du launcher"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish = false
+
+# L'interface est un crate à part : Slint en génère près de 20 Mo de Rust. Ainsi, modifier le code
+# du launcher ne le recompile pas, seul un changement dans ui/*.slint le fait.
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+slint.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true

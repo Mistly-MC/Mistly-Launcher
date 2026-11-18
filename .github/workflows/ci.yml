@@ -18,9 +18,6 @@ env:
 jobs:
   verifier:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: misty-rust
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,15 +29,13 @@ jobs:
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: misty-rust
 
       - name: Format
-        run: cargo fmt --check
+        run: cargo fmt --all --check
 
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       # Tests hors ligne (les tests réseau sont marqués #[ignore])
       - name: Tests
-        run: cargo test
+        run: cargo test --workspace

@@ -1,11 +1,11 @@
 ﻿; Installateur Windows de Misty (Inno Setup 6.3+), version Rust.
 ; Ne pas compiler à la main : lancer installer\build.ps1, qui compile l'app puis appelle ISCC avec la bonne version.
 ;
-; Structure installée (compatible avec la mise à jour automatique, voir misty-rust\src\services\update.rs) :
+; Structure installée (compatible avec la mise à jour automatique, voir crates\misty-core\src\systeme\update.rs) :
 ;   %LOCALAPPDATA%\Programs\Misty\Misty-<version>\Misty.exe
 ;   %LOCALAPPDATA%\Programs\Misty\Misty.exe : lanceur fixe (le même exe), visé par les raccourcis. Son chemin
 ;   ne change jamais, contrairement au dossier de la version : une épingle de la barre des tâches survit
-;   aux mises à jour. Il démarre la version la plus récente (misty-rust\src\services\lanceur.rs).
+;   aux mises à jour. Il démarre la version la plus récente (crates\misty-core\src\systeme\lanceur.rs).
 ; Pas de droits administrateur nécessaires. Les données (versions, mondes, profils) restent dans %LOCALAPPDATA%\Misty.
 ; Plus besoin de .NET : Misty.exe contient tout.
 
@@ -46,7 +46,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#Sortie}
 OutputBaseFilename=Misty-Setup-{#Version}
-SetupIconFile=..\misty-rust\assets\icone.ico
+SetupIconFile=..\crates\misty-app\assets\icone.ico
 UninstallDisplayIcon={app}\{#Dossier}\Misty.exe
 UninstallDisplayName=Mistly
 UninstallFilesDir={app}\uninstall

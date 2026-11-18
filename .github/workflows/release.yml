@@ -2,11 +2,11 @@
 # le launcher, prépare le zip et l'installateur avec installer/build.ps1, puis publie la release
 # GitHub avec Misty-x.y.z.zip, Misty-Setup-x.y.z.exe, Misty-x.y.z.zip.sha256 et
 # Misty-x.y.z.zip.minisig. La mise à jour automatique refuse tout zip sans ces deux preuves
-# (misty-rust/src/services/update.rs).
+# (crates/misty-core/src/systeme/update.rs).
 #
 # Secrets du repo :
 #   MINISIGN_KEY       clé privée minisign (sans mot de passe) : obligatoire
-#   CURSEFORGE_KEY     clé API CurseForge (contenu de misty-rust/curseforge.key) : obligatoire
+#   CURSEFORGE_KEY     clé API CurseForge (contenu de curseforge.key, à la racine du repo) : obligatoire
 #   CODESIGN_PFX       certificat « CN=ENDERR.WIN » en .pfx encodé en base64 : facultatif
 #   CODESIGN_PASSWORD  mot de passe du .pfx : facultatif
 name: Release
@@ -38,7 +38,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $cargo = Get-Content misty-rust/Cargo.toml -Raw
+          $cargo = Get-Content Cargo.toml -Raw
           if ($cargo -notmatch '(?m)^version = "([^"]+)"') { throw "Version introuvable dans Cargo.toml" }
           $version = $Matches[1]
           $tag = "${{ github.ref_name }}"
@@ -59,7 +59,7 @@ jobs:
           if (-not $env:MINISIGN_KEY) { throw "Secret MINISIGN_KEY absent : la release ne pourrait pas être signée" }
           if (-not $env:CURSEFORGE_KEY) { throw "Secret CURSEFORGE_KEY absent : CurseForge ne marcherait pas dans cette version" }
           # lue par build.rs, ignorée par git
-          [IO.File]::WriteAllText("$PWD/misty-rust/curseforge.key", $env:CURSEFORGE_KEY.Trim())
+          [IO.File]::WriteAllText("$PWD/curseforge.key", $env:CURSEFORGE_KEY.Trim())
           # certificat de signature de code, cherché par installer/build.ps1 (sinon l'exe n'est pas signé)
           if ($env:CODESIGN_PFX) {
             $pfx = Join-Path $env:RUNNER_TEMP "signature.pfx"
@@ -75,7 +75,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: misty-rust
           key: release
 
       - name: Inno Setup
@@ -115,7 +114,7 @@ jobs:
 
           # la signature doit passer avec la clé publique intégrée au launcher, sinon personne ne
           # pourrait installer cette mise à jour
-          $appInfo = Get-Content misty-rust/src/services/app_info.rs -Raw
+          $appInfo = Get-Content crates/misty-core/src/systeme/app_info.rs -Raw
           if ($appInfo -notmatch 'CLE_PUBLIQUE_MAJ: &str = "([^"]+)"') { throw "CLE_PUBLIQUE_MAJ introuvable dans app_info.rs" }
           & $minisign -Vm $zip -P $Matches[1]
           if ($LASTEXITCODE -ne 0) { throw "La signature ne correspond pas à CLE_PUBLIQUE_MAJ : MINISIGN_KEY n'est pas la bonne clé" }

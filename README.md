@@ -35,27 +35,38 @@ Updates install themselves afterwards.
 ## 🗂️ Project structure
 
 ```
+Cargo.toml             Cargo workspace (version, shared dependencies, build profiles)
 CHANGELOG.md           patch notes (embedded in the exe)
+curseforge.key         CurseForge API key (private, ignored by git)
 installer/             release script (build.ps1) + Inno Setup installer (Misty.iss)
+.github/workflows/     CI (format, clippy, tests) and signed releases from a version tag
 misty-client/          Mistly Client (submodule → Misty-MC/Misty-Client): the in-game Fabric mod, used by the tests
-misty-rust/
-├── build.rs           embeds the icon, CurseForge key and changelog
-├── misty-ui/          crate that compiles the Slint interface (kept apart so Rust edits rebuild fast)
-├── assets/            icon, Silkscreen pixel font (OFL), flags
-├── lang/              translations (en, fr, es, it, ru), embedded in the exe
-├── ui/                Slint interface (theme, widgets, state, one file per page)
-└── src/
-    ├── main.rs        startup
-    ├── ms_login.rs    Microsoft sign-in window (subprocess "Misty.exe --ms-login")
-    ├── ui/            code behind each page
-    ├── minecraft/     game install and launch (versions, Java, loaders)
-    └── services/      logic without UI (profiles, content, Modrinth, CurseForge,
-                       modpacks, skins, storage, updates, settings, Discord…)
+crates/
+├── misty-core/        all the logic, no UI and no Slint (cargo test -p misty-core)
+│   ├── build.rs       embeds the CurseForge key
+│   ├── lang/          translations (en, fr, es, it, pt, ru), embedded in the exe
+│   └── src/
+│       ├── auth/      Microsoft accounts, token vault (Windows Credential Manager)
+│       ├── minecraft/ game install and launch (versions, Java, loaders), profiles, Mistly Client
+│       ├── contenu/   Modrinth, CurseForge, mods, modpacks, texture packs, export, sharing
+│       ├── social/    friends, presence, Discord, offline names, Horizon
+│       ├── systeme/   paths, settings, storage, updates, logs, translations, HTTP, downloads
+│       └── media/     skins, in-game music, texture categories
+├── misty-ui/          Slint interface (ui/*.slint), its own crate so Rust edits rebuild fast
+└── misty-app/         the app, builds Misty.exe
+    ├── build.rs       embeds the icon and the changelog
+    ├── assets/        icon, Silkscreen pixel font (OFL), flags, cursors
+    └── src/
+        ├── main.rs    startup
+        ├── ms_login.rs  Microsoft sign-in window (subprocess "Misty.exe --ms-login")
+        └── ui/        code behind each page
 ```
 
-The version comes from `misty-rust/Cargo.toml` only: the app and `installer/build.ps1` both read it there, and the release tag (without `v`) must match it.
+The version comes from the root `Cargo.toml` only (`[workspace.package]`): the app, `installer/build.ps1` and the release workflow all read it there, and the release tag (without `v`) must match it.
 
-User data lives in `%LOCALAPPDATA%\Misty\` (`data.txt` settings, `msa.json` Microsoft accounts (names only: the sign-in tokens are kept in the Windows Credential Manager, one `msa-<uuid>.Misty` entry per account), `instances/<id>/` profiles, plus versions, libraries, assets and Java). When a key is added to or removed from `data.txt`, bump `DATA_VERSION` in `app_info.rs` and add the key to `services/settings.rs`.
+To publish a release, push a tag such as `0.4.0`: `.github/workflows/release.yml` builds the zip and the installer, signs the zip with minisign and publishes them. The launcher refuses an update whose signature or SHA-256 checksum doesn't match.
+
+User data lives in `%LOCALAPPDATA%\Misty\` (`data.txt` settings, `msa.json` Microsoft accounts (names only: the sign-in tokens are kept in the Windows Credential Manager, one `msa-<uuid>.Misty` entry per account), `instances/<id>/` profiles, plus versions, libraries, assets and Java). When a key is added to or removed from `data.txt`, bump `DATA_VERSION` in `app_info.rs` and add the key to `crates/misty-core/src/systeme/settings.rs`.
 
 ## 📄 License
 
