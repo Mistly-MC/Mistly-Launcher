@@ -9,6 +9,7 @@
 //! La fenêtre web tourne dans un sous-processus (`Misty.exe --ms-login`), car l'interface Slint
 //! et la WebView ne peuvent pas partager la même boucle d'événements.
 
+use super::coffre::{self, Coffre, Secrets};
 use super::{http, loc, paths, settings};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -37,19 +38,38 @@ pub struct Session {
 }
 
 /// Un compte Microsoft mis en cache.
-#[derive(Serialize, Deserialize, Default, Clone)]
+///
+/// Les jetons ne sont jamais écrits dans msa.json : ils vont dans le coffre (Gestionnaire
+/// d'identifiants Windows, voir `coffre`). Les anciens msa.json qui en contiennent encore sont
+/// migrés à la première lecture.
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
 struct Cache {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     refresh_token: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     mc_token: String,
+    #[serde(default)]
     mc_expire: i64,
+    #[serde(default)]
     pseudo: String,
+    #[serde(default)]
     uuid: String,
+    #[serde(default)]
     xuid: String,
+}
+
+impl Cache {
+    fn secrets(&self) -> Secrets {
+        Secrets {
+            refresh_token: self.refresh_token.clone(),
+            mc_token: self.mc_token.clone(),
+        }
+    }
 }
 
 /// Contenu de DataDir\msa.json : tous les comptes + celui qui est utilisé.
 /// (L'ancien format, avec un seul compte, est encore lu.)
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
 struct Fichier {
     #[serde(default)]
     actif: String,
@@ -75,17 +95,15 @@ fn fichier_cache() -> std::path::PathBuf {
     paths::data_dir().join("msa.json")
 }
 
-fn lire_fichier() -> Fichier {
-    let Ok(texte) = std::fs::read_to_string(fichier_cache()) else {
-        return Fichier::default();
-    };
-    if let Ok(f) = serde_json::from_str::<Fichier>(&texte) {
+/// Lit msa.json (nouveau ou ancien format), sans les jetons.
+fn analyser(texte: &str) -> Fichier {
+    if let Ok(f) = serde_json::from_str::<Fichier>(texte) {
         if !f.comptes.is_empty() {
             return f;
         }
     }
     // Ancien format : un seul compte à la racine
-    match serde_json::from_str::<Cache>(&texte) {
+    match serde_json::from_str::<Cache>(texte) {
         Ok(c) if !c.uuid.is_empty() => Fichier {
             actif: c.uuid.clone(),
             comptes: vec![c],
@@ -94,11 +112,79 @@ fn lire_fichier() -> Fichier {
     }
 }
 
+/// Range dans le coffre les jetons encore présents dans `f` et les retire de `f`.
+/// Un compte dont le coffre refuse les jetons les garde dans le fichier : rien n'est perdu.
+/// Renvoie true si `f` a changé.
+fn ranger_jetons(f: &mut Fichier, coffre: &dyn Coffre) -> bool {
+    let mut change = false;
+    for c in f.comptes.iter_mut().filter(|c| !c.secrets().est_vide()) {
+        match coffre.ecrire(&c.uuid, &c.secrets()) {
+            Ok(()) => {
+                c.refresh_token.clear();
+                c.mc_token.clear();
+                change = true;
+            }
+            Err(e) => super::journal::info(&format!(
+                "Jetons du compte {} gardés dans msa.json (coffre indisponible : {e})",
+                c.pseudo
+            )),
+        }
+    }
+    change
+}
+
+/// Lecture de msa.json, avec la migration des anciens fichiers : s'il contient encore des jetons,
+/// ils passent dans le coffre. Renvoie le fichier sans jetons, et son nouveau texte s'il faut le
+/// réécrire.
+fn lire_et_migrer(texte: &str, coffre: &dyn Coffre) -> (Fichier, Option<String>) {
+    let mut f = analyser(texte);
+    let reecrire = ranger_jetons(&mut f, coffre)
+        .then(|| serde_json::to_string_pretty(&f).ok())
+        .flatten();
+    (f, reecrire)
+}
+
+fn lire_fichier() -> Fichier {
+    let Ok(texte) = std::fs::read_to_string(fichier_cache()) else {
+        return Fichier::default();
+    };
+    let (f, reecrire) = lire_et_migrer(&texte, coffre::coffre());
+    if let Some(nouveau) = reecrire {
+        if super::fichiers::ecrire_atomique(fichier_cache(), nouveau).is_ok() {
+            super::journal::info("Jetons Microsoft déplacés de msa.json vers le coffre de Windows");
+        }
+    }
+    f
+}
+
+/// Au démarrage : migre un ancien msa.json qui contient encore des jetons.
+pub fn migrer_jetons() {
+    let _ = lire_fichier();
+}
+
+/// Écrit msa.json. Les jetons des comptes de `f` vont d'abord dans le coffre (puis le fichier est
+/// écrit sans eux) : si le launcher s'arrête entre les deux, la prochaine lecture finit la migration.
 fn ecrire_fichier(f: &Fichier) {
+    let mut sans_jetons = Fichier {
+        actif: f.actif.clone(),
+        comptes: f.comptes.clone(),
+    };
+    ranger_jetons(&mut sans_jetons, coffre::coffre());
     let _ = super::fichiers::ecrire_atomique(
         fichier_cache(),
-        serde_json::to_string_pretty(f).unwrap_or_default(),
+        serde_json::to_string_pretty(&sans_jetons).unwrap_or_default(),
     );
+}
+
+/// Le compte avec ses jetons, relus dans le coffre.
+fn avec_jetons(mut c: Cache, coffre: &dyn Coffre) -> Cache {
+    if c.secrets().est_vide() {
+        if let Some(s) = coffre.lire(&c.uuid) {
+            c.refresh_token = s.refresh_token;
+            c.mc_token = s.mc_token;
+        }
+    }
+    c
 }
 
 /// Ajoute ou met à jour un compte, et le rend actif.
@@ -120,6 +206,7 @@ fn compte_actif() -> Option<Cache> {
         .find(|c| c.uuid == f.actif)
         .or_else(|| f.comptes.first())
         .cloned()
+        .map(|c| avec_jetons(c, coffre::coffre()))
 }
 
 /// Tous les comptes Microsoft connus.
@@ -164,6 +251,7 @@ pub async fn ajouter() -> anyhow::Result<Session> {
 pub fn oublier(uuid: &str) {
     let mut f = lire_fichier();
     f.comptes.retain(|c| c.uuid != uuid);
+    coffre::coffre().supprimer(uuid);
     if f.actif == uuid {
         f.actif = f
             .comptes
@@ -225,6 +313,7 @@ pub async fn session_pour_jouer() -> Option<Session> {
     let Some(cache) = f.comptes.iter().find(|c| c.uuid == session.uuid).cloned() else {
         return Some(session);
     };
+    let cache = avec_jetons(cache, coffre::coffre());
     // le jeton du cache (le même, ou un plus récent renouvelé entre-temps) tient encore assez
     if cache.mc_expire > maintenant + MARGE && !cache.mc_token.is_empty() {
         let s = Session {
@@ -263,6 +352,9 @@ pub fn deconnecter() {
 
 /// Déconnexion totale : supprime aussi le compte mis en cache.
 pub fn deconnexion_totale() -> anyhow::Result<()> {
+    for c in lire_fichier().comptes {
+        coffre::coffre().supprimer(&c.uuid);
+    }
     let _ = std::fs::remove_file(fichier_cache());
     if dossier_webview().exists() {
         std::fs::remove_dir_all(dossier_webview())?;
@@ -435,4 +527,66 @@ pub fn uuid_hors_ligne(pseudo: &str) -> String {
     octets[6] = (octets[6] & 0x0f) | 0x30;
     octets[8] = (octets[8] & 0x3f) | 0x80;
     hex::encode(octets)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::coffre::CoffreMemoire;
+
+    /// msa.json écrit par les versions qui gardaient les jetons dans le fichier
+    const ANCIEN_MSA: &str = r#"{
+  "actif": "uuid-b",
+  "comptes": [
+    { "refresh_token": "M.R-a", "mc_token": "eyJ-a", "mc_expire": 1700000000, "pseudo": "Alice", "uuid": "uuid-a", "xuid": "1" },
+    { "refresh_token": "M.R-b", "mc_token": "eyJ-b", "mc_expire": 1700000001, "pseudo": "Bob", "uuid": "uuid-b", "xuid": "2" }
+  ]
+}"#;
+
+    #[test]
+    fn migration_deplace_les_jetons_dans_le_coffre() {
+        let coffre = CoffreMemoire::default();
+        let (f, nouveau) = lire_et_migrer(ANCIEN_MSA, &coffre);
+        let nouveau = nouveau.expect("le fichier doit être réécrit");
+        // plus aucun jeton dans le fichier…
+        assert!(!nouveau.contains("M.R-") && !nouveau.contains("eyJ-"));
+        assert!(!nouveau.contains("refresh_token") && !nouveau.contains("mc_token"));
+        // … mais les comptes et le compte actif sont gardés
+        let relu = analyser(&nouveau);
+        assert_eq!(relu, f);
+        assert_eq!(relu.actif, "uuid-b");
+        let pseudos: Vec<_> = relu.comptes.iter().map(|c| c.pseudo.as_str()).collect();
+        assert_eq!(pseudos, ["Alice", "Bob"]);
+        assert_eq!(relu.comptes[1].mc_expire, 1700000001);
+        // les jetons sont dans le coffre, un jeu par compte
+        let b = avec_jetons(relu.comptes[1].clone(), &coffre);
+        assert_eq!(
+            (b.refresh_token.as_str(), b.mc_token.as_str()),
+            ("M.R-b", "eyJ-b")
+        );
+        assert_eq!(coffre.lire("uuid-a").unwrap().refresh_token, "M.R-a");
+        // deuxième lecture : rien à migrer
+        assert!(lire_et_migrer(&nouveau, &coffre).1.is_none());
+    }
+
+    #[test]
+    fn migration_du_tres_ancien_format_a_un_compte() {
+        let coffre = CoffreMemoire::default();
+        let ancien = r#"{"refresh_token":"M.R","mc_token":"eyJ","mc_expire":5,"pseudo":"Solo","uuid":"u","xuid":"x"}"#;
+        let (f, nouveau) = lire_et_migrer(ancien, &coffre);
+        assert!(!nouveau.unwrap().contains("M.R"));
+        assert_eq!(f.actif, "u");
+        assert_eq!(coffre.lire("u").unwrap().mc_token, "eyJ");
+    }
+
+    #[test]
+    fn coffre_indisponible_ne_perd_aucun_jeton() {
+        let coffre = CoffreMemoire {
+            en_panne: true,
+            ..Default::default()
+        };
+        let (f, nouveau) = lire_et_migrer(ANCIEN_MSA, &coffre);
+        assert!(nouveau.is_none(), "le fichier ne doit pas être réécrit");
+        assert_eq!(f.comptes[0].refresh_token, "M.R-a");
+    }
 }

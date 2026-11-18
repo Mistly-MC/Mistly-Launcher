@@ -55,7 +55,7 @@ misty-rust/
 
 The version comes from `misty-rust/Cargo.toml` only: the app and `installer/build.ps1` both read it there, and the release tag (without `v`) must match it.
 
-User data lives in `%LOCALAPPDATA%\Misty\` (`data.txt` settings, `msa.json` Microsoft account, `instances/<id>/` profiles, plus versions, libraries, assets and Java). When a key is added to or removed from `data.txt`, bump `DATA_VERSION` in `app_info.rs` and add the key to `services/settings.rs`.
+User data lives in `%LOCALAPPDATA%\Misty\` (`data.txt` settings, `msa.json` Microsoft accounts (names only: the sign-in tokens are kept in the Windows Credential Manager, one `msa-<uuid>.Misty` entry per account), `instances/<id>/` profiles, plus versions, libraries, assets and Java). When a key is added to or removed from `data.txt`, bump `DATA_VERSION` in `app_info.rs` and add the key to `services/settings.rs`.
 
 ## 📄 License
 

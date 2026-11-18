@@ -6,6 +6,7 @@ pub mod amis;
 pub mod app_info;
 pub mod catalogue;
 pub mod client;
+pub mod coffre;
 pub mod content;
 pub mod curseforge;
 pub mod discord;

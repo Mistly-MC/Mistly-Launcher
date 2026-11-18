@@ -51,6 +51,8 @@ uuid = { version = "1", features = ["v4"] }
 # Connexion Microsoft (fenêtre web lancée dans un sous-processus)
 wry = { version = "0.57", default-features = false }
 winit = "0.30"
+# Jetons Microsoft dans le Gestionnaire d'identifiants Windows (services/account.rs)
+keyring = "4"
 winreg = "0.56"
 mslnk = "0.1"
 windows-sys = { version = "0.61", features = ["Win32_System_SystemInformation", "Win32_Foundation", "Win32_Graphics_Dwm", "Win32_System_Threading"] }

@@ -72,6 +72,8 @@ fn main() {
         services::app_info::VERSION,
         services::system_info::version_windows()
     ));
+    // anciens msa.json : les jetons Microsoft passent dans le Gestionnaire d'identifiants
+    services::account::migrer_jetons();
     services::telemetry::init(runtime.handle().clone());
     services::presence::demarrer(runtime.handle());
     services::musique::demarrer();
