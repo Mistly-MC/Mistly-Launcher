@@ -5,11 +5,15 @@
 //! dossier dans data.txt (clé Suppr) puis lance le nouvel exe. Au démarrage suivant, le nouvel exe
 //! supprime l'ancien dossier et met à jour le raccourci.
 //!
+//! Vérification : avant l'extraction, le zip doit correspondre à `Misty-x.y.z.zip.sha256` et être
+//! signé (`Misty-x.y.z.zip.minisig`) par la clé `app_info::CLE_PUBLIQUE_MAJ`. Sinon il est supprimé
+//! et rien n'est installé. Ces deux fichiers sont publiés par `.github/workflows/release.yml`.
+//!
 //! Secours : le site garde une copie de la dernière version. Si l'API GitHub ne répond pas (quota,
 //! panne), la version vient de `/api/latest` ; si le téléchargement depuis GitHub échoue, le zip
 //! vient de `/download/portable`.
 
-use super::{app_info, http, paths, settings, shortcut};
+use super::{app_info, http, journal, loc, paths, settings, shortcut};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -313,6 +317,77 @@ async fn telecharger(
     Ok(())
 }
 
+/// Vérifie un zip de mise à jour avant de l'extraire : son empreinte SHA-256 (`Misty-x.y.z.zip.sha256`,
+/// au format de `sha256sum`), puis sa signature minisign (`Misty-x.y.z.zip.minisig`) avec
+/// `cle_publique`. L'erreur est le message traduit à montrer au joueur.
+pub fn verifier_archive(
+    octets: &[u8],
+    sha256: &str,
+    signature: &str,
+    cle_publique: &str,
+) -> anyhow::Result<()> {
+    use sha2::{Digest, Sha256};
+    let attendu = sha256
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if attendu != hex::encode(Sha256::digest(octets)) {
+        anyhow::bail!(loc::t("Maj_Verif_Empreinte"));
+    }
+    let signature_valide =
+        minisign_verify::PublicKey::from_base64(cle_publique.trim()).and_then(|cle| {
+            let sig = minisign_verify::Signature::decode(signature)?;
+            // pas d'ancien format de signature (sans pré-hachage) : release.yml n'en produit pas
+            cle.verify(octets, &sig, false)
+        });
+    if let Err(e) = signature_valide {
+        journal::info(&format!("Signature de la mise à jour refusée : {e}"));
+        anyhow::bail!(loc::t("Maj_Verif_Signature"));
+    }
+    Ok(())
+}
+
+/// `Misty-x.y.z.zip.sha256` et `.minisig`, toujours pris sur la release GitHub (même quand le zip
+/// vient du site) : une copie du zip ne peut pas fournir ses propres preuves.
+async fn telecharger_preuves(version: &str) -> anyhow::Result<(String, String)> {
+    let base = format!(
+        "https://github.com/{}/releases/download/{version}/Misty-{version}.zip",
+        app_info::GITHUB_REPO
+    );
+    let (url_sha256, url_signature) = (format!("{base}.sha256"), format!("{base}.minisig"));
+    let (sha256, signature) =
+        futures::try_join!(http::get_text(&url_sha256), http::get_text(&url_signature)).map_err(
+            |e| {
+                journal::info(&format!("Preuves de la mise à jour introuvables : {e:#}"));
+                anyhow::anyhow!(loc::t("Maj_Verif_Fichiers"))
+            },
+        )?;
+    Ok((sha256, signature))
+}
+
+/// Vérifie le zip téléchargé ; s'il est refusé, il est supprimé.
+async fn verifier_zip(zip: &Path, version: &str) -> anyhow::Result<()> {
+    let resultat = async {
+        let (sha256, signature) = telecharger_preuves(version).await?;
+        let zip = zip.to_path_buf();
+        tokio::task::spawn_blocking(move || {
+            verifier_archive(
+                &fs::read(&zip)?,
+                &sha256,
+                &signature,
+                app_info::CLE_PUBLIQUE_MAJ,
+            )
+        })
+        .await?
+    }
+    .await;
+    if resultat.is_err() {
+        let _ = fs::remove_file(zip);
+    }
+    resultat
+}
+
 /// Télécharge, extrait et lance la nouvelle version. L'appelant doit ensuite quitter l'application.
 pub async fn installer(
     release: &ReleaseInfo,
@@ -322,14 +397,18 @@ pub async fn installer(
     let zip = racine.join(format!("Misty-{}.zip", release.version));
     let nouveau_dossier = racine.join(format!("Misty-{}", release.version));
 
-    // chaque source à son tour : GitHub, puis la copie du site
+    // chaque source à son tour : GitHub, puis la copie du site. Un zip refusé à la vérification
+    // est supprimé et la source suivante est essayée ; rien n'est extrait sans vérification.
     let mut erreur = None;
     for url in &release.sources {
         match telecharger(url, &release.version, release.taille, &zip, &avancement).await {
-            Ok(()) => {
-                erreur = None;
-                break;
-            }
+            Ok(()) => match verifier_zip(&zip, &release.version).await {
+                Ok(()) => {
+                    erreur = None;
+                    break;
+                }
+                Err(e) => erreur = Some(e),
+            },
             Err(e) => erreur = Some(e.context(url.clone())),
         }
     }
@@ -465,6 +544,54 @@ mod tests {
         assert!(est_plus_recente("0.3.7-rc1", "0.3.7-beta3"));
         assert!(!est_plus_recente("0.3.7-beta.1", "0.3.7"));
         assert!(est_plus_recente("v0.3.8", "0.3.7"));
+    }
+
+    /// Une archive signée comme le fait release.yml (clé jetable) : (zip, .sha256, .minisig, clé publique).
+    fn archive_signee(octets: &[u8]) -> (Vec<u8>, String, String, String) {
+        use sha2::{Digest, Sha256};
+        let paire = minisign::KeyPair::generate_unencrypted_keypair().unwrap();
+        let signature = minisign::sign(Some(&paire.pk), &paire.sk, octets, None, None)
+            .unwrap()
+            .into_string();
+        let sha256 = format!("{}  Misty-9.9.9.zip\n", hex::encode(Sha256::digest(octets)));
+        (octets.to_vec(), sha256, signature, paire.pk.to_base64())
+    }
+
+    #[test]
+    fn archive_verifiee_acceptee() {
+        let (zip, sha256, signature, cle) = archive_signee(b"PK une archive");
+        verifier_archive(&zip, &sha256, &signature, &cle).unwrap();
+        // empreinte en majuscules, sans nom de fichier : acceptée aussi
+        verifier_archive(&zip, &sha256[..64].to_uppercase(), &signature, &cle).unwrap();
+    }
+
+    #[test]
+    fn mauvaise_empreinte_refusee() {
+        let (zip, _, signature, cle) = archive_signee(b"PK une archive");
+        let faux = format!("{}  Misty-9.9.9.zip", "0".repeat(64));
+        let e = verifier_archive(&zip, &faux, &signature, &cle).unwrap_err();
+        assert_eq!(e.to_string(), loc::t("Maj_Verif_Empreinte"));
+        let e = verifier_archive(&zip, "", &signature, &cle).unwrap_err();
+        assert_eq!(e.to_string(), loc::t("Maj_Verif_Empreinte"));
+    }
+
+    #[test]
+    fn signature_invalide_refusee() {
+        let (zip, sha256, signature, cle) = archive_signee(b"PK une archive");
+        let refus = loc::t("Maj_Verif_Signature");
+        // signature d'une autre clé (zip signé par quelqu'un d'autre que l'équipe)
+        let (_, _, _, autre_cle) = archive_signee(b"PK une archive");
+        let e = verifier_archive(&zip, &sha256, &signature, &autre_cle).unwrap_err();
+        assert_eq!(e.to_string(), refus);
+        // signature d'un autre fichier, avec une empreinte recalculée pour le zip modifié
+        let (modifie, sha_modifie, _, _) = archive_signee(b"PK une archive piegee");
+        let e = verifier_archive(&modifie, &sha_modifie, &signature, &cle).unwrap_err();
+        assert_eq!(e.to_string(), refus);
+        // signature illisible, ou clé absente (CLE_PUBLIQUE_MAJ vide)
+        let e = verifier_archive(&zip, &sha256, "pas une signature", &cle).unwrap_err();
+        assert_eq!(e.to_string(), refus);
+        let e = verifier_archive(&zip, &sha256, &signature, "").unwrap_err();
+        assert_eq!(e.to_string(), refus);
     }
 
     /// Secours par le site (réseau) : `cargo test secours_site -- --ignored`.

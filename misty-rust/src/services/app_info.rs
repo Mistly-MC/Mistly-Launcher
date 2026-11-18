@@ -6,6 +6,18 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Version du format de data.txt. À incrémenter quand on ajoute/retire une clé.
 pub const DATA_VERSION: &str = "1.3.5";
 pub const GITHUB_REPO: &str = "Misty-MC/Misty-Launcher";
+
+/// Clé publique minisign des releases (deuxième ligne de `misty.pub`). La clé privée n'existe que
+/// dans le secret GitHub `MINISIGN_KEY`, utilisé par `.github/workflows/release.yml`. La mise à
+/// jour automatique refuse tout zip qui n'est pas signé par cette clé (services/update.rs).
+pub const CLE_PUBLIQUE_MAJ: &str = "";
+
+// Sans clé, toutes les mises à jour seraient refusées : une release ne doit pas partir comme ça.
+#[cfg(not(debug_assertions))]
+const _: () = assert!(
+    !CLE_PUBLIQUE_MAJ.is_empty(),
+    "CLE_PUBLIQUE_MAJ est vide dans app_info.rs : y coller la clé publique minisign"
+);
 pub const DISCORD_APP_ID: &str = "1536551827640680528";
 pub const RAM_PAR_DEFAUT_MO: u32 = 4096;
 
