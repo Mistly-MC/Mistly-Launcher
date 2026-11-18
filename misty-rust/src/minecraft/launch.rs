@@ -107,6 +107,7 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         // Lu par Misty Client (le mod) pour trouver client.json : voir services::client
         format!("-Dmisty.launcher.dir={}", paths::data_dir().to_string_lossy()),
     ];
+    args.extend(protection_base64(version::java_requis(&v.json).1).map(String::from));
 
     let arguments = v.json.get("arguments");
     match arguments.and_then(|a| a.get("jvm")).and_then(Value::as_array) {
@@ -140,6 +141,15 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
     Ok(commande)
 }
 
+/// Java4Shell (CVE-2026-114938) : le décodeur Base64 accéléré de Java (instructions AVX-512) a une
+/// faille qu'un serveur peut exploiter pendant un ping ou une connexion (exécution de code à
+/// distance). On désactive ce décodeur accéléré, comme le recommande l'avis de sécurité, en attendant
+/// un Java corrigé. L'option n'existe qu'à partir de Java 11 : Java 8 (anciennes versions du jeu),
+/// qui n'a pas ce décodeur, refuserait de démarrer avec une option inconnue.
+fn protection_base64(java_majeure: u32) -> Option<&'static str> {
+    (java_majeure >= 11).then_some("-XX:-UseBASE64Intrinsics")
+}
+
 /// Arguments du JSON (texte simple, ou objet avec règles et valeur(s)).
 fn lire_arguments(liste: &[Value]) -> Vec<String> {
     let mut resultat = Vec::new();
@@ -160,4 +170,18 @@ fn lire_arguments(liste: &[Value]) -> Vec<String> {
         }
     }
     resultat
+}
+
+#[cfg(test)]
+mod tests {
+    use super::protection_base64;
+
+    #[test]
+    fn protection_base64_selon_java() {
+        // Java 8 ne connaît pas l'option : elle l'empêcherait de démarrer
+        assert_eq!(protection_base64(8), None);
+        for java in [11, 16, 17, 21, 25] {
+            assert_eq!(protection_base64(java), Some("-XX:-UseBASE64Intrinsics"));
+        }
+    }
 }

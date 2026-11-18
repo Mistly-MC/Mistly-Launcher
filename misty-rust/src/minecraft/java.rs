@@ -52,8 +52,11 @@ pub async fn assurer(dirs: &McDirs, composant: &str, majeure: u32, progression: 
     let url_manifeste = entree["manifest"]["url"].as_str().unwrap_or_default().to_string();
     let sha1_manifeste = entree["manifest"]["sha1"].as_str().unwrap_or_default().to_string();
 
-    // Déjà installé et à jour
-    if javaw.exists() && std::fs::read_to_string(&marqueur).ok().as_deref() == Some(sha1_manifeste.as_str()) {
+    // Déjà installé et à jour. Le marqueur dit que chaque fichier a été vérifié (SHA-1) : un ancien
+    // marqueur (le SHA-1 du manifeste seul, avant 0.3.9) fait revérifier le runtime, car une mise à
+    // jour de Mojang ne remplaçait alors que les fichiers qui avaient changé de taille
+    let attendu = marqueur_verifie(&sha1_manifeste);
+    if javaw.exists() && std::fs::read_to_string(&marqueur).ok().as_deref() == Some(attendu.as_str()) {
         return Ok(javaw);
     }
 
@@ -79,13 +82,35 @@ pub async fn assurer(dirs: &McDirs, composant: &str, majeure: u32, progression: 
             _ => {} // liens symboliques : inutiles sous Windows
         }
     }
+    // Mise à jour du runtime : un fichier déjà là mais dont le contenu a changé (même taille) est
+    // supprimé pour être retéléchargé. Sinon, l'ancien management.dll restait à côté du nouveau
+    // jvm.dll, et Java ne pouvait plus le charger.
+    let (taches, tout_remplace) = tokio::task::spawn_blocking(move || {
+        let mut tout_remplace = true;
+        for t in &taches {
+            let Some(sha1) = &t.sha1 else { continue };
+            if t.chemin.exists() && !crate::services::download::sha1_fichier(&t.chemin).is_ok_and(|h| h.eq_ignore_ascii_case(sha1)) {
+                // un fichier utilisé par une partie en cours ne peut pas être remplacé : on revérifiera
+                tout_remplace &= std::fs::remove_file(&t.chemin).is_ok();
+            }
+        }
+        (taches, tout_remplace)
+    })
+    .await?;
     telecharger_tout(taches, progression).await?;
-    std::fs::write(&marqueur, &sha1_manifeste)?;
+    if tout_remplace {
+        std::fs::write(&marqueur, &attendu)?;
+    }
 
     if !javaw.exists() {
         anyhow::bail!("Installation de Java incomplète ({composant})");
     }
     Ok(javaw)
+}
+
+/// Contenu du marqueur d'un runtime vérifié fichier par fichier, pour ce manifeste.
+fn marqueur_verifie(sha1_manifeste: &str) -> String {
+    format!("{sha1_manifeste} sha1")
 }
 
 /// java.exe à côté de javaw.exe (pour les outils en ligne de commande comme les installateurs).
@@ -95,5 +120,34 @@ pub fn java_console(javaw: &std::path::Path) -> PathBuf {
         java
     } else {
         javaw.to_path_buf()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    /// Internet et le dossier Misty : installe (ou répare) Java 25, puis vérifie chaque fichier
+    /// avec le manifeste de Mojang.
+    #[tokio::test]
+    #[ignore]
+    async fn java_25_complet() {
+        let dirs = McDirs::misty();
+        let progression: FileProgress = Arc::new(|_, _, _| {});
+        let javaw = assurer(&dirs, "java-runtime-epsilon", 25, &progression).await.unwrap();
+        let dossier = javaw.parent().unwrap().parent().unwrap().to_path_buf();
+        let tous: Value = http::get_json(RUNTIMES_URL).await.unwrap();
+        let manifeste: Value = http::get_json(tous[plateforme()]["java-runtime-epsilon"][0]["manifest"]["url"].as_str().unwrap()).await.unwrap();
+        let mut differents = Vec::new();
+        for (chemin, fichier) in manifeste["files"].as_object().unwrap() {
+            if let Some(sha1) = fichier["downloads"]["raw"]["sha1"].as_str() {
+                let local = dossier.join(chemin.replace('/', "\\"));
+                if !crate::services::download::sha1_fichier(&local).is_ok_and(|h| h.eq_ignore_ascii_case(sha1)) {
+                    differents.push(chemin.clone());
+                }
+            }
+        }
+        assert!(differents.is_empty(), "fichiers différents du manifeste : {differents:?}");
     }
 }
