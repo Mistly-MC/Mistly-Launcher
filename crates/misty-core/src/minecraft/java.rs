@@ -10,15 +10,33 @@ use std::path::PathBuf;
 const RUNTIMES_URL: &str =
     "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
+/// Plateforme dans le manifeste des runtimes Java de Mojang.
 fn plateforme() -> &'static str {
-    if cfg!(target_arch = "aarch64") {
-        "windows-arm64"
+    if cfg!(windows) {
+        if cfg!(target_arch = "aarch64") {
+            "windows-arm64"
+        } else if cfg!(target_arch = "x86") {
+            "windows-x86"
+        } else {
+            "windows-x64"
+        }
+    } else if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") {
+            "mac-os-arm64"
+        } else {
+            "mac-os"
+        }
     } else if cfg!(target_arch = "x86") {
-        "windows-x86"
+        "linux-i386"
     } else {
-        "windows-x64"
+        "linux"
     }
 }
+
+/// Java sans console qui lance le jeu : javaw.exe sous Windows, java ailleurs.
+const JAVA_JEU: &str = if cfg!(windows) { "javaw.exe" } else { "java" };
+/// Java avec console (outils en ligne de commande comme les installateurs).
+const JAVA_CONSOLE: &str = if cfg!(windows) { "java.exe" } else { "java" };
 
 /// Chemin de javaw.exe pour ce composant (téléchargé si besoin).
 pub async fn assurer(
@@ -29,7 +47,7 @@ pub async fn assurer(
 ) -> anyhow::Result<PathBuf> {
     // Même organisation que la version C# : runtime\windows-x64\<composant>
     let dossier = dirs.runtime().join(plateforme()).join(composant);
-    let javaw = dossier.join("bin").join("javaw.exe");
+    let javaw = dossier.join("bin").join(JAVA_JEU);
     let marqueur = dossier.join(".misty-version");
 
     let tous: Value = match http::get_json(RUNTIMES_URL).await {
@@ -86,8 +104,15 @@ pub async fn assurer(
 
     let manifeste: Value = http::get_json(&url_manifeste).await?;
     let mut taches = Vec::new();
+    // fichiers à rendre exécutables (bin/java…) et liens symboliques, hors Windows
+    let mut executables = Vec::new();
+    let mut liens = Vec::new();
     for (chemin, fichier) in manifeste["files"].as_object().into_iter().flatten() {
-        let destination = dossier.join(chemin.replace('/', "\\"));
+        let destination = if cfg!(windows) {
+            dossier.join(chemin.replace('/', "\\"))
+        } else {
+            dossier.join(chemin)
+        };
         match fichier["type"].as_str() {
             Some("directory") => {
                 std::fs::create_dir_all(&destination)?;
@@ -95,6 +120,9 @@ pub async fn assurer(
             Some("file") => {
                 let raw = &fichier["downloads"]["raw"];
                 if let Some(url) = raw["url"].as_str() {
+                    if fichier["executable"].as_bool() == Some(true) {
+                        executables.push(destination.clone());
+                    }
                     taches.push(Tache {
                         chemin: destination,
                         url: url.to_string(),
@@ -103,7 +131,13 @@ pub async fn assurer(
                     });
                 }
             }
-            _ => {} // liens symboliques : inutiles sous Windows
+            // liens symboliques : inutiles sous Windows
+            Some("link") => {
+                if let Some(cible) = fichier["target"].as_str() {
+                    liens.push((destination, cible.to_string()));
+                }
+            }
+            _ => {}
         }
     }
     // Mise à jour du runtime : un fichier déjà là mais dont le contenu a changé (même taille) est
@@ -125,6 +159,7 @@ pub async fn assurer(
     })
     .await?;
     telecharger_tout(taches, progression).await?;
+    preparer_unix(&executables, &liens);
     if tout_remplace {
         std::fs::write(&marqueur, &attendu)?;
     }
@@ -142,9 +177,31 @@ fn marqueur_verifie(sha1_manifeste: &str) -> String {
     format!("{sha1_manifeste} sha1")
 }
 
-/// java.exe à côté de javaw.exe (pour les outils en ligne de commande comme les installateurs).
+/// Hors Windows : rend exécutables les fichiers marqués comme tels (bin/java…) et crée les liens
+/// symboliques du runtime.
+#[cfg(unix)]
+fn preparer_unix(executables: &[PathBuf], liens: &[(PathBuf, String)]) {
+    use std::os::unix::fs::PermissionsExt;
+    for f in executables {
+        let _ = std::fs::set_permissions(f, std::fs::Permissions::from_mode(0o755));
+    }
+    for (lien, cible) in liens {
+        if lien.symlink_metadata().is_err() {
+            if let Some(parent) = lien.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::os::unix::fs::symlink(cible, lien);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn preparer_unix(_executables: &[PathBuf], _liens: &[(PathBuf, String)]) {}
+
+/// Java avec console à côté de celui du jeu (pour les outils en ligne de commande comme les
+/// installateurs) : java.exe à côté de javaw.exe sous Windows, le même ailleurs.
 pub fn java_console(javaw: &std::path::Path) -> PathBuf {
-    let java = javaw.with_file_name("java.exe");
+    let java = javaw.with_file_name(JAVA_CONSOLE);
     if java.exists() {
         java
     } else {

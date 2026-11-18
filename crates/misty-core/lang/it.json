@@ -118,6 +118,12 @@
   "Compte_VerifAge": "Questo account deve prima essere verificato per età su xbox.com.",
   "Compte_Enfant": "Questo è un account per bambini: un adulto deve aggiungerlo a una famiglia Microsoft.",
   "Compte_PasDeJeu": "Questo account non possiede Minecraft Java Edition.",
+  "Connexion_Linux_Titre": "Accedi a Microsoft",
+  "Connexion_Linux_Texte": "1. Accedi nella pagina Microsoft appena aperta nel browser. 2. Alla fine la pagina diventa bianca: copia il suo indirizzo completo (inizia con https://login.live.com/oauth20_desktop.srf?code=). 3. Incollalo qui sotto e conferma.",
+  "Connexion_Linux_Ouvrir": "Riapri la pagina di accesso",
+  "Connexion_Linux_Indice": "Incolla qui l'indirizzo della pagina bianca",
+  "Connexion_Linux_Valider": "Conferma",
+  "Connexion_Linux_Invalide": "Questo indirizzo non contiene un codice di accesso. Copia l'indirizzo completo della pagina bianca dopo aver effettuato l'accesso.",
 
   "Profil_Titre": "PROFILI",
   "Profil_InstallerModpack": "Installa un modpack",

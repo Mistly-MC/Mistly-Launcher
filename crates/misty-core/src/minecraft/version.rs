@@ -92,7 +92,7 @@ pub fn regles_ok(regles: Option<&Value>) -> bool {
 fn regle_correspond(regle: &Value) -> bool {
     if let Some(os) = regle.get("os") {
         if let Some(nom) = os.get("name").and_then(Value::as_str) {
-            if nom != "windows" {
+            if nom != super::OS_MOJANG {
                 return false;
             }
         }
@@ -232,7 +232,7 @@ pub fn bibliotheques(dirs: &McDirs, version: &Value) -> Vec<FichierLib> {
         // Ancien format : natives par système dans "classifiers"
         if let Some(classifieur) = lib
             .get("natives")
-            .and_then(|n| n.get("windows"))
+            .and_then(|n| n.get(super::OS_MOJANG))
             .and_then(Value::as_str)
         {
             let classifieur = classifieur.replace("${arch}", arch);
@@ -257,14 +257,14 @@ pub fn bibliotheques(dirs: &McDirs, version: &Value) -> Vec<FichierLib> {
 
         let artefact = downloads.and_then(|d| d.get("artifact"));
         if downloads.is_some() && artefact.is_none() {
-            continue; // seulement des classifiers sans natives pour Windows
+            continue; // seulement des classifiers sans natives pour ce système
         }
         if let Some(mut f) = fichier_depuis(dirs, nom, artefact, base) {
-            // Nouveau format (1.19+) : "...:natives-windows" est un jar normal qui contient des DLL
+            // Nouveau format (1.19+) : "...:natives-<système>" est un jar normal qui contient les natives
             if nom
                 .split(':')
                 .nth(3)
-                .is_some_and(|c| c.starts_with("natives-windows"))
+                .is_some_and(|c| c.starts_with(&format!("natives-{}", super::OS_MOJANG)))
             {
                 f.natif = true;
                 f.exclure = exclure;

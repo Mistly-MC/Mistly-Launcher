@@ -200,7 +200,7 @@ pub async fn installer(
     })
 }
 
-/// Extrait les DLL des bibliothèques natives dans `dossier`.
+/// Extrait les bibliothèques natives (DLL, .so) dans `dossier`.
 pub fn extraire_natives(libs: &[FichierLib], dossier: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(dossier)?;
     for lib in libs.iter().filter(|l| l.natif) {
@@ -223,11 +223,11 @@ pub fn extraire_natives(libs: &[FichierLib], dossier: &Path) -> anyhow::Result<(
                 // Ancien format : les fichiers sont à la racine du jar
                 dossier.join(&nom)
             } else {
-                // Nouveau format : seulement les DLL, rangées par architecture ("windows/x64/...") → on aplatit
+                // Nouveau format : seulement les natives (DLL, .so), rangées par architecture ("windows/x64/...") → on aplatit
                 let n = nom.to_lowercase();
                 let autre_arch =
                     cfg!(target_arch = "x86_64") && (n.contains("/arm64/") || n.contains("/x86/"));
-                if !n.ends_with(".dll") || autre_arch {
+                if !n.ends_with(super::EXTENSION_NATIVE) || autre_arch {
                     continue;
                 }
                 dossier.join(nom.rsplit('/').next().unwrap_or(&nom))

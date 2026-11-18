@@ -19,9 +19,22 @@ use std::process::{Command, Stdio};
 pub const SITE: &str = "https://playhorizon.dev";
 pub const GITHUB: &str = "https://github.com/horizon-rust/horizon";
 const RELEASES: &str = "https://api.github.com/repos/horizon-rust/horizon/releases?per_page=100";
-const ARCHIVE: &str = "horizon-windows-x64.zip";
-const CLIENT: &str = "horizon-client.exe";
-const PREPARE: &str = "horizon-prepare.exe";
+/// Archive d'un build pour ce système, et ses exécutables.
+const ARCHIVE: &str = if cfg!(windows) {
+    "horizon-windows-x64.zip"
+} else {
+    "horizon-linux-x86_64.tar.gz"
+};
+const CLIENT: &str = if cfg!(windows) {
+    "horizon-client.exe"
+} else {
+    "horizon-client"
+};
+const PREPARE: &str = if cfg!(windows) {
+    "horizon-prepare.exe"
+} else {
+    "horizon-prepare"
+};
 
 /// Un build publié sur GitHub.
 #[derive(Clone, Debug)]
@@ -123,7 +136,7 @@ fn chercher(dossier: &Path, nom: &str, profondeur: u32) -> Option<PathBuf> {
 /// Télécharge et extrait un build (`avancement` : de 0 à 1).
 pub async fn installer_build(build: &Build, avancement: impl Fn(f32)) -> anyhow::Result<()> {
     let cible = dossier_builds().join(&build.tag);
-    let archive = dossier().join(format!("{}.zip", build.tag));
+    let archive = dossier().join(format!("{}-{ARCHIVE}", build.tag));
     std::fs::create_dir_all(dossier())?;
     let reponse = http::client()
         .get(&build.url)
@@ -143,11 +156,7 @@ pub async fn installer_build(build: &Build, avancement: impl Fn(f32)) -> anyhow:
     drop(fichier);
     let _ = std::fs::remove_dir_all(&cible);
     std::fs::create_dir_all(&cible)?;
-    let resultat = (|| -> anyhow::Result<()> {
-        let mut zip = zip::ZipArchive::new(std::fs::File::open(&archive)?)?;
-        zip.extract(&cible)?;
-        Ok(())
-    })();
+    let resultat = crate::systeme::archive::extraire(&archive, &cible);
     let _ = std::fs::remove_file(&archive);
     resultat?;
     anyhow::ensure!(

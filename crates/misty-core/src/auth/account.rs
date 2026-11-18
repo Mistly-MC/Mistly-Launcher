@@ -29,6 +29,20 @@ pub fn url_connexion() -> String {
     )
 }
 
+/// Lit un paramètre d'une URL (après "?" ou "#") : le code de l'adresse de fin de connexion
+/// (`REDIRECT?code=…`), ou l'erreur renvoyée par Microsoft.
+pub fn parametre_url(url: &str, nom: &str) -> Option<String> {
+    let requete = url.trim().split_once(['?', '#'])?.1;
+    requete.split(['&', '#']).find_map(|p| {
+        let (k, v) = p.split_once('=')?;
+        (k == nom).then(|| {
+            urlencoding::decode(&v.replace('+', " "))
+                .map(|s| s.into_owned())
+                .unwrap_or_default()
+        })
+    })
+}
+
 /// Session de jeu Minecraft.
 #[derive(Clone, Debug)]
 pub struct Session {

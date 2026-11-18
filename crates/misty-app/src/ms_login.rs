@@ -52,10 +52,10 @@ impl ApplicationHandler<Fin> for Connexion {
                 return true; // on laisse la page de Microsoft naviguer
             }
             if !deja_fini.swap(true, Ordering::SeqCst) {
-                let fin = match parametre(&url, "code") {
+                let fin = match account::parametre_url(&url, "code") {
                     Some(code) => Fin::Code(code),
                     None => Fin::Erreur(
-                        parametre(&url, "error_description")
+                        account::parametre_url(&url, "error_description")
                             .unwrap_or_else(|| loc::t("Compte_Annule")),
                     ),
                 };
@@ -109,17 +109,4 @@ pub fn executer() {
         fenetre: None,
     };
     let _ = boucle.run_app(&mut app);
-}
-
-/// Lit un paramètre de l'URL (après "?" ou "#").
-fn parametre(url: &str, nom: &str) -> Option<String> {
-    let requete = url.split_once(['?', '#'])?.1;
-    requete.split(['&', '#']).find_map(|p| {
-        let (k, v) = p.split_once('=')?;
-        (k == nom).then(|| {
-            urlencoding::decode(&v.replace('+', " "))
-                .map(|s| s.into_owned())
-                .unwrap_or_default()
-        })
-    })
 }

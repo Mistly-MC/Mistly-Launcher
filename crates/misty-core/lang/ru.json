@@ -118,6 +118,12 @@
   "Compte_VerifAge": "Этот аккаунт сначала должен пройти проверку возраста на xbox.com.",
   "Compte_Enfant": "Это детский аккаунт: взрослый должен добавить его в семейную группу Microsoft.",
   "Compte_PasDeJeu": "У этого аккаунта нет Minecraft Java Edition.",
+  "Connexion_Linux_Titre": "Вход в Microsoft",
+  "Connexion_Linux_Texte": "1. Войди на странице Microsoft, которая открылась в браузере. 2. В конце страница станет пустой: скопируй её полный адрес (он начинается с https://login.live.com/oauth20_desktop.srf?code=). 3. Вставь его ниже и подтверди.",
+  "Connexion_Linux_Ouvrir": "Снова открыть страницу входа",
+  "Connexion_Linux_Indice": "Вставь сюда адрес пустой страницы",
+  "Connexion_Linux_Valider": "Подтвердить",
+  "Connexion_Linux_Invalide": "В этом адресе нет кода входа. Скопируй полный адрес пустой страницы после входа.",
 
   "Profil_Titre": "ПРОФИЛИ",
   "Profil_InstallerModpack": "Установить модпак",

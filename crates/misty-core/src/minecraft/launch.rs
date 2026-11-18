@@ -88,8 +88,8 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         ("natives_directory", natives.to_string_lossy().to_string()),
         ("launcher_name", "Mistly".into()),
         ("launcher_version", app_info::VERSION.into()),
-        ("classpath", classpath.join(";")),
-        ("classpath_separator", ";".into()),
+        ("classpath", classpath.join(super::SEPARATEUR_CLASSPATH)),
+        ("classpath_separator", super::SEPARATEUR_CLASSPATH.into()),
         (
             "library_directory",
             dirs.libraries().to_string_lossy().to_string(),
@@ -139,7 +139,9 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
         Some(jvm) => args.extend(lire_arguments(jvm).iter().map(|a| remplacer(a))),
         None => {
             // Anciennes versions : arguments Java par défaut
-            args.push("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump".into());
+            if cfg!(windows) {
+                args.push("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump".into());
+            }
             args.push(remplacer("-Djava.library.path=${natives_directory}"));
             args.push("-cp".into());
             args.push(remplacer("${classpath}"));

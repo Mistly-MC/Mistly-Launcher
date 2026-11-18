@@ -21,6 +21,27 @@ pub use erreur::InstallErreur;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+/// Nom du système dans les JSON de Mojang (règles « os », natives de l'ancien format).
+pub const OS_MOJANG: &str = if cfg!(windows) {
+    "windows"
+} else if cfg!(target_os = "macos") {
+    "osx"
+} else {
+    "linux"
+};
+
+/// Séparateur des chemins du classpath Java.
+pub const SEPARATEUR_CLASSPATH: &str = if cfg!(windows) { ";" } else { ":" };
+
+/// Extension des bibliothèques natives (LWJGL…) extraites avant le lancement.
+pub const EXTENSION_NATIVE: &str = if cfg!(windows) {
+    ".dll"
+} else if cfg!(target_os = "macos") {
+    ".dylib"
+} else {
+    ".so"
+};
+
 /// Avancement des téléchargements : (fichiers faits, total, nom du fichier en cours).
 pub type FileProgress = Arc<dyn Fn(usize, usize, &str) + Send + Sync>;
 

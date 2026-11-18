@@ -9,12 +9,10 @@
 
 #[cfg(windows)]
 mod ms_login;
+// hors Windows : page de connexion dans le navigateur, adresse de fin collée dans une fenêtre Slint
 #[cfg(not(windows))]
-mod ms_login {
-    pub fn executer() {
-        println!("ERREUR:Connexion Microsoft indisponible sur cette plateforme");
-    }
-}
+#[path = "ms_login_linux.rs"]
+mod ms_login;
 mod ui;
 
 use misty_core::systeme::contexte::{self, Contexte};

@@ -31,7 +31,7 @@ pub fn racine() -> Option<PathBuf> {
 
 /// Chemin du lanceur fixe (installation seulement, pas un exe de développement).
 pub fn chemin() -> Option<PathBuf> {
-    racine().map(|r| r.join("Misty.exe"))
+    racine().map(|r| r.join(paths::NOM_EXE))
 }
 
 /// Ce que les raccourcis doivent viser : le lanceur s'il existe, sinon l'exe actuel.
@@ -57,7 +57,7 @@ fn plus_recente(dossier: &Path) -> Option<(String, PathBuf)> {
         .filter_map(|e| {
             let nom = e.file_name().to_string_lossy().to_string();
             let version = nom.strip_prefix(PREFIXE)?.to_string();
-            let exe = e.path().join("Misty.exe");
+            let exe = e.path().join(paths::NOM_EXE);
             exe.is_file().then_some((version, exe))
         })
         .max_by(|a, b| update::comparer_versions(&a.0, &b.0))
@@ -99,6 +99,8 @@ pub fn identifier_processus() {}
 /// Crée (ou met à jour) le lanceur fixe à partir de l'exe actuel. `forcer` : après une mise à jour,
 /// le lanceur est remplacé même s'il existe déjà.
 pub fn installer(forcer: bool) {
+    // Linux : entrée du menu des applications (vise le lanceur fixe, icône de la version)
+    crate::systeme::shortcut::menu_applications();
     let (Some(lanceur), Some(racine)) = (chemin(), racine()) else {
         return;
     };
@@ -110,7 +112,7 @@ pub fn installer(forcer: bool) {
         return;
     }
     // le nouveau à côté, puis il prend la place de l'ancien (qui peut être en train de se fermer)
-    let temporaire = racine.join("Misty.exe.new");
+    let temporaire = racine.join(format!("{}.new", paths::NOM_EXE));
     let _ = std::fs::remove_file(&temporaire);
     if std::fs::hard_link(&exe, &temporaire).is_err() && std::fs::copy(&exe, &temporaire).is_err() {
         return;

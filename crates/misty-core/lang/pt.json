@@ -118,6 +118,12 @@
   "Compte_VerifAge": "Esta conta tem primeiro de ter a idade verificada em xbox.com.",
   "Compte_Enfant": "Esta é uma conta de criança: um adulto tem de a adicionar a uma família Microsoft.",
   "Compte_PasDeJeu": "Esta conta não tem o Minecraft Java Edition.",
+  "Connexion_Linux_Titre": "Iniciar sessão na Microsoft",
+  "Connexion_Linux_Texte": "1. Inicia sessão na página da Microsoft que acabou de abrir no teu navegador. 2. No fim, a página fica em branco: copia o endereço completo (começa por https://login.live.com/oauth20_desktop.srf?code=). 3. Cola-o abaixo e confirma.",
+  "Connexion_Linux_Ouvrir": "Abrir de novo a página de início de sessão",
+  "Connexion_Linux_Indice": "Cola aqui o endereço da página em branco",
+  "Connexion_Linux_Valider": "Confirmar",
+  "Connexion_Linux_Invalide": "Este endereço não tem código de início de sessão. Copia o endereço completo da página em branco depois de iniciares sessão.",
 
   "Profil_Titre": "PERFIS",
   "Profil_InstallerModpack": "Instalar um modpack",

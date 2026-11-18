@@ -46,6 +46,18 @@ pub enum Etape {
     Lancement,
 }
 
+/// Archive d'une version pour ce système, telle que publiée dans la release GitHub (dossier
+/// « Misty-x.y.z » à la racine) : Misty-x.y.z.zip sous Windows, Misty-x.y.z-linux-x86_64.tar.gz
+/// sous Linux. Une seule archive en .zip par release : les launchers d'avant 0.4 prennent le
+/// premier .zip qu'ils trouvent.
+pub fn nom_archive(version: &str) -> String {
+    if cfg!(windows) {
+        format!("Misty-{version}.zip")
+    } else {
+        format!("Misty-{version}-linux-x86_64.tar.gz")
+    }
+}
+
 fn url_site() -> String {
     format!("{SITE}/download/portable")
 }
@@ -55,6 +67,8 @@ fn url_site() -> String {
 pub async fn verifier() -> Result<Option<ReleaseInfo>, MajErreur> {
     match verifier_github().await {
         Ok(r) => Ok(r),
+        // le site ne propose que la version Windows
+        Err(e_github) if !cfg!(windows) => Err(e_github),
         Err(e_github) => match verifier_site().await {
             Ok(r) => Ok(r),
             // les deux sont injoignables : l'erreur de GitHub est la plus parlante
@@ -129,12 +143,14 @@ async fn verifier_github() -> Result<Option<ReleaseInfo>, MajErreur> {
         .unwrap_or("")
         .trim_start_matches('v')
         .to_string();
-    // Le zip "Misty-x.y.zip" (la release peut aussi contenir l'installateur .exe)
-    let zip = doc["assets"].as_array().into_iter().flatten().find(|a| {
-        a["browser_download_url"]
-            .as_str()
-            .is_some_and(|u| u.to_lowercase().ends_with(".zip"))
-    });
+    // L'archive de ce système (la release contient aussi l'installateur, l'archive de l'autre
+    // système et les preuves .sha256 / .minisig)
+    let attendu = nom_archive(&version);
+    let zip = doc["assets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|a| a["name"].as_str() == Some(attendu.as_str()));
     let url = zip
         .and_then(|a| a["browser_download_url"].as_str())
         .map(str::to_string);
@@ -147,8 +163,9 @@ async fn verifier_github() -> Result<Option<ReleaseInfo>, MajErreur> {
         return Ok(None);
     }
     // sans zip sur GitHub (pas encore envoyé), le site peut quand même l'avoir
-    // (le site ne garde que la dernière version stable : pas de secours pour une pré-release)
-    let sources = if prerelease {
+    // (le site ne garde que la dernière version stable pour Windows : pas de secours pour une
+    // pré-release ni hors Windows)
+    let sources = if prerelease || !cfg!(windows) {
         url.into_iter().collect()
     } else {
         url.into_iter().chain([url_site()]).collect()
@@ -353,8 +370,9 @@ pub fn verifier_archive(
 /// vient du site) : une copie du zip ne peut pas fournir ses propres preuves.
 async fn telecharger_preuves(version: &str) -> Result<(String, String), MajErreur> {
     let base = format!(
-        "https://github.com/{}/releases/download/{version}/Misty-{version}.zip",
-        app_info::GITHUB_REPO
+        "https://github.com/{}/releases/download/{version}/{}",
+        app_info::GITHUB_REPO,
+        nom_archive(version)
     );
     let (url_sha256, url_signature) = (format!("{base}.sha256"), format!("{base}.minisig"));
     let (sha256, signature) =
@@ -395,7 +413,7 @@ pub async fn installer(
     avancement: impl Fn(Etape) + Send + Sync,
 ) -> Result<(), MajErreur> {
     let racine = racine();
-    let zip = racine.join(format!("Misty-{}.zip", release.version));
+    let zip = racine.join(nom_archive(&release.version));
     let nouveau_dossier = racine.join(format!("Misty-{}", release.version));
 
     // chaque source à son tour : GitHub, puis la copie du site. Un zip refusé à la vérification
@@ -426,14 +444,13 @@ pub async fn installer(
         let zip = zip.clone();
         let racine = racine.clone();
         tokio::task::spawn_blocking(move || -> Result<(), MajErreur> {
-            let mut archive = zip::ZipArchive::new(fs::File::open(&zip)?)?;
-            archive.extract(&racine)?;
+            crate::systeme::archive::extraire(&zip, &racine)?;
             Ok(())
         })
         .await??;
     }
     let _ = fs::remove_file(&zip);
-    if !nouveau_dossier.join("Misty.exe").exists() {
+    if !nouveau_dossier.join(paths::NOM_EXE).exists() {
         return Err(MajErreur::ExeAbsent(release.version.clone()));
     }
 
@@ -449,7 +466,7 @@ pub async fn installer(
     }
 
     avancement(Etape::Lancement);
-    std::process::Command::new(nouveau_dossier.join("Misty.exe"))
+    std::process::Command::new(nouveau_dossier.join(paths::NOM_EXE))
         .current_dir(&nouveau_dossier)
         .spawn()?;
     Ok(())

@@ -61,3 +61,5 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+# Scripts Linux : toujours en fins de ligne LF (bash refuse les fins de ligne Windows)
+*.sh text eol=lf

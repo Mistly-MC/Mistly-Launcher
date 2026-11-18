@@ -17,9 +17,18 @@ pub fn ram_totale_mo() -> u32 {
     }
 }
 
+/// Hors Windows : ligne « MemTotal » de /proc/meminfo (en ko), 8 Go si illisible.
 #[cfg(not(windows))]
 pub fn ram_totale_mo() -> u32 {
-    8192
+    std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|t| {
+            t.lines()
+                .find_map(|l| l.strip_prefix("MemTotal:"))
+                .and_then(|v| v.trim().trim_end_matches("kB").trim().parse::<u64>().ok())
+        })
+        .map(|ko| (ko / 1024) as u32)
+        .unwrap_or(8192)
 }
 
 /// RAM maximale proposée : la RAM totale arrondie au Go supérieur, moins 1 Go pour le système.
@@ -111,16 +120,25 @@ pub fn taille_dossier(dossier: &Path) -> u64 {
 /// Ouvre un dossier dans l'explorateur (le crée s'il n'existe pas).
 pub fn ouvrir_dossier(dossier: &Path) {
     let _ = std::fs::create_dir_all(dossier);
+    #[cfg(windows)]
     let _ = std::process::Command::new("explorer.exe")
         .arg(dossier)
         .spawn();
+    // gestionnaire de fichiers par défaut (xdg-open)
+    #[cfg(not(windows))]
+    let _ = open::that_detached(dossier);
 }
 
-/// Ouvre l'explorateur avec un fichier sélectionné.
+/// Ouvre l'explorateur avec un fichier sélectionné (hors Windows : son dossier).
 pub fn montrer_fichier(fichier: &Path) {
+    #[cfg(windows)]
     let _ = std::process::Command::new("explorer.exe")
         .arg(format!("/select,{}", fichier.display()))
         .spawn();
+    #[cfg(not(windows))]
+    if let Some(dossier) = fichier.parent() {
+        let _ = open::that_detached(dossier);
+    }
 }
 
 /// Ouvre une URL (ou un fichier) avec l'application par défaut.
@@ -139,9 +157,13 @@ pub fn windows_sombre() -> bool {
         .is_ok_and(|clair| clair == 0)
 }
 
+/// Hors Windows : le thème sombre de GNOME (et des bureaux qui suivent ce réglage).
 #[cfg(not(windows))]
 pub fn windows_sombre() -> bool {
-    false
+    std::process::Command::new("gsettings")
+        .args(["get", "org.gnome.desktop.interface", "color-scheme"])
+        .output()
+        .is_ok_and(|s| String::from_utf8_lossy(&s.stdout).contains("dark"))
 }
 
 /// Version de Windows, comme « Windows 10.0.19045 » (lue dans le registre).
@@ -163,7 +185,15 @@ pub fn version_windows() -> String {
     }
 }
 
+/// Hors Windows : le nom de la distribution (PRETTY_NAME de /etc/os-release), comme « Ubuntu 24.04 LTS ».
 #[cfg(not(windows))]
 pub fn version_windows() -> String {
-    std::env::consts::OS.to_string()
+    std::fs::read_to_string("/etc/os-release")
+        .ok()
+        .and_then(|t| {
+            t.lines()
+                .find_map(|l| l.strip_prefix("PRETTY_NAME="))
+                .map(|v| v.trim_matches('"').to_string())
+        })
+        .unwrap_or_else(|| std::env::consts::OS.to_string())
 }

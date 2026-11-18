@@ -1,8 +1,10 @@
-//! Coffre des jetons Microsoft : le Gestionnaire d'identifiants Windows, une entrée par compte
-//! (« msa-<uuid>.Misty »). msa.json ne garde que ce qui n'est pas secret (pseudo, uuid, compte
-//! actif).
+//! Coffre des jetons Microsoft : le coffre du système, une entrée par compte
+//! (« msa-<uuid>.Misty ») : le Gestionnaire d'identifiants sous Windows, le Secret Service
+//! (GNOME Keyring, KWallet) sous Linux. msa.json ne garde que ce qui n'est pas secret (pseudo,
+//! uuid, compte actif). Si le coffre refuse une entrée, les jetons restent dans msa.json.
 //!
-//! Hors Windows (tests, développement), les jetons vont dans un fichier à part, `msa-secrets.json`.
+//! Sur les autres systèmes (tests, développement), les jetons vont dans un fichier à part,
+//! `msa-secrets.json`.
 
 use serde::{Deserialize, Serialize};
 
@@ -30,11 +32,11 @@ pub trait Coffre: Send + Sync {
 
 /// Le coffre de cette machine.
 pub fn coffre() -> &'static dyn Coffre {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     {
-        &windows_coffre::CoffreWindows
+        &coffre_systeme::CoffreSysteme
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         static COFFRE: std::sync::OnceLock<CoffreFichier> = std::sync::OnceLock::new();
         COFFRE.get_or_init(|| CoffreFichier {
@@ -43,8 +45,8 @@ pub fn coffre() -> &'static dyn Coffre {
     }
 }
 
-#[cfg(windows)]
-mod windows_coffre {
+#[cfg(any(windows, target_os = "linux"))]
+mod coffre_systeme {
     use super::{Coffre, Secrets};
 
     /// Nom du service dans le Gestionnaire d'identifiants (garde « Misty », comme le dossier de
@@ -53,13 +55,13 @@ mod windows_coffre {
     /// Taille maximale d'un secret dans le Gestionnaire d'identifiants (CRED_MAX_CREDENTIAL_BLOB_SIZE).
     const TAILLE_MAX: usize = 2560;
 
-    pub struct CoffreWindows;
+    pub struct CoffreSysteme;
 
     fn entree(uuid: &str) -> keyring::Result<keyring::Entry> {
         keyring::Entry::new(SERVICE, &format!("msa-{uuid}"))
     }
 
-    impl Coffre for CoffreWindows {
+    impl Coffre for CoffreSysteme {
         fn lire(&self, uuid: &str) -> Option<Secrets> {
             let octets = entree(uuid).ok()?.get_secret().ok()?;
             serde_json::from_slice(&octets).ok()
@@ -88,13 +90,13 @@ mod windows_coffre {
     }
 }
 
-/// Repli hors Windows : tous les jetons dans un fichier JSON à part.
-#[cfg_attr(windows, allow(dead_code))]
+/// Repli sans coffre du système : tous les jetons dans un fichier JSON à part.
+#[cfg_attr(any(windows, target_os = "linux"), allow(dead_code))]
 pub struct CoffreFichier {
     pub chemin: std::path::PathBuf,
 }
 
-#[cfg_attr(windows, allow(dead_code))]
+#[cfg_attr(any(windows, target_os = "linux"), allow(dead_code))]
 impl CoffreFichier {
     fn tout(&self) -> std::collections::BTreeMap<String, Secrets> {
         std::fs::read_to_string(&self.chemin)
@@ -194,7 +196,7 @@ mod tests {
     #[test]
     #[ignore]
     fn gestionnaire_d_identifiants_windows() {
-        let c = windows_coffre::CoffreWindows;
+        let c = coffre_systeme::CoffreSysteme;
         let s = Secrets {
             refresh_token: "r".repeat(900),
             mc_token: "m".repeat(2000),
