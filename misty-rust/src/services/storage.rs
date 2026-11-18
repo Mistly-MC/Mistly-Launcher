@@ -163,7 +163,7 @@ pub fn analyser() -> Vec<Ligne> {
         });
     }
     if !enfants.is_empty() {
-        enfants.sort_by(|a, b| b.taille.cmp(&a.taille));
+        enfants.sort_by_key(|e| std::cmp::Reverse(e.taille));
         lignes.push(Ligne {
             cle: RESIDUS.into(),
             nom: RESIDUS.into(),

@@ -16,7 +16,8 @@ cargo run                   # lancer le launcher
 
 - Le mod n'est pas dans l'exe. Pour essayer un mod compilé en local : `MISTY_CLIENT_DIR=<dossier du mod>` au lancement (c'est ce que fait « Lancer Misty.cmd » à la racine de l'espace de travail), sinon le launcher prend la dernière release de Misty-Client.
 - Windows uniquement : WebView2, registre, raccourcis. La fenêtre de connexion Microsoft (`src/ms_login.rs`, winit + wry) n'existe que sous `cfg(windows)`.
-- Release : `installer\build.ps1` (voir le README, section « Publishing a release »).
+- CI (`.github/workflows/ci.yml`) à chaque push et PR : `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`. Un avertissement clippy fait échouer la CI.
+- Release : pousser un tag `x.y.z` (sans `v`, égal à la version de `Cargo.toml` ; `x.y.z-beta.n` pour une pré-release). `.github/workflows/release.yml` lance `installer\build.ps1`, signe le zip (`.sha256` + `.minisig` avec le secret `MINISIGN_KEY`) et publie la release. Toujours demander avant de pousser un tag : la release part aussitôt chez les joueurs. `installer\build.ps1` reste utilisable en local, mais un zip sans `.sha256` ni `.minisig` est refusé par la mise à jour automatique.
 
 ## Conventions du code
 

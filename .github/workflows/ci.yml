@@ -1,0 +1,46 @@
+# Vérifications à chaque push et chaque PR : format, clippy (avertissements = erreurs), tests.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verifier:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: misty-rust
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # misty-client : les textures de cape partagées, utilisées par les tests
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: misty-rust
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Tests hors ligne (les tests réseau sont marqués #[ignore])
+      - name: Tests
+        run: cargo test

@@ -193,11 +193,9 @@ pub fn comparer_versions(a: &str, b: &str) -> std::cmp::Ordering {
         for c in s.chars() {
             let change = !courant.is_empty()
                 && courant.chars().last().is_some_and(|d| d.is_ascii_digit()) != c.is_ascii_digit();
-            if !c.is_ascii_alphanumeric() || change {
-                if !courant.is_empty() {
-                    liste.push(courant.parse::<u64>().map_err(|_| courant.clone()));
-                    courant.clear();
-                }
+            if (!c.is_ascii_alphanumeric() || change) && !courant.is_empty() {
+                liste.push(courant.parse::<u64>().map_err(|_| courant.clone()));
+                courant.clear();
             }
             if c.is_ascii_alphanumeric() {
                 courant.push(c);

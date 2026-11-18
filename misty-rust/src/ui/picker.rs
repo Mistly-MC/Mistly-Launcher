@@ -298,8 +298,8 @@ fn dessiner(cle: &str) -> SharedPixelBuffer<Rgba8Pixel> {
             t.pose(x + 1, y, tronc);
         }
         for dy in 0..6 {
-            for dx in -3..=4 {
-                if (dx as i32).abs() + dy / 2 < 5 {
+            for dx in -3i32..=4 {
+                if dx.abs() + dy / 2 < 5 {
                     t.pose(x + dx, sol - 14 + dy, feuilles);
                 }
             }

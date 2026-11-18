@@ -241,6 +241,8 @@ impl Origine {
 }
 
 /// Profil visé : un nouveau (installation, import) ou un existant (mise à jour du pack).
+// Une seule valeur par installation de modpack : la mettre en boîte ne gagnerait rien
+#[allow(clippy::large_enum_variant)]
 enum Cible<'a> {
     Nouveau(&'a Origine),
     /// Profil à mettre à jour, avec la version choisie et les fichiers de l'ancienne version

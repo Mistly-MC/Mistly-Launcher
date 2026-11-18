@@ -1,0 +1,152 @@
+# Release : pousser un tag « x.y.z » (sans v, ou « x.y.z-beta.n » pour une pré-release) compile
+# le launcher, prépare le zip et l'installateur avec installer/build.ps1, puis publie la release
+# GitHub avec Misty-x.y.z.zip, Misty-Setup-x.y.z.exe, Misty-x.y.z.zip.sha256 et
+# Misty-x.y.z.zip.minisig. La mise à jour automatique refuse tout zip sans ces deux preuves
+# (misty-rust/src/services/update.rs).
+#
+# Secrets du repo :
+#   MINISIGN_KEY       clé privée minisign (sans mot de passe) : obligatoire
+#   CURSEFORGE_KEY     clé API CurseForge (contenu de misty-rust/curseforge.key) : obligatoire
+#   CODESIGN_PFX       certificat « CN=ENDERR.WIN » en .pfx encodé en base64 : facultatif
+#   CODESIGN_PASSWORD  mot de passe du .pfx : facultatif
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  # Outil de signature, épinglé : version et empreinte SHA-256 du zip officiel
+  MINISIGN_VERSION: "0.12"
+  MINISIGN_SHA256: 37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479
+
+jobs:
+  publier:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Le tag doit être la version de Cargo.toml
+        id: version
+        shell: pwsh
+        run: |
+          $cargo = Get-Content misty-rust/Cargo.toml -Raw
+          if ($cargo -notmatch '(?m)^version = "([^"]+)"') { throw "Version introuvable dans Cargo.toml" }
+          $version = $Matches[1]
+          $tag = "${{ github.ref_name }}"
+          if ($tag -ne $version) {
+            throw "Le tag $tag ne correspond pas à la version de Cargo.toml ($version) : le launcher proposerait la mise à jour en boucle"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$($version.Contains('-').ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+      - name: Clés privées
+        shell: pwsh
+        env:
+          MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
+          CURSEFORGE_KEY: ${{ secrets.CURSEFORGE_KEY }}
+          CODESIGN_PFX: ${{ secrets.CODESIGN_PFX }}
+          CODESIGN_PASSWORD: ${{ secrets.CODESIGN_PASSWORD }}
+        run: |
+          if (-not $env:MINISIGN_KEY) { throw "Secret MINISIGN_KEY absent : la release ne pourrait pas être signée" }
+          if (-not $env:CURSEFORGE_KEY) { throw "Secret CURSEFORGE_KEY absent : CurseForge ne marcherait pas dans cette version" }
+          # lue par build.rs, ignorée par git
+          [IO.File]::WriteAllText("$PWD/misty-rust/curseforge.key", $env:CURSEFORGE_KEY.Trim())
+          # certificat de signature de code, cherché par installer/build.ps1 (sinon l'exe n'est pas signé)
+          if ($env:CODESIGN_PFX) {
+            $pfx = Join-Path $env:RUNNER_TEMP "signature.pfx"
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CODESIGN_PFX))
+            $mdp = ConvertTo-SecureString $env:CODESIGN_PASSWORD -AsPlainText -Force
+            Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $mdp | Out-Null
+            Remove-Item $pfx
+          } else {
+            Write-Host "::warning::Pas de secret CODESIGN_PFX : Misty.exe et l'installateur ne seront pas signés"
+          }
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: misty-rust
+          key: release
+
+      - name: Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Compilation, zip et installateur (installer/build.ps1)
+        run: powershell -ExecutionPolicy Bypass -File installer\build.ps1
+
+      - name: Empreinte SHA-256 et signature minisign du zip
+        shell: pwsh
+        env:
+          MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $nom = "Misty-$version.zip"
+          $zip = "publish/$nom"
+
+          # même format que sha256sum : « <empreinte>  <fichier> »
+          $empreinte = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          [IO.File]::WriteAllText("$PWD/$zip.sha256", "$empreinte  $nom`n")
+
+          # minisign, vérifié contre l'empreinte épinglée
+          $outil = Join-Path $env:RUNNER_TEMP "minisign.zip"
+          Invoke-WebRequest "https://github.com/jedisct1/minisign/releases/download/$env:MINISIGN_VERSION/minisign-$env:MINISIGN_VERSION-win64.zip" -OutFile $outil
+          if ((Get-FileHash $outil -Algorithm SHA256).Hash.ToLower() -ne $env:MINISIGN_SHA256) { throw "minisign téléchargé ne correspond pas à l'empreinte épinglée" }
+          Expand-Archive $outil -DestinationPath (Join-Path $env:RUNNER_TEMP "minisign")
+          $minisign = Join-Path $env:RUNNER_TEMP "minisign/minisign-win64/x86_64/minisign.exe"
+
+          $cle = Join-Path $env:RUNNER_TEMP "misty.key"
+          [IO.File]::WriteAllText($cle, $env:MINISIGN_KEY)
+          try {
+            & $minisign -S -s $cle -m $zip -t "Mistly Launcher $version"
+            if ($LASTEXITCODE -ne 0) { throw "minisign -S a échoué" }
+          } finally {
+            Remove-Item $cle
+          }
+
+          # la signature doit passer avec la clé publique intégrée au launcher, sinon personne ne
+          # pourrait installer cette mise à jour
+          $appInfo = Get-Content misty-rust/src/services/app_info.rs -Raw
+          if ($appInfo -notmatch 'CLE_PUBLIQUE_MAJ: &str = "([^"]+)"') { throw "CLE_PUBLIQUE_MAJ introuvable dans app_info.rs" }
+          & $minisign -Vm $zip -P $Matches[1]
+          if ($LASTEXITCODE -ne 0) { throw "La signature ne correspond pas à CLE_PUBLIQUE_MAJ : MINISIGN_KEY n'est pas la bonne clé" }
+
+      - name: Notes de version (section de CHANGELOG.md)
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $lignes = Get-Content CHANGELOG.md -Encoding utf8
+          $debut = [Array]::IndexOf($lignes, "## $version")
+          if ($debut -lt 0) { throw "Pas de section « ## $version » dans CHANGELOG.md" }
+          $fin = $lignes.Length
+          for ($i = $debut + 1; $i -lt $lignes.Length; $i++) {
+            if ($lignes[$i].StartsWith("## ")) { $fin = $i; break }
+          }
+          $notes = $lignes[($debut + 1)..($fin - 1)] -join "`n"
+          [IO.File]::WriteAllText("$env:RUNNER_TEMP/notes.md", $notes)
+
+      - name: Release GitHub
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $fichiers = @(
+            "publish/Misty-$version.zip",
+            "publish/Misty-Setup-$version.exe",
+            "publish/Misty-$version.zip.sha256",
+            "publish/Misty-$version.zip.minisig"
+          )
+          $options = @("--title", "Mistly Launcher $version", "--notes-file", "$env:RUNNER_TEMP/notes.md", "--verify-tag")
+          if ("${{ steps.version.outputs.prerelease }}" -eq "true") { $options += "--prerelease" }
+          gh release create $version @fichiers @options
+          if ($LASTEXITCODE -ne 0) { throw "gh release create a échoué" }

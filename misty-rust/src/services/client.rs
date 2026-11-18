@@ -535,14 +535,12 @@ pub fn reprendre_du_jeu() {
         return;
     }
     let choix = json["cosmetic"].as_str().unwrap_or("");
-    if choix.is_empty() || DOS.contains(&choix) {
-        if choix != settings::get(settings::COSMETIQUE) {
-            settings::set(settings::COSMETIQUE, choix);
-            journal::info(&format!(
-                "Cosmétique choisi en jeu : {}",
-                if choix.is_empty() { "aucun" } else { choix }
-            ));
-        }
+    if (choix.is_empty() || DOS.contains(&choix)) && choix != settings::get(settings::COSMETIQUE) {
+        settings::set(settings::COSMETIQUE, choix);
+        journal::info(&format!(
+            "Cosmétique choisi en jeu : {}",
+            if choix.is_empty() { "aucun" } else { choix }
+        ));
     }
     let tag = json["tag"].as_str().unwrap_or("");
     if (tag.is_empty() || TAGS.contains(&tag)) && tag != settings::get(settings::TAG) {
@@ -631,12 +629,13 @@ pub fn equiper(cosmetique: &str) {
 
 /// Écrit `client.json` (lu par le mod) dans le dossier de Misty.
 pub fn ecrire_lien() {
-    let contenu = serde_json::json!({ "cosmetic": cosmetique(), "hat": chapeau(), "tag": tag() });
+    let contenu =
+        serde_json::json!({ "cosmetic": cosmetique(), "hat": chapeau(), "tag": tag() }).to_string();
     let chemin = paths::data_dir().join("client.json");
-    if fs::read_to_string(&chemin).is_ok_and(|actuel| actuel == contenu.to_string()) {
+    if fs::read_to_string(&chemin).is_ok_and(|actuel| actuel == contenu) {
         return;
     }
-    let _ = super::fichiers::ecrire_atomique(chemin, contenu.to_string());
+    let _ = super::fichiers::ecrire_atomique(chemin, contenu);
 }
 
 #[cfg(test)]

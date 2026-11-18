@@ -915,7 +915,7 @@ fn construire_palette(app: &App) {
             Vec::new() // trop grande : on saute la palette
         } else {
             let mut compte: HashMap<[u8; 3], usize> = HashMap::new();
-            for p in e.px.chunks_exact(4).filter(|p| p[3] > 0) {
+            for p in e.px.as_chunks::<4>().0.iter().filter(|p| p[3] > 0) {
                 *compte.entry([p[0], p[1], p[2]]).or_default() += 1;
             }
             let mut liste: Vec<([u8; 3], usize)> = compte.into_iter().collect();

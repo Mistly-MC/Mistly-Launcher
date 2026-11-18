@@ -287,7 +287,7 @@ pub fn mondes(instance: &Instance) -> Vec<String> {
             (date, e.file_name().to_string_lossy().to_string())
         })
         .collect();
-    liste.sort_by(|a, b| b.0.cmp(&a.0));
+    liste.sort_by_key(|e| std::cmp::Reverse(e.0));
     liste.into_iter().map(|(_, n)| n).collect()
 }
 

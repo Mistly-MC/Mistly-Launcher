@@ -169,7 +169,7 @@ pub fn historique() -> Vec<(std::path::PathBuf, bool)> {
             )
         })
         .collect();
-    liste.sort_by(|a, b| b.0.cmp(&a.0));
+    liste.sort_by_key(|e| std::cmp::Reverse(e.0));
     liste
         .into_iter()
         .map(|(_, p)| {
@@ -1239,6 +1239,8 @@ fn fils_du_rendu() -> &'static rayon::ThreadPool {
     })
 }
 
+// Les paramètres d'une image du rendu (skin, pose, caméra) : 7 appels, une structure n'apporterait rien
+#[allow(clippy::too_many_arguments)]
 pub fn rendre_live_parties(
     skin: &RgbaImage,
     cape: Option<&RgbaImage>,
@@ -1520,7 +1522,6 @@ pub fn rendre_live_parties(
         let carte_utile = &mut carte[(premiere * LIVE) as usize..(derniere * LIVE) as usize];
         fils_du_rendu().scope(|sc| {
             let (posees, rectangles, parties) = (&posees, &rectangles, &parties);
-            let surbrillance = surbrillance;
             for (f, (morceau, morceau_carte)) in utiles
                 .chunks_mut(bande as usize * largeur)
                 .zip(carte_utile.chunks_mut((bande * LIVE) as usize))
@@ -1657,9 +1658,7 @@ mod tests_live {
         )
         .unwrap();
         let tete = (0..LIVE as usize)
-            .find_map(|y| {
-                (face[y * LIVE as usize + LIVE as usize / 2] != partie::AUCUNE).then_some(y)
-            })
+            .find(|&y| face[y * LIVE as usize + LIVE as usize / 2] != partie::AUCUNE)
             .unwrap();
         assert_eq!(face[tete * LIVE as usize + LIVE as usize / 2], partie::TETE);
         // de dos : la cape couvre le milieu du corps

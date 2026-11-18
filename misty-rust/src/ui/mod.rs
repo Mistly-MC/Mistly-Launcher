@@ -206,7 +206,7 @@ pub fn installer(app: &Rc<App>) {
                 // thème « Comme Windows » : suit Windows quand on le change pendant que Misty est
                 // ouvert. Lu dans le registre : toutes les 3 secondes, pas à chaque passage.
                 passages.set(passages.get().wrapping_add(1));
-                if passages.get() % 10 == 0 {
+                if passages.get().is_multiple_of(10) {
                     let sombre = system_info::windows_sombre();
                     let theme = a.ui.global::<crate::Theme>();
                     if theme.get_system_dark() != sombre {
@@ -564,7 +564,8 @@ async fn verifier_mise_a_jour(app: &Rc<App>, manuel: bool) {
         } else {
             (progres * 100.0) as i64
         };
-        if cle >= 0 && cle < 100 && dernier.swap(cle, std::sync::atomic::Ordering::Relaxed) == cle {
+        if (0..100).contains(&cle) && dernier.swap(cle, std::sync::atomic::Ordering::Relaxed) == cle
+        {
             return;
         }
         let _ = faible.upgrade_in_event_loop(move |ui| {

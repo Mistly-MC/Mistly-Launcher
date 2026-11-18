@@ -14,6 +14,8 @@ use std::time::Duration;
 const TAILLE_PAGE: usize = 20;
 
 #[derive(Default, Clone)]
+// Une seule valeur par page de recherche : la mettre en boîte ne gagnerait rien
+#[allow(clippy::large_enum_variant)]
 pub enum Contexte {
     #[default]
     Aucun,
@@ -427,7 +429,7 @@ fn formater_entier(n: i64) -> String {
     let texte = n.to_string();
     let mut resultat = String::new();
     for (i, c) in texte.chars().enumerate() {
-        if i > 0 && (texte.len() - i) % 3 == 0 {
+        if i > 0 && (texte.len() - i).is_multiple_of(3) {
             resultat.push('\u{202F}');
         }
         resultat.push(c);
