@@ -8,6 +8,8 @@ Le mod en jeu (Mistly Client) vient du repo Misty-MC/Misty-Client (il a son prop
 Workspace Cargo à la racine du repo (détail dans `crates/README.md`) :
 - `crates/misty-core` : toute la logique, **sans Slint ni interface** (`auth/`, `minecraft/`, `contenu/`, `social/`, `systeme/`, `media/`). `cargo test -p misty-core` doit compiler sans Slint : ne jamais y ajouter de dépendance à `slint`, `misty-ui` ou une fenêtre.
 - `crates/misty-ui` : les fichiers `.slint` (`ui/`), compilés à part.
+- Dossier de données, client HTTP et runtime : `misty_core::systeme::contexte` (créé et installé dans `main`, lu par `paths::data_dir()` et `http::client()`). Un test qui touche au dossier de données prend `let _garde = contexte::pour_test(&dossier_temporaire);` : jamais les vraies données du joueur, sans variable d'environnement.
+- Erreurs de `misty-core` : une enum `thiserror` par domaine (`AuthErreur`, `InstallErreur`, `ContenuErreur`, `MajErreur`) avec `cle()` (clé de traduction) ; `misty-app` garde `anyhow`.
 - `crates/misty-app` : `main.rs`, `ms_login.rs`, `ui/*.rs` (le code des pages), `assets/` ; produit `Misty.exe`.
 
 ## Cloner et compiler

@@ -1196,24 +1196,21 @@ pub fn chemin_sur(racine: &Path, relatif: &str) -> anyhow::Result<PathBuf> {
 }
 
 /// Modpacks en vrai (réseau, ~50 Mo) sur un dossier de données à part :
-/// `MISTY_DATA_DIR=<dossier temporaire> cargo test modpack_reseau -- --ignored --nocapture`.
+/// `cargo test modpack_reseau -- --ignored --nocapture` (dans un dossier temporaire, voir `contexte::pour_test`).
 #[cfg(test)]
 mod tests_reseau {
     use super::*;
 
-    fn dossier_de_test() -> bool {
-        // jamais sur les vraies données du joueur
-        std::env::var_os("MISTY_DATA_DIR").is_some()
-            && crate::systeme::paths::data_dir()
-                .starts_with(std::env::var_os("MISTY_DATA_DIR").unwrap())
+    /// Dossier de données à part (jamais celui du joueur), le temps du test.
+    fn dossier_de_test(nom: &str) -> crate::systeme::contexte::GardeContexte {
+        let d = std::env::temp_dir().join(format!("misty-test-{nom}-{}", std::process::id()));
+        crate::systeme::contexte::pour_test(&d)
     }
 
     #[tokio::test]
     #[ignore]
     async fn modpack_reseau_import_puis_mise_a_jour() {
-        if !dossier_de_test() {
-            panic!("MISTY_DATA_DIR requis");
-        }
+        let _garde = dossier_de_test("modpack");
         let rien: Progress = std::sync::Arc::new(|t| println!("  {t}"));
         // Fabulously Optimized : une version ancienne, en fichier, importée comme le ferait le joueur
         let versions = modrinth::versions("1KVo5zza", None, None).await.unwrap();
@@ -1277,9 +1274,7 @@ mod tests_reseau {
     #[tokio::test]
     #[ignore]
     async fn modpack_reseau_bloque_cherche_sur_modrinth() {
-        if !dossier_de_test() {
-            panic!("MISTY_DATA_DIR requis");
-        }
+        let _garde = dossier_de_test("modpack");
         let i = instances::creer("test bloques", "1.21.1", loaders::FABRIC, None).unwrap();
         let mut liste = vec![FichierPackCF {
             url: None,

@@ -1,20 +1,9 @@
 //! Clients HTTP partagés (un seul par usage, comme les HttpClient statiques en C#).
 
-use crate::systeme::app_info;
-use std::sync::OnceLock;
-use std::time::Duration;
-
-/// Client général (Modrinth, Mojang, loaders…), avec le User-Agent du launcher.
-pub fn client() -> &'static reqwest::Client {
-    static C: OnceLock<reqwest::Client> = OnceLock::new();
-    C.get_or_init(|| {
-        reqwest::Client::builder()
-            .user_agent(app_info::user_agent())
-            .timeout(Duration::from_secs(300))
-            .connect_timeout(Duration::from_secs(20))
-            .build()
-            .expect("client HTTP")
-    })
+/// Client général (Modrinth, Mojang, loaders…), avec le User-Agent du launcher : celui du
+/// contexte (voir `systeme::contexte`). Un clone est léger (le client est partagé).
+pub fn client() -> reqwest::Client {
+    crate::systeme::contexte::actuel().http.clone()
 }
 
 /// Lit une réponse JSON en vérifiant le code HTTP.

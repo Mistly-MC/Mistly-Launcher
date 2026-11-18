@@ -17,6 +17,7 @@ mod ms_login {
 }
 mod ui;
 
+use misty_core::systeme::contexte::{self, Contexte};
 use misty_core::{social::discord, systeme::loc};
 use slint::ComponentHandle;
 use std::cell::RefCell;
@@ -61,7 +62,12 @@ fn main() {
         .build()
         .expect("runtime tokio");
 
-    let _ = std::fs::create_dir_all(misty_core::systeme::paths::data_dir());
+    // Contexte partagé par tout le launcher : dossier de données, client HTTP, runtime
+    let contexte = contexte::installer(Contexte::nouveau(
+        Contexte::dossier_par_defaut(),
+        Some(runtime.handle().clone()),
+    ));
+    let _ = std::fs::create_dir_all(&contexte.dossier);
     misty_core::systeme::journal::capturer_paniques();
     misty_core::systeme::journal::info(&format!(
         "Démarrage de Misty {} ({})",
@@ -70,14 +76,13 @@ fn main() {
     ));
     // anciens msa.json : les jetons Microsoft passent dans le Gestionnaire d'identifiants
     misty_core::auth::account::migrer_jetons();
-    misty_core::systeme::telemetry::init(runtime.handle().clone());
-    misty_core::social::presence::demarrer(runtime.handle());
+    misty_core::social::presence::demarrer(&contexte);
     misty_core::media::musique::demarrer();
     loc::initialiser();
     discord::definir(discord::Statut::Launcher(discord::Page::Accueil));
 
     let fenetre = MainWindow::new().expect("création de la fenêtre");
-    let app = ui::App::new(fenetre, runtime.handle().clone());
+    let app = ui::App::new(fenetre, contexte.clone());
     APP.with(|a| *a.borrow_mut() = Some(app.clone()));
     ui::installer(&app);
 
@@ -95,7 +100,7 @@ fn main() {
 
     slint::run_event_loop().expect("boucle de l'interface");
     misty_core::systeme::journal::info("Fermeture de Misty");
-    misty_core::social::presence::quitter(runtime.handle());
+    misty_core::social::presence::quitter(&contexte);
 
     discord::arreter();
     APP.with(|a| *a.borrow_mut() = None);

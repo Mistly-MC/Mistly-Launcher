@@ -1052,17 +1052,16 @@ fn ecrire_meta(instance: &Instance, metas: &[ContenuMeta]) -> anyhow::Result<()>
 }
 
 /// Installation en vrai (réseau) par les deux sources, sur un dossier de données à part :
-/// `MISTY_DATA_DIR=<dossier temporaire> cargo test installation_reseau -- --ignored --nocapture`.
+/// `cargo test installation_reseau -- --ignored --nocapture` (dans un dossier temporaire, voir `contexte::pour_test`).
 #[cfg(test)]
 mod tests_reseau {
     use super::*;
     use crate::minecraft::instances;
 
-    fn dossier_de_test() -> bool {
-        // jamais sur les vraies données du joueur
-        std::env::var_os("MISTY_DATA_DIR").is_some()
-            && crate::systeme::paths::data_dir()
-                .starts_with(std::env::var_os("MISTY_DATA_DIR").unwrap())
+    /// Dossier de données à part (jamais celui du joueur), le temps du test.
+    fn dossier_de_test(nom: &str) -> crate::systeme::contexte::GardeContexte {
+        let d = std::env::temp_dir().join(format!("misty-test-{nom}-{}", std::process::id()));
+        crate::systeme::contexte::pour_test(&d)
     }
 
     fn meta<'a>(metas: &'a [ContenuMeta], source: &str, id: &str) -> &'a ContenuMeta {
@@ -1076,7 +1075,7 @@ mod tests_reseau {
     #[tokio::test]
     #[ignore]
     async fn installation_reseau_modrinth() {
-        assert!(dossier_de_test(), "MISTY_DATA_DIR requis");
+        let _garde = dossier_de_test("contenu");
         let i = instances::creer("Test Modrinth", "1.21.1", loaders::FABRIC, None).unwrap();
 
         // Mod Menu (slug « modmenu ») exige Fabric API
@@ -1125,7 +1124,7 @@ mod tests_reseau {
     #[tokio::test]
     #[ignore]
     async fn installation_reseau_curseforge() {
-        assert!(dossier_de_test(), "MISTY_DATA_DIR requis");
+        let _garde = dossier_de_test("contenu");
         assert!(curseforge::disponible(), "clé CurseForge requise");
         let i = instances::creer("Test CurseForge", "1.20.1", loaders::FORGE, None).unwrap();
 

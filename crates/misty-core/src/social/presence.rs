@@ -2,6 +2,7 @@
 //! vie part toutes les 60 secondes avec un identifiant tiré au hasard à chaque démarrage (rien ne
 //! reste d'une session à l'autre, rien ne relie au compte) et s'il y a une partie en cours.
 
+use crate::systeme::contexte::Contexte;
 use crate::{systeme::http, systeme::journal};
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -23,8 +24,11 @@ async fn envoyer(corps: serde_json::Value) {
         .await;
 }
 
-/// Lance les signes de vie (sur le runtime des tâches de fond).
-pub fn demarrer(rt: &tokio::runtime::Handle) {
+/// Lance les signes de vie (sur le runtime des tâches de fond du contexte).
+pub fn demarrer(contexte: &Contexte) {
+    let Some(rt) = &contexte.runtime else {
+        return;
+    };
     rt.spawn(async {
         loop {
             let en_jeu = journal::parties().iter().any(|p| p.en_cours);
@@ -44,7 +48,10 @@ pub async fn en_ligne() -> anyhow::Result<(u64, u64)> {
 }
 
 /// À la fermeture de Misty : il ne compte plus tout de suite (attend au plus 2 secondes).
-pub fn quitter(rt: &tokio::runtime::Handle) {
+pub fn quitter(contexte: &Contexte) {
+    let Some(rt) = &contexte.runtime else {
+        return;
+    };
     let _ = rt.block_on(async {
         tokio::time::timeout(
             Duration::from_secs(2),

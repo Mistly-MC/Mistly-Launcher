@@ -50,9 +50,12 @@ pub mod page {
     pub const AMIS: i32 = 8;
 }
 
-/// L'application : la fenêtre, le runtime et l'état de chaque page.
+/// L'application : la fenêtre, le contexte (dont le runtime) et l'état de chaque page.
 pub struct App {
     pub ui: MainWindow,
+    /// Contexte partagé avec misty-core (dossier de données, client HTTP, runtime)
+    pub contexte: std::sync::Arc<misty_core::systeme::contexte::Contexte>,
+    /// Runtime tokio du contexte, pour `bg(...)`
     pub rt: tokio::runtime::Handle,
     pub dialog: RefCell<Option<futures::channel::oneshot::Sender<Option<i32>>>>,
     pub images: images::Cache,
@@ -70,9 +73,17 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(ui: MainWindow, rt: tokio::runtime::Handle) -> Rc<App> {
+    pub fn new(
+        ui: MainWindow,
+        contexte: std::sync::Arc<misty_core::systeme::contexte::Contexte>,
+    ) -> Rc<App> {
+        let rt = contexte
+            .runtime
+            .clone()
+            .expect("le contexte de l'application a un runtime");
         Rc::new(App {
             ui,
+            contexte,
             rt,
             dialog: RefCell::new(None),
             images: images::Cache::default(),

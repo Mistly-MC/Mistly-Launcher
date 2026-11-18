@@ -1,6 +1,7 @@
 //! Système : chemins, réglages, stockage, mises à jour, lanceur fixe, raccourcis, télémétrie, journal, traductions, réseau, téléchargements, fichiers.
 
 pub mod app_info;
+pub mod contexte;
 pub mod download;
 pub mod erreur;
 pub mod fichiers;

@@ -15,16 +15,13 @@ use crate::{
     systeme::system_info,
 };
 use serde_json::{json, Value};
-use std::sync::OnceLock;
 use std::time::Duration;
 
 const SITE: &str = "https://misty-launcher.online";
 
-static RUNTIME: OnceLock<tokio::runtime::Handle> = OnceLock::new();
-
-/// À appeler une fois au démarrage, avec le runtime des tâches de fond.
-pub fn init(rt: tokio::runtime::Handle) {
-    let _ = RUNTIME.set(rt);
+/// Runtime des tâches de fond, celui du contexte (aucun hors de l'application : rien n'est envoyé).
+fn runtime() -> Option<tokio::runtime::Handle> {
+    crate::systeme::contexte::actuel().runtime.clone()
 }
 
 /// Le joueur a-t-il déjà répondu à la question ?
@@ -70,7 +67,7 @@ pub fn evenement(nom: &str, donnees: Value) {
     if !active() {
         return;
     }
-    let Some(rt) = RUNTIME.get() else { return };
+    let Some(rt) = runtime() else { return };
     let mut corps = contexte();
     corps["event"] = json!(nom);
     corps["data"] = donnees;
@@ -117,7 +114,7 @@ pub fn plantage(partie: u64, pseudo: &str) {
     if !active() {
         return;
     }
-    let Some(rt) = RUNTIME.get() else { return };
+    let Some(rt) = runtime() else { return };
     let lignes = journal::dernieres(partie, 400);
     let jeu = journal::etat(partie).map(|e| e.titre).unwrap_or_default();
     let pseudo = pseudo.to_string();
