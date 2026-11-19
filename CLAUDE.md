@@ -39,7 +39,7 @@ cargo run                   # lancer le launcher
 
 ## Commits et branches
 
-- Branches : `main` (publiée), `EnderMythex` et `xtheox` (branches perso). Travailler sur sa branche, PR vers `main`. Demander avant tout push ou merge sur `main`.
+- Branches : seule `main` existe (publiée). Pour un changement : créer une branche temporaire, ouvrir une PR vers `main`, puis supprimer la branche après le merge. Toujours demander avant de pousser sur `main`.
 - Message : sujet en anglais à l'impératif, sans point final (`Add …`, `Fix …`, `Keep …`), corps optionnel qui explique pourquoi. Terminer par `Co-Authored-By: Claude <noreply@anthropic.com>` quand Claude a écrit le changement.
 - Tout changement visible par l'utilisateur va dans `CHANGELOG.md`, en anglais, sous la version en cours (`## <version>` puis `### Launcher` ou `### Mistly Client (in game)`). Ce fichier est intégré dans l'exe et affiché dans « Patch notes ».
 - Mise à jour du mod pour les joueurs : publier une release de Misty-Client (son workflow y attache les jars et `misty-client.json`). Le sous-module se met à jour à part (`git submodule update --remote misty-client`), seulement pour les tests.
