@@ -242,7 +242,7 @@ pub(super) async fn lancer_jeu(
         let plante = etat.plantee();
         telemetry::evenement(
             "game_end",
-            serde_json::json!({ "minecraft": v_tel, "loader": m_tel, "code": code, "seconds": etat.duree.as_secs(), "crashed": plante, "errors": etat.erreurs }),
+            serde_json::json!({ "minecraft": v_tel, "loader": m_tel, "code": code, "seconds": etat.duree.as_secs(), "crashed": plante, "stopped": etat.arretee, "errors": etat.erreurs }),
         );
         if plante {
             telemetry::plantage(partie, &pseudo_tel);
