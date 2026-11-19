@@ -7,8 +7,8 @@
 # La mise à jour automatique refuse toute archive sans ces deux preuves
 # (crates/misty-core/src/systeme/update.rs).
 #
-# Secrets du repo :
-#   MINISIGN_KEY       clé privée minisign (sans mot de passe) : obligatoire
+# Secrets :
+#   MINISIGN_KEY       clé privée minisign (sans mot de passe) : obligatoire, dans l'environment « release »
 #   CURSEFORGE_KEY     clé API CurseForge (contenu de curseforge.key, à la racine du repo) : obligatoire
 #   CODESIGN_PFX       certificat « CN=ENDERR.WIN » en .pfx encodé en base64 : facultatif
 #   CODESIGN_PASSWORD  mot de passe du .pfx : facultatif
@@ -20,8 +20,9 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
       - "[0-9]+.[0-9]+.[0-9]+-*"
 
+# Lecture seule par défaut : seul le job « publier » peut écrire (créer la release)
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -33,7 +34,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       prerelease: ${{ steps.v.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Le tag doit être la version de Cargo.toml
         id: v
@@ -49,17 +50,15 @@ jobs:
 
       - name: Secrets obligatoires
         env:
-          MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
           CURSEFORGE_KEY: ${{ secrets.CURSEFORGE_KEY }}
         run: |
-          [ -n "$MINISIGN_KEY" ] || { echo "Secret MINISIGN_KEY absent : la release ne pourrait pas être signée" >&2; exit 1; }
           [ -n "$CURSEFORGE_KEY" ] || { echo "Secret CURSEFORGE_KEY absent : CurseForge ne marcherait pas dans cette version" >&2; exit 1; }
 
   windows:
     needs: version
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           submodules: recursive
 
@@ -83,11 +82,9 @@ jobs:
             Write-Host "::warning::Pas de secret CODESIGN_PFX : Misty.exe et l'installateur ne seront pas signés"
           }
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
-          key: release
+          toolchain: stable
 
       - name: Inno Setup
         run: choco install innosetup -y --no-progress
@@ -95,7 +92,7 @@ jobs:
       - name: Compilation, zip et installateur (installer/build.ps1)
         run: powershell -ExecutionPolicy Bypass -File installer\build.ps1
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows
           path: |
@@ -108,7 +105,7 @@ jobs:
     # même système que la CI : glibc 2.35, compatible avec la plupart des distributions récentes
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           submodules: recursive
 
@@ -122,16 +119,14 @@ jobs:
           CURSEFORGE_KEY: ${{ secrets.CURSEFORGE_KEY }}
         run: printf '%s' "$CURSEFORGE_KEY" | tr -d '\r\n ' > curseforge.key
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
-          key: release
+          toolchain: stable
 
       - name: Compilation et archive (installer/build-linux.sh)
         run: bash installer/build-linux.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: linux
           path: publish/Misty-${{ needs.version.outputs.version }}-linux-x86_64.tar.gz
@@ -140,14 +135,18 @@ jobs:
   publier:
     needs: [version, windows, linux]
     runs-on: ubuntu-latest
+    # Environment GitHub « release » : MINISIGN_KEY y est rangée, avec validation obligatoire
+    environment: release
+    permissions:
+      contents: write
     env:
       # Outil de signature, épinglé : version et empreinte SHA-256 de l'archive officielle
       MINISIGN_VERSION: "0.12"
       MINISIGN_SHA256: 9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: publish
           merge-multiple: true
@@ -157,6 +156,7 @@ jobs:
           MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
         run: |
           set -euo pipefail
+          [ -n "$MINISIGN_KEY" ] || { echo "Secret MINISIGN_KEY absent : la release ne pourrait pas être signée" >&2; exit 1; }
           version="${{ needs.version.outputs.version }}"
 
           # minisign, vérifié contre l'empreinte épinglée
