@@ -22,7 +22,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Site de Misty : copie de la dernière version (voir Misty-Web, `miroir`).
-const SITE: &str = "https://misty-launcher.online";
+const SITE: &str = "https://mistly.cc";
 
 pub struct ReleaseInfo {
     pub version: String,

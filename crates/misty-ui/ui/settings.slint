@@ -1360,6 +1360,22 @@ export component SettingsModal inherits Rectangle {
                                 }
                             }
                         }
+                        // Mistly Client : sa version, s'il est à jour, et un bouton pour le mettre à
+                        // jour tout de suite (sinon il se met à jour au lancement d'une partie)
+                        Carte {
+                            BlocAction {
+                                titre: "Mistly Client";
+                                texte: SettingsState.misty-client-status;
+                                MButton {
+                                    kind: 1;
+                                    icon: "\u{E895}";
+                                    text: Tr.t("ClientMaj_Bouton");
+                                    icon-spin: SettingsState.misty-client-updating;
+                                    enabled: !SettingsState.misty-client-updating;
+                                    clicked => { SettingsState.misty-client-update(); }
+                                }
+                            }
+                        }
                         if SettingsState.misty-client-available: Carte {
                             LigneInterrupteur {
                                 titre: Tr.t("Param_MistyClient");

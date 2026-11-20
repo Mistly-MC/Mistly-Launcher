@@ -13,8 +13,8 @@ use std::sync::mpsc::{self, Sender};
 use std::sync::{Mutex, OnceLock};
 
 /// Logo de Misty (Discord accepte une adresse d'image pour le Rich Presence).
-const LOGO: &str = "https://misty-launcher.online/assets/icone.png";
-const SITE: &str = "https://misty-launcher.online";
+const LOGO: &str = "https://mistly.cc/assets/icone.png";
+const SITE: &str = "https://mistly.cc";
 
 /// Tête du joueur en petite image : Discord la télécharge lui-même depuis mc-heads.net (le service
 /// de skins déjà utilisé par le site), par UUID pour un compte Microsoft, par pseudo sinon.

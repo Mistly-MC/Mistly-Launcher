@@ -826,7 +826,23 @@
   "Pack_DistantAucunFichier": "У этого пака нет файла для загрузки.",
   "Console_CopierSelection": "Копировать выделенное",
   "Hz_BuildIntrouvable": "Сборка {0} не найдена на GitHub",
-  "Home_TelechargementClient": "Загрузка Mistly Client…",
+  "Home_TelechargementClient": "Загрузка Mistly Client…",
+
+  "ClientMaj_Bouton": "Обновить",
+
+  "ClientMaj_AJour": "Версия {0} · актуальная",
+
+  "ClientMaj_Nouvelle": "Версия {0} · доступна версия {1}",
+
+  "ClientMaj_NonVerifiee": "Версия {0} · ещё не проверена",
+
+  "ClientMaj_Aucune": "Ещё не загружен: появится при первой игре с Mistly Client или сейчас по этой кнопке.",
+
+  "ClientMaj_EnCours": "Поиск последней версии…",
+
+  "ClientMaj_Fait": "Версия {0} · актуальная: мод готов к следующей игре",
+
+  "ClientMaj_Erreur": "Не удаётся связаться с GitHub: используется версия {0}. Попробуй чуть позже.",
   "Console_Arretee": "Игра остановлена.",
   "Home_EnLigne": "В СЕТИ",
   "Home_Joueur": "игрок",

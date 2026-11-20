@@ -17,7 +17,7 @@ use crate::{
 use serde_json::{json, Value};
 use std::time::Duration;
 
-const SITE: &str = "https://misty-launcher.online";
+const SITE: &str = "https://mistly.cc";
 
 /// Runtime des tâches de fond, celui du contexte (aucun hors de l'application : rien n'est envoyé).
 fn runtime() -> Option<tokio::runtime::Handle> {

@@ -1,7 +1,7 @@
-# Misty Launcher
+# Mistly Launcher
 
-Launcher Minecraft pour Windows, écrit en Rust avec une interface Slint. Repo : Misty-MC/Misty-Launcher.
-Le mod en jeu (Mistly Client) vient du repo Misty-MC/Misty-Client (il a son propre `CLAUDE.md`). Le launcher le télécharge depuis les releases GitHub de ce repo (`crates/misty-core/src/minecraft/client.rs`) ; le sous-module `misty-client/` ne sert plus qu'aux tests (textures de cape partagées).
+Launcher Minecraft pour Windows et Linux, écrit en Rust avec une interface Slint. Repo : Mistly-MC/Mistly-Launcher. Site : https://mistly.cc.
+Le mod en jeu (Mistly Client) vient du repo Mistly-MC/Mistly-Client (il a son propre `CLAUDE.md`). Le launcher le télécharge depuis les releases GitHub de ce repo (`crates/misty-core/src/minecraft/client.rs`) ; le sous-module `misty-client/` ne sert plus qu'aux tests (textures de cape partagées).
 
 ## Structure
 
@@ -15,7 +15,7 @@ Workspace Cargo à la racine du repo (détail dans `crates/README.md`) :
 ## Cloner et compiler
 
 ```powershell
-git clone --recursive https://github.com/Misty-MC/Misty-Launcher.git   # ou : git submodule update --init
+git clone --recursive https://github.com/Mistly-MC/Mistly-Launcher.git   # ou : git submodule update --init
 cargo check --all-targets   # vérification rapide (depuis la racine du repo)
 cargo test                  # tests hors ligne (doivent passer avant chaque commit)
 cargo test -- --ignored --nocapture   # tests qui utilisent Internet et le dossier Misty
@@ -33,8 +33,9 @@ cargo run                   # lancer le launcher
 - **Identifiants et commentaires en français** (`executer`, `fenetre`, `dossier`…), comme le reste du code. Garder ce style.
 - Textes de l'interface : jamais en dur. Ajouter la clé dans **les 6 fichiers** `crates/misty-core/lang/*.json` (en, fr, es, it, pt, ru), puis l'utiliser avec `loc::t("Cle")`.
 - Nouveau réglage : ajouter un champ à `Reglages` (`crates/misty-core/src/systeme/reglages.rs`) avec `#[serde(default)]` (ou `#[serde(default = "…")]`), puis `reglages::lire().champ` / `reglages::modifier(|r| r.champ = …)`. Pas de version à incrémenter : un ancien `reglages.json` reçoit la valeur par défaut. Ne jamais renommer ni changer le type d'un champ existant sans migration (sinon le joueur perd ce réglage).
-- Ne pas modifier `GITHUB_REPO` (`app_info.rs`) ni l'`AppId` de `installer/Misty.iss` : les mises à jour automatiques et l'installateur en dépendent.
-- Le nom affiché est « Mistly Launcher » (et « Mistly Client » pour le mod ; l'app s'appelait Misty), mais l'exe (`Misty.exe`) et les dossiers de données (`%LOCALAPPDATA%\Misty`, `%LOCALAPPDATA%\Programs\Misty`) gardent le nom « Misty » : les renommer casserait les installations existantes. Les raccourcis (menu Démarrer, bureau) et les infos de l'exe (`build.rs`) affichent « Mistly ». Gardent « Misty » : l'`AppId`, l'AUMID, le domaine `misty-launcher.online`, les repos `Misty-MC/*` et le nom de la licence (« Misty License 1.0 »).
+- Ne pas modifier `GITHUB_REPO` (`app_info.rs`, `Mistly-MC/Mistly-Launcher`) ni l'`AppId` de `installer/Misty.iss` : les mises à jour automatiques et l'installateur en dépendent.
+- L'organisation GitHub s'appelait `Misty-MC` (et les repos `Misty`, `Misty-Launcher`, `Misty-Client`) : GitHub redirige ces anciens noms vers `Mistly-MC/*`, et c'est par cette redirection que les launchers déjà installés trouvent leurs mises à jour. **Ne jamais créer d'organisation ni de repo sous ces anciens noms** : la redirection s'arrêterait.
+- Le nom affiché est « Mistly Launcher » (et « Mistly Client » pour le mod ; l'app s'appelait Misty), mais l'exe (`Misty.exe`) et les dossiers de données (`%LOCALAPPDATA%\Misty`, `%LOCALAPPDATA%\Programs\Misty`) gardent le nom « Misty » : les renommer casserait les installations existantes. Les raccourcis (menu Démarrer, bureau) et les infos de l'exe (`build.rs`) affichent « Mistly ». Gardent « Misty » : l'`AppId`, l'AUMID et le nom de la licence (« Misty License 1.0 »). Le site est https://mistly.cc (l'ancien domaine `misty-launcher.online` sert encore l'API et les téléchargements).
 - `curseforge.key` (racine du repo, lu par `crates/misty-core/build.rs`) est privé et ignoré par git : ne jamais le commiter.
 
 ## Commits et branches
@@ -42,7 +43,7 @@ cargo run                   # lancer le launcher
 - Branches : seule `main` existe (publiée). Pour un changement : créer une branche temporaire, ouvrir une PR vers `main`, puis supprimer la branche après le merge. Toujours demander avant de pousser sur `main`.
 - Message : sujet en anglais à l'impératif, sans point final (`Add …`, `Fix …`, `Keep …`), corps optionnel qui explique pourquoi. Terminer par `Co-Authored-By: Claude <noreply@anthropic.com>` quand Claude a écrit le changement.
 - Tout changement visible par l'utilisateur va dans `CHANGELOG.md`, en anglais, sous la version en cours (`## <version>` puis `### Launcher` ou `### Mistly Client (in game)`). Ce fichier est intégré dans l'exe et affiché dans « Patch notes ».
-- Mise à jour du mod pour les joueurs : publier une release de Misty-Client (son workflow y attache les jars et `misty-client.json`). Le sous-module se met à jour à part (`git submodule update --remote misty-client`), seulement pour les tests.
+- Mise à jour du mod pour les joueurs : publier une release de Mistly-Client (son workflow y attache les jars et `misty-client.json`). Le sous-module se met à jour à part (`git submodule update --remote misty-client`), seulement pour les tests.
 - Version : la seule source est `version` dans `[workspace.package]` du `Cargo.toml` racine (`app_info::VERSION` la lit avec `env!("CARGO_PKG_VERSION")`, `installer/build.ps1` la lit dans `Cargo.toml`). Le tag GitHub (sans `v`) doit être identique, sinon le launcher propose la mise à jour en boucle.
 
 ## Dépendances

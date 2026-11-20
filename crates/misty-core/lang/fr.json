@@ -826,7 +826,23 @@
   "Pack_DistantAucunFichier": "Ce pack n'a aucun fichier à télécharger.",
   "Console_CopierSelection": "Copier la sélection",
   "Hz_BuildIntrouvable": "Le build {0} est introuvable sur GitHub",
-  "Home_TelechargementClient": "Téléchargement de Mistly Client…",
+  "Home_TelechargementClient": "Téléchargement de Mistly Client…",
+
+  "ClientMaj_Bouton": "Mettre à jour",
+
+  "ClientMaj_AJour": "Version {0} · à jour",
+
+  "ClientMaj_Nouvelle": "Version {0} · la version {1} est disponible",
+
+  "ClientMaj_NonVerifiee": "Version {0} · pas encore vérifiée",
+
+  "ClientMaj_Aucune": "Pas encore téléchargé : il arrive à ta première partie avec Mistly Client, ou maintenant avec ce bouton.",
+
+  "ClientMaj_EnCours": "Recherche de la dernière version…",
+
+  "ClientMaj_Fait": "Version {0} · à jour : le mod est prêt pour ta prochaine partie",
+
+  "ClientMaj_Erreur": "Impossible de joindre GitHub : la version {0} reste utilisée. Réessaie dans un moment.",
   "Console_Arretee": "Le jeu a été arrêté.",
   "Home_EnLigne": "EN LIGNE",
   "Home_Joueur": "joueur",

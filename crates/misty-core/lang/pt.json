@@ -826,7 +826,23 @@
   "Pack_DistantAucunFichier": "Este pack não tem nenhum ficheiro para transferir.",
   "Console_CopierSelection": "Copiar seleção",
   "Hz_BuildIntrouvable": "A build {0} não foi encontrada no GitHub",
-  "Home_TelechargementClient": "A transferir o Mistly Client…",
+  "Home_TelechargementClient": "A transferir o Mistly Client…",
+
+  "ClientMaj_Bouton": "Atualizar",
+
+  "ClientMaj_AJour": "Versão {0} · atualizada",
+
+  "ClientMaj_Nouvelle": "Versão {0} · a versão {1} está disponível",
+
+  "ClientMaj_NonVerifiee": "Versão {0} · ainda não verificada",
+
+  "ClientMaj_Aucune": "Ainda não transferido: chega com o teu primeiro jogo com o Mistly Client, ou agora com este botão.",
+
+  "ClientMaj_EnCours": "À procura da versão mais recente…",
+
+  "ClientMaj_Fait": "Versão {0} · atualizada: o mod está pronto para o teu próximo jogo",
+
+  "ClientMaj_Erreur": "Não foi possível contactar o GitHub: continua a ser usada a versão {0}. Tenta novamente daqui a pouco.",
   "Console_Arretee": "O jogo foi parado.",
   "Home_EnLigne": "ONLINE",
   "Home_Joueur": "jogador",

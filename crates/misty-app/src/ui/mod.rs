@@ -243,6 +243,8 @@ pub fn installer(app: &Rc<App>) {
     });
     ui.global::<AppState>()
         .on_open_data_folder(|| system_info::ouvrir_dossier(&paths::data_dir()));
+    ui.global::<AppState>()
+        .on_open_discord(|| system_info::ouvrir(misty_core::systeme::app_info::DISCORD_INVITE));
     let a = app.clone();
     ui.global::<AppState>()
         .on_nav_clicked(move |i| nav_clicked(&a, i));
