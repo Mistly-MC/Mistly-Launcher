@@ -2,7 +2,7 @@
 //! Misty Client.
 //!
 //! - Un ami s'ajoute par son pseudo : Mojang donne son UUID et son nom exact.
-//! - « En ligne » vient du réseau Misty (`misty-launcher.online/api/client/players`), le même que
+//! - « En ligne » vient du réseau Misty (`mistly.cc/api/client/players`), le même que
 //!   celui des badges en jeu : le site connaît les joueurs dont Misty Client a donné signe de vie
 //!   depuis moins de 3 minutes. Il faut un jeton Misty : celui que Misty Client garde dans le
 //!   dossier du launcher (`misty-network.json`) après avoir prouvé le compte auprès de Mojang. Le
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-const API: &str = "https://misty-launcher.online/api/client";
+const API: &str = "https://mistly.cc/api/client";
 /// Le site n'accepte pas plus de joueurs par demande (comme Misty Client).
 const LOT: usize = 100;
 /// Un skin d'ami est retéléchargé au plus une fois par jour.

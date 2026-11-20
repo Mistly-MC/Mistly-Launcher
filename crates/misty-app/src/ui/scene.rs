@@ -1,4 +1,4 @@
-//! Paysage du site misty-launcher.online (montagnes, sapins, lune, étoiles, nappes de brume),
+//! Paysage du site mistly.cc (montagnes, sapins, lune, étoiles, nappes de brume),
 //! repris en fond du launcher.
 //!
 //! Même générateur que le site (même graine = même paysage), mais au lieu d'un SVG on produit des

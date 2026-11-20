@@ -1,4 +1,4 @@
-//! Misty Client : le mod Fabric de Misty (repo Misty-MC/Misty-Client), qui apporte en jeu le
+//! Misty Client : le mod Fabric de Misty (repo Mistly-MC/Mistly-Client), qui apporte en jeu le
 //! menu principal Mistly, le HUD, le zoom, la luminosité maximale, le nuage Mistly devant les
 //! joueurs Mistly (liste des joueurs et chat) et les cosmétiques Mistly.
 //!
@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
 /// Repo GitHub du mod (ses releases portent les jars).
-pub const DEPOT: &str = "Misty-MC/Misty-Client";
+pub const DEPOT: &str = "Mistly-MC/Mistly-Client";
 /// Liste des jars publiée avec chaque release.
 const MANIFESTE: &str = "misty-client.json";
 
@@ -289,8 +289,54 @@ pub async fn actualiser() -> anyhow::Result<bool> {
             }
         }
     }
+    *PUBLIEE.write().unwrap() = Some(nouveau.release.clone());
     *INDEX.write().unwrap() = Some(nouveau);
     Ok(change)
+}
+
+/// La dernière release du mod lue sur GitHub pendant cette session (None : pas encore lue, ou
+/// GitHub injoignable).
+static PUBLIEE: RwLock<Option<String>> = RwLock::new(None);
+
+/// La version de Mistly Client que le launcher utilise (tag de la release : "1.0.21"), "" si
+/// aucune n'a encore été lue.
+pub fn version() -> String {
+    index().release
+}
+
+/// La dernière version publiée sur GitHub, si elle a été lue pendant cette session.
+pub fn version_publiee() -> Option<String> {
+    PUBLIEE.read().unwrap().clone()
+}
+
+/// Met Mistly Client à jour tout de suite, sans attendre une partie : relit la dernière release
+/// sur GitHub et télécharge le mod pour les versions de Minecraft déjà jouées avec lui, et pour la
+/// plus récente. Les profils reçoivent le nouveau jar à leur prochain lancement (`preparer`).
+/// Renvoie la version maintenant utilisée.
+pub async fn mettre_a_jour() -> anyhow::Result<String> {
+    // versions de Minecraft dont le jar est déjà sur le disque, avant la mise à jour
+    let jouees: Vec<String> = index()
+        .jars
+        .iter()
+        .filter(|j| chemin(j).is_file())
+        .flat_map(|j| j.minecraft.clone())
+        .collect();
+    actualiser().await?;
+    let mut voulues: Vec<String> = jouees.into_iter().filter(|v| existe(v)).collect();
+    let plus_recente = derniere();
+    if !plus_recente.is_empty() {
+        voulues.push(plus_recente);
+    }
+    let mut faits: Vec<String> = Vec::new();
+    for v in voulues {
+        let Some(jar) = jar_pour(&v) else { continue };
+        if faits.contains(&jar.fichier) {
+            continue;
+        }
+        faits.push(jar.fichier.clone());
+        telecharger(&v).await?;
+    }
+    Ok(version())
 }
 
 /// Quand la release a été lue pour la dernière fois.
@@ -614,7 +660,7 @@ pub fn equiper_chapeau(chapeau: &str) {
 
 /// Ce compte a-t-il droit à la cape early player ? (le site le sait : comptes vus avant une date)
 pub async fn early(uuid: &str) -> bool {
-    let url = format!("https://misty-launcher.online/api/client/early/{uuid}");
+    let url = format!("https://mistly.cc/api/client/early/{uuid}");
     crate::systeme::http::get_json::<serde_json::Value>(&url)
         .await
         .ok()

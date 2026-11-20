@@ -2,8 +2,8 @@ Misty License 1.0
 
 Copyright (c) 2026 Misty-MC and contributors
 
-This license applies to Misty Launcher (https://github.com/Misty-MC/Misty-Launcher)
-and Misty Client (https://github.com/Misty-MC/Misty-Client), together "the Software".
+This license applies to Misty Launcher (https://github.com/Mistly-MC/Mistly-Launcher)
+and Misty Client (https://github.com/Mistly-MC/Mistly-Client), together "the Software".
 
 1. Permissions
 

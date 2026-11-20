@@ -10,11 +10,11 @@ default-members = ["crates/misty-app", "crates/misty-core"]
 [workspace.package]
 # Seule source de la version du launcher (app_info::VERSION, installer/build.ps1, release.yml).
 # Le tag de la release GitHub (sans « v ») doit être identique.
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 authors = ["xTheoxreborn"]
 license-file = "LICENSE.txt"
-repository = "https://github.com/Misty-MC/Misty-Launcher"
+repository = "https://github.com/Mistly-MC/Mistly-Launcher"
 
 [workspace.dependencies]
 misty-core = { path = "crates/misty-core" }

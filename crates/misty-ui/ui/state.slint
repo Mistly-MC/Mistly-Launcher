@@ -75,6 +75,8 @@ export global AppState {
     callback toggle-maximize();
     callback nav-clicked(int);
     callback open-data-folder();
+    /// ouvre le serveur Discord de Mistly dans le navigateur
+    callback open-discord();
     callback minimize();
     callback close();
     callback drag();
@@ -533,6 +535,10 @@ export global SettingsState {
     in property <string> misty-client-mc;
     in-out property <bool> misty-client: true;
     callback misty-client-toggled(bool);
+    /// Mistly Client : sa version et son état (« Version 1.0.21 · à jour »), et sa mise à jour
+    in property <string> misty-client-status;
+    in property <bool> misty-client-updating;
+    callback misty-client-update();
     in-out property <bool> telemetry;
     callback telemetry-toggled(bool);
     in-out property <bool> prerelease;

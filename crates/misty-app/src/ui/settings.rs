@@ -23,6 +23,19 @@ fn s(app: &App) -> SettingsState<'_> {
     app.ui.global::<SettingsState>()
 }
 
+/// État de Mistly Client pour la carte des options : sa version, et si c'est la dernière publiée.
+fn texte_client() -> String {
+    let v = client::version();
+    if v.is_empty() {
+        return loc::t("ClientMaj_Aucune");
+    }
+    match client::version_publiee() {
+        Some(p) if p == v => loc::tf("ClientMaj_AJour", &[&v]),
+        Some(p) => loc::tf("ClientMaj_Nouvelle", &[&v, &p]),
+        None => loc::tf("ClientMaj_NonVerifiee", &[&v]),
+    }
+}
+
 /// Catégories des options (dans l'ordre de SettingsState.section) : titre et sous-titre.
 const CATEGORIES: [&str; 9] = [
     "Param_Apparence",
@@ -336,6 +349,34 @@ pub fn installer(app: &Rc<App>) {
 
     st.on_github(|| system_info::ouvrir(&format!("https://github.com/{}", app_info::GITHUB_REPO)));
 
+    // Mistly Client : relire sa dernière release et télécharger le mod tout de suite
+    let a = app.clone();
+    st.on_misty_client_update(move || {
+        if s(&a).get_misty_client_updating() {
+            return; // mise à jour déjà en cours
+        }
+        s(&a).set_misty_client_updating(true);
+        s(&a).set_misty_client_status(loc::t("ClientMaj_EnCours").into());
+        let a = a.clone();
+        lancer(async move {
+            let resultat = a.bg(client::mettre_a_jour()).await;
+            s(&a).set_misty_client_updating(false);
+            let texte = match resultat {
+                Ok(v) if v.is_empty() => texte_client(),
+                Ok(v) => loc::tf("ClientMaj_Fait", &[&v]),
+                Err(e) => {
+                    misty_core::systeme::journal::info(&format!(
+                        "Mistly Client : mise à jour impossible ({e:#})"
+                    ));
+                    loc::tf("ClientMaj_Erreur", &[&client::version()])
+                }
+            };
+            s(&a).set_misty_client_status(texte.into());
+            s(&a).set_misty_client_available(client::disponible());
+            s(&a).set_misty_client_mc(client::versions_texte().into());
+        });
+    });
+
     // Fenêtre
     st.set_system_text(system_info::version_windows().into());
     let a = app.clone();
@@ -542,6 +583,9 @@ pub fn rafraichir(app: &Rc<App>) {
     st.set_misty_client_available(client::disponible());
     st.set_misty_client_mc(client::versions_texte().into());
     st.set_misty_client(client::active());
+    if !st.get_misty_client_updating() {
+        st.set_misty_client_status(texte_client().into());
+    }
     st.set_prerelease(reglages::lire().maj_prerelease);
     st.set_telemetry(misty_core::systeme::telemetry::active());
     st.set_bg_blur(reglages::lire().fond_flou as f32);
