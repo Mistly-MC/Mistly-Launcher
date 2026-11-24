@@ -146,6 +146,14 @@ export struct VersionGroup {
 }
 
 export global HomeState {
+    /// Édition choisie dans la barre du haut : 0 Mistly Client · 1 Java (vanilla) · 2 Bedrock · 3 Horizon
+    in-out property <int> edition: 0;
+    callback edition-selected(int);
+    /// Bedrock (version du Microsoft Store) installé sur ce PC (Windows seulement)
+    in property <bool> bedrock-available;
+    /// Windows : Bedrock peut exister ici (sinon l'écran Bedrock l'explique)
+    in property <bool> bedrock-supported;
+    callback bedrock-play();
     /// Fenêtre de choix de la version (0 versions · 1 profils)
     in-out property <bool> picker-open;
     in-out property <int> picker-tab: 0;
@@ -460,6 +468,17 @@ export struct SettingResult {
     section: int,
 }
 
+/// Une part du graphique de stockage des options (barre empilée à 100 %).
+export struct StoragePart {
+    name: string,
+    size-text: string,
+    percent: string,
+    /// Début et largeur de la part, de 0 à 1
+    start: float,
+    fraction: float,
+    shade: color,
+}
+
 export global SettingsState {
     /// Fenêtre des options ouverte
     in property <bool> open;
@@ -557,6 +576,26 @@ export global SettingsState {
     callback clear-cache();
     callback open-logs();
     callback export-debug();
+    /// Jeu : taille de la fenêtre (vide : celle du jeu) et plein écran
+    in-out property <string> game-width;
+    in-out property <string> game-height;
+    callback game-size-changed();
+    in-out property <bool> fullscreen;
+    callback fullscreen-toggled(bool);
+    /// Compte : demander quel compte utiliser avant chaque partie
+    in-out property <bool> ask-account;
+    callback ask-account-toggled(bool);
+    /// Téléchargements : pause pendant une partie, et le graphique du stockage
+    in-out property <bool> pause-downloads: true;
+    callback pause-downloads-toggled(bool);
+    in property <[StoragePart]> storage-parts;
+    in property <string> storage-parts-total;
+    in property <bool> storage-parts-busy;
+    callback storage-parts-show();
+    /// Confidentialité : la politique de confidentialité sur mistly.cc
+    callback open-privacy();
+    /// À propos : "site" ou "license" (pages de mistly.cc)
+    callback open-link(string);
 }
 
 // ───────────────────────── Notes de version ─────────────────────────

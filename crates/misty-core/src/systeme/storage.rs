@@ -247,3 +247,72 @@ pub fn supprimer(cle: &str) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+/// Catégories du graphique de stockage des options : (clé, dossiers du dossier de données).
+/// La clé donne le nom affiché (`Stock_Part_<clé>`) ; tout le reste va dans « other ».
+const PARTS: &[(&str, &[&str])] = &[
+    ("versions", &["versions"]),
+    ("assets", &["assets"]),
+    ("libraries", &["libraries"]),
+    (
+        "instances",
+        &["instances", "mymods", "resourcepacks", "saves"],
+    ),
+    ("java", &["runtime"]),
+    ("screenshots", &["screenshots"]),
+];
+
+/// Répartition du dossier de données par catégorie, en octets (graphique des options), de la plus
+/// grosse à la plus petite, « other » (le reste du dossier) à la fin. Long : hors du fil de
+/// l'interface.
+pub fn repartition() -> Vec<(String, u64)> {
+    let r = racine();
+    let total = system_info::taille_dossier(&r);
+    repartition_dans(&r, total)
+}
+
+fn repartition_dans(r: &Path, total: u64) -> Vec<(String, u64)> {
+    let mut parts: Vec<(String, u64)> = PARTS
+        .iter()
+        .map(|(cle, dossiers)| {
+            let taille = dossiers
+                .iter()
+                .map(|d| r.join(d))
+                .filter(|d| d.exists())
+                .map(|d| system_info::taille_dossier(&d))
+                .sum();
+            (cle.to_string(), taille)
+        })
+        .filter(|(_, t)| *t > 0)
+        .collect();
+    parts.sort_by_key(|p| std::cmp::Reverse(p.1));
+    let comptes: u64 = parts.iter().map(|(_, t)| t).sum();
+    let reste = total.saturating_sub(comptes);
+    if reste > 0 {
+        parts.push(("other".to_string(), reste));
+    }
+    parts
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn repartition_triee_avec_le_reste() {
+        let d = std::env::temp_dir().join(format!("misty-repartition-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("versions")).unwrap();
+        std::fs::create_dir_all(d.join("assets")).unwrap();
+        std::fs::write(d.join("versions/a.jar"), vec![0u8; 300]).unwrap();
+        std::fs::write(d.join("assets/b"), vec![0u8; 500]).unwrap();
+        let parts = super::repartition_dans(&d, 1000);
+        assert_eq!(
+            parts,
+            vec![
+                ("assets".to_string(), 500),
+                ("versions".to_string(), 300),
+                ("other".to_string(), 200)
+            ]
+        );
+        let _ = std::fs::remove_dir_all(&d);
+    }
+}

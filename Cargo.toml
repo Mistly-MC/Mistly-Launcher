@@ -10,7 +10,7 @@ default-members = ["crates/misty-app", "crates/misty-core"]
 [workspace.package]
 # Seule source de la version du launcher (app_info::VERSION, installer/build.ps1, release.yml).
 # Le tag de la release GitHub (sans « v ») doit être identique.
-version = "0.4.1"
+version = "0.4.1-beta.1"
 edition = "2021"
 authors = ["xTheoxreborn"]
 license-file = "LICENSE.txt"
@@ -59,10 +59,13 @@ rfd = "0.18"
 discord-rich-presence = "1.1"
 md5 = "0.8"
 uuid = { version = "1", features = ["v4"] }
+# Connexion Microsoft (auth/account.rs) : OAuth 2 par code d'appareil et renouvellement (oauth2),
+# puis Xbox Live → Minecraft (minecraft-msa-auth). Les deux utilisent le reqwest 0.12 du launcher.
+oauth2 = { version = "5", default-features = false, features = ["reqwest"] }
+minecraft-msa-auth = "0.4"
+# Lecture du xuid dans le jeton Minecraft (JWT)
+base64 = "0.22"
 # Windows
-# Connexion Microsoft (fenêtre web lancée dans un sous-processus)
-wry = { version = "0.57", default-features = false }
-winit = "0.30"
 winreg = "0.56"
 mslnk = "0.1"
 windows-sys = { version = "0.61", features = ["Win32_System_SystemInformation", "Win32_Foundation", "Win32_Graphics_Dwm", "Win32_System_Threading"] }

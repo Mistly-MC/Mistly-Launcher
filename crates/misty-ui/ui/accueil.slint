@@ -1,0 +1,805 @@
+// Connexion Microsoft par code d'appareil, et parcours du premier lancement (langue, conditions,
+// télémétrie). Thème Nuit 0.4.1 : jetons de couleur de Theme (bg, surface, control, ink…).
+
+import { Theme, Tr, Assets } from "theme.slint";
+import { AppState } from "state.slint";
+import { LangItem } from "widgets.slint";
+
+// ───────────────────────── État partagé avec Rust ─────────────────────────
+
+/// Fenêtre « Se connecter avec Microsoft » : le code à saisir sur microsoft.com/link.
+export global ConnexionState {
+    in property <bool> visible;
+    in property <string> code;
+    /// Page où saisir le code
+    in property <string> adresse;
+    /// Le code vient d'être copié (le bouton l'indique)
+    in-out property <bool> copie;
+    callback copier-ouvrir();
+    callback annuler();
+}
+
+/// Premier lancement : trois étapes, puis le choix Premium / Hors ligne.
+export global BienvenueState {
+    in-out property <bool> visible;
+    /// 0 langue, 1 conditions, 2 télémétrie
+    in-out property <int> etape;
+    in property <[LangItem]> langues;
+    in-out property <int> langue-index;
+    in-out property <bool> accepte;
+    in-out property <bool> telemetrie: true;
+    callback langue-choisie(int);
+    /// "license", "privacy" ou "terms"
+    callback lire(string);
+    callback terminer();
+}
+
+// ───────────────────────── Petits composants ─────────────────────────
+
+/// Coche dessinée (identique sous Windows et Linux).
+component Coche inherits Path {
+    in property <color> couleur;
+    width: 12px;
+    height: 12px;
+    viewbox-width: 12;
+    viewbox-height: 12;
+    commands: "M 2 6.5 L 5 9.5 L 10 3";
+    stroke: root.couleur;
+    stroke-width: 1.8px;
+    fill: transparent;
+}
+
+/// Croix dessinée.
+component Croix inherits Path {
+    in property <color> couleur;
+    width: 10px;
+    height: 10px;
+    viewbox-width: 10;
+    viewbox-height: 10;
+    commands: "M 1.5 1.5 L 8.5 8.5 M 8.5 1.5 L 1.5 8.5";
+    stroke: root.couleur;
+    stroke-width: 1.6px;
+    fill: transparent;
+}
+
+/// Bouton en pastille : plein (principal) ou contour.
+component Pastille inherits Rectangle {
+    in property <string> text;
+    in property <bool> principal;
+    in property <bool> enabled: true;
+    in property <length> hauteur: 44px;
+    callback clicked;
+    height: root.hauteur;
+    min-width: lib.preferred-width + 40px;
+    border-radius: self.height / 2;
+    background: root.principal
+        ? (!root.enabled ? Theme.active.with-alpha(0.35) : zone.pressed ? Theme.active.darker(0.12) : zone.has-hover ? Theme.active.brighter(0.06) : Theme.active)
+        : (zone.has-hover && root.enabled ? Theme.border-strong : Theme.control);
+    border-width: root.principal ? 0px : 1.5px;
+    border-color: Theme.border-strong;
+    transform-scale: zone.pressed && root.enabled ? 0.97 : 1;
+    animate background { duration: Theme.fast; }
+    animate transform-scale { duration: 140ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+    lib := Text {
+        text: root.text;
+        font-family: Theme.sans-font;
+        font-size: 14px;
+        font-weight: 500;
+        color: root.principal ? Theme.on-active : Theme.icon;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    zone := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+/// Bouton radio rond.
+component Radio inherits Rectangle {
+    in property <bool> coche;
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    border-width: root.coche ? 5.5px : 1.5px;
+    border-color: root.coche ? Theme.active : Theme.border-strong;
+    animate border-width, border-color { duration: Theme.normal; easing: ease-out; }
+}
+
+/// Case à cocher carrée aux coins arrondis.
+component Case inherits Rectangle {
+    in property <bool> coche;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: root.coche ? Theme.active : transparent;
+    border-width: 1.5px;
+    border-color: root.coche ? Theme.active : Theme.border-strong;
+    animate background, border-color { duration: Theme.fast; }
+    Coche {
+        couleur: Theme.on-active;
+        opacity: root.coche ? 1 : 0;
+        animate opacity { duration: Theme.fast; }
+    }
+}
+
+/// Le nom MISTLY en pixels, avec son nuage.
+component Marque inherits HorizontalLayout {
+    in property <length> taille: 18px;
+    spacing: 12px;
+    alignment: start;
+    Rectangle {
+        width: root.taille * 1.8;
+        height: root.taille * 1.8;
+        border-radius: root.taille * 0.55;
+        background: Theme.control;
+        border-width: 1.5px;
+        border-color: Theme.border-strong;
+        Image {
+            width: root.taille * 1.15;
+            height: root.taille * 1.15;
+            source: Assets.logo;
+            colorize: Theme.ink;
+            image-fit: contain;
+        }
+    }
+    Text {
+        text: "MISTLY";
+        font-family: Theme.pixel-font;
+        font-weight: 700;
+        font-size: root.taille;
+        letter-spacing: root.taille * 0.08;
+        color: Theme.ink-strong;
+        vertical-alignment: center;
+    }
+}
+
+// ───────────────────────── Connexion par code ─────────────────────────
+
+export component ConnexionCode inherits Rectangle {
+    background: #04050799;
+    opacity: 0;
+    animate opacity { duration: 200ms; easing: ease-out; }
+    init => { self.opacity = 1; }
+    TouchArea { }
+
+    presse-papiers := TextInput {
+        x: 0;
+        y: 0;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        read-only: true;
+        text: ConnexionState.code;
+    }
+
+    carte := Rectangle {
+        width: 460px;
+        height: contenu.preferred-height;
+        border-radius: 28px;
+        background: Theme.surface;
+        border-width: 1.5px;
+        border-color: Theme.border-field;
+        drop-shadow-blur: 60px;
+        drop-shadow-offset-y: 24px;
+        drop-shadow-color: #000000B3;
+        transform-scale: root.opacity * 0.04 + 0.96;
+
+        contenu := VerticalLayout {
+            padding: 32px;
+            spacing: 18px;
+            HorizontalLayout {
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                        Rectangle { x: 0; y: 0; width: 9px; height: 9px; background: Theme.ink; }
+                        Rectangle { x: 11px; y: 0; width: 9px; height: 9px; background: Theme.ink; }
+                        Rectangle { x: 0; y: 11px; width: 9px; height: 9px; background: Theme.ink; }
+                        Rectangle { x: 11px; y: 11px; width: 9px; height: 9px; background: Theme.ink; }
+                    }
+                }
+                Text {
+                    text: Tr.t("Connexion_Titre");
+                    font-family: Theme.sans-font;
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: Theme.ink-strong;
+                    vertical-alignment: center;
+                }
+            }
+            Text {
+                text: Tr.t("Connexion_Texte");
+                font-family: Theme.sans-font;
+                font-size: 14px;
+                color: Theme.ink-2;
+                wrap: word-wrap;
+            }
+            // le code, en grand
+            Rectangle {
+                height: 84px;
+                border-radius: 20px;
+                background: Theme.surface-2;
+                border-width: 1.5px;
+                border-color: Theme.border-field;
+                Text {
+                    text: ConnexionState.code;
+                    font-family: Theme.mono-font;
+                    font-size: 36px;
+                    font-weight: 500;
+                    letter-spacing: 6px;
+                    color: Theme.ink-strong;
+                }
+            }
+            Text {
+                text: ConnexionState.adresse;
+                font-family: Theme.mono-font;
+                font-size: 12.5px;
+                color: Theme.ink-3;
+                horizontal-alignment: center;
+            }
+            Pastille {
+                principal: true;
+                hauteur: 52px;
+                text: ConnexionState.copie ? Tr.t("Connexion_Copie") : Tr.t("Connexion_CopierOuvrir");
+                clicked => {
+                    // presse-papiers : le code est sélectionné dans un champ invisible puis copié
+                    presse-papiers.select-all();
+                    presse-papiers.copy();
+                    ConnexionState.copie = true;
+                    ConnexionState.copier-ouvrir();
+                }
+            }
+            HorizontalLayout {
+                spacing: 12px;
+                // attente : trois points qui s'allument tour à tour
+                HorizontalLayout {
+                    spacing: 5px;
+                    alignment: start;
+                    for i in 3: VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 6px;
+                            height: 6px;
+                            background: Theme.active;
+                            opacity: 0.25 + 0.75 * max(0, sin((animation-tick() / 1400ms) * 360deg - i * 60deg));
+                        }
+                    }
+                }
+                Text {
+                    horizontal-stretch: 1;
+                    text: Tr.t("Connexion_Attente");
+                    font-family: Theme.sans-font;
+                    font-size: 13px;
+                    color: Theme.ink-3;
+                    vertical-alignment: center;
+                }
+                Pastille {
+                    text: Tr.t("Commun_Annuler");
+                    hauteur: 40px;
+                    clicked => { ConnexionState.annuler(); }
+                }
+            }
+        }
+    }
+}
+
+// ───────────────────────── Premier lancement ─────────────────────────
+
+/// Indicateur d'étape (pastille numérotée).
+component Etape inherits Rectangle {
+    in property <int> numero;
+    in property <string> text;
+    in property <bool> courante;
+    in property <bool> faite;
+    height: 36px;
+    width: ligne.preferred-width + 24px;
+    border-radius: 18px;
+    background: root.courante ? Theme.active : transparent;
+    border-width: 1.5px;
+    border-color: root.courante ? Theme.active : Theme.border-strong;
+    animate background, border-color { duration: Theme.normal; easing: ease-out; }
+    ligne := HorizontalLayout {
+        x: 8px;
+        spacing: 8px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 22px;
+                height: 22px;
+                border-radius: 11px;
+                background: root.courante ? Theme.on-active : root.faite ? Theme.active : Theme.control;
+                if root.faite: Coche { couleur: Theme.on-active; }
+                if !root.faite: Text {
+                    text: root.numero;
+                    font-family: Theme.mono-font;
+                    font-size: 11px;
+                    font-weight: 500;
+                    color: root.courante ? Theme.active : Theme.ink-4;
+                }
+            }
+        }
+        Text {
+            text: root.text;
+            font-family: Theme.sans-font;
+            font-size: 13px;
+            font-weight: 500;
+            color: root.courante ? Theme.on-active : root.faite ? Theme.ink : Theme.ink-3;
+            vertical-alignment: center;
+        }
+    }
+}
+
+/// Une ligne de document (licence, confidentialité, conditions) avec « Lire ».
+component Document inherits Rectangle {
+    in property <string> glyphe;
+    in property <string> titre;
+    in property <string> texte;
+    in property <bool> trait;
+    callback lire;
+    height: 82px;
+    HorizontalLayout {
+        padding-left: 22px;
+        padding-right: 22px;
+        spacing: 16px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 44px;
+                height: 44px;
+                border-radius: 22px;
+                background: Theme.control;
+                border-width: 1.5px;
+                border-color: Theme.border-strong;
+                Text {
+                    text: root.glyphe;
+                    font-family: Theme.pixel-font;
+                    font-weight: 700;
+                    font-size: 15px;
+                    color: Theme.icon;
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            horizontal-stretch: 1;
+            Text {
+                text: root.titre;
+                font-family: Theme.sans-font;
+                font-size: 15px;
+                font-weight: 500;
+                color: Theme.ink;
+            }
+            Text {
+                text: root.texte;
+                font-family: Theme.sans-font;
+                font-size: 12.5px;
+                color: Theme.ink-3;
+                wrap: word-wrap;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            Pastille {
+                text: Tr.t("Bienvenue_Lire");
+                clicked => { root.lire(); }
+            }
+        }
+    }
+    if root.trait: Rectangle {
+        y: parent.height - 1.5px;
+        height: 1.5px;
+        background: Theme.border;
+    }
+}
+
+/// Une colonne « envoyé » / « jamais envoyé » de la télémétrie.
+component Liste inherits Rectangle {
+    in property <string> titre;
+    in property <[string]> lignes;
+    in property <bool> oui;
+    border-radius: 22px;
+    background: Theme.surface;
+    border-width: 1.5px;
+    border-color: Theme.border;
+    min-height: corps.preferred-height;
+    corps := VerticalLayout {
+        padding: 20px;
+        spacing: 12px;
+        Text {
+            text: root.titre;
+            font-family: Theme.mono-font;
+            font-size: 11.5px;
+            letter-spacing: 0.7px;
+            color: root.oui ? Theme.online-text : Theme.ink-3;
+        }
+        for l in root.lignes: HorizontalLayout {
+            spacing: 10px;
+            VerticalLayout {
+                alignment: center;
+                if root.oui: Coche { couleur: Theme.online-text; }
+                if !root.oui: Croix { couleur: Theme.ink-3; }
+            }
+            Text {
+                text: l;
+                font-family: Theme.sans-font;
+                font-size: 13.5px;
+                color: Theme.ink-4;
+                wrap: word-wrap;
+                horizontal-stretch: 1;
+            }
+        }
+    }
+}
+
+/// Choix de télémétrie (partager / ne pas partager).
+component ChoixTelemetrie inherits Rectangle {
+    in property <bool> coche;
+    in property <string> titre;
+    in property <string> texte;
+    callback clicked;
+    height: 84px;
+    border-radius: 22px;
+    background: root.coche ? Theme.control : zone.has-hover ? Theme.surface-2 : Theme.surface;
+    border-width: 1.5px;
+    border-color: root.coche ? Theme.active : Theme.border;
+    animate background, border-color { duration: Theme.normal; easing: ease-out; }
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            Radio { coche: root.coche; }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            horizontal-stretch: 1;
+            Text {
+                text: root.titre;
+                font-family: Theme.sans-font;
+                font-size: 15px;
+                font-weight: 500;
+                color: Theme.ink;
+            }
+            Text {
+                text: root.texte;
+                font-family: Theme.sans-font;
+                font-size: 12.5px;
+                color: Theme.ink-3;
+                wrap: word-wrap;
+            }
+        }
+    }
+    zone := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component Bienvenue inherits Rectangle {
+    background: Theme.bg;
+    opacity: 0;
+    animate opacity { duration: 280ms; easing: ease-out; }
+    init => { self.opacity = 1; }
+    TouchArea { }
+
+    // étoiles carrées, comme le site
+    for e in [{ x: 0.47, y: 0.06, t: 6px }, { x: 0.93, y: 0.42, t: 5px }, { x: 0.08, y: 0.58, t: 5px }, { x: 0.83, y: 0.86, t: 6px }, { x: 0.3, y: 0.9, t: 4px }]: Rectangle {
+        x: parent.width * e.x;
+        y: parent.height * e.y;
+        width: e.t;
+        height: e.t;
+        background: Theme.star;
+    }
+
+    VerticalLayout {
+        padding-top: 28px;
+        padding-bottom: 32px;
+        padding-left: 40px;
+        padding-right: 28px;
+
+        // ── En haut : nom, étapes, commandes de la fenêtre ──
+        HorizontalLayout {
+            height: 48px;
+            spacing: 12px;
+            Rectangle {
+                horizontal-stretch: 1;
+                // la fenêtre se déplace en tirant le haut de l'écran
+                TouchArea {
+                    pointer-event(e) => {
+                        if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                            AppState.drag();
+                        }
+                    }
+                }
+                Marque { y: (parent.height - self.preferred-height) / 2; }
+            }
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 8px;
+                    Etape { numero: 1; text: Tr.t("Bienvenue_EtapeLangue"); courante: BienvenueState.etape == 0; faite: BienvenueState.etape > 0; }
+                    Etape { numero: 2; text: Tr.t("Bienvenue_EtapeConditions"); courante: BienvenueState.etape == 1; faite: BienvenueState.etape > 1; }
+                    Etape { numero: 3; text: Tr.t("Bienvenue_EtapeTelemetrie"); courante: BienvenueState.etape == 2; faite: false; }
+                }
+            }
+            // place des boutons de la fenêtre (réduire, agrandir, fermer), dessinés par-dessus tout
+            Rectangle { width: 170px; }
+        }
+
+        // ── Au milieu : l'étape ──
+        Rectangle {
+            vertical-stretch: 1;
+            etape-langue := VerticalLayout {
+                x: (parent.width - self.width) / 2;
+                width: min(760px, parent.width);
+                height: self.preferred-height;
+                y: (parent.height - self.preferred-height) / 2 + (BienvenueState.etape == 0 ? 0px : -14px);
+                opacity: BienvenueState.etape == 0 ? 1 : 0;
+                visible: self.opacity > 0.01;
+                animate opacity, y { duration: 260ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+                spacing: 22px;
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: Tr.t("Bienvenue_Titre");
+                        font-family: Theme.sans-font;
+                        font-size: 44px;
+                        font-weight: 600;
+                        color: Theme.ink-strong;
+                    }
+                    Text {
+                        text: Tr.t("Bienvenue_LangueTexte");
+                        font-family: Theme.sans-font;
+                        font-size: 16px;
+                        color: Theme.ink-2;
+                        wrap: word-wrap;
+                    }
+                }
+                // grille de trois colonnes
+                grille := Rectangle {
+                    property <length> colonne: (self.width - 24px) / 3;
+                    height: Math.ceil(BienvenueState.langues.length / 3) * 88px - 12px;
+                    for l[i] in BienvenueState.langues: carte-langue := Rectangle {
+                        property <bool> coche: i == BienvenueState.langue-index;
+                        x: Math.mod(i, 3) * (grille.colonne + 12px);
+                        y: Math.floor(i / 3) * 88px;
+                        width: grille.colonne;
+                        height: 76px;
+                        border-radius: 22px;
+                        background: self.coche ? Theme.control : zl.has-hover ? Theme.surface-2 : Theme.surface;
+                        border-width: 1.5px;
+                        border-color: self.coche ? Theme.active : Theme.border;
+                        animate background, border-color { duration: Theme.normal; easing: ease-out; }
+                        HorizontalLayout {
+                            padding-left: 18px;
+                            padding-right: 18px;
+                            spacing: 14px;
+                            VerticalLayout {
+                                alignment: center;
+                                Image {
+                                    width: 32px;
+                                    height: 24px;
+                                    source: l.flag;
+                                    image-fit: contain;
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 2px;
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: l.name;
+                                    font-family: Theme.sans-font;
+                                    font-size: 15px;
+                                    font-weight: 500;
+                                    color: Theme.ink;
+                                }
+                                Text {
+                                    text: l.english;
+                                    font-family: Theme.sans-font;
+                                    font-size: 12.5px;
+                                    color: Theme.ink-3;
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                Radio { coche: carte-langue.coche; }
+                            }
+                        }
+                        zl := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { BienvenueState.langue-choisie(i); }
+                        }
+                    }
+                }
+                Text {
+                    text: Tr.t("Bienvenue_LangueAide");
+                    font-family: Theme.sans-font;
+                    font-size: 13px;
+                    color: Theme.ink-3;
+                    wrap: word-wrap;
+                }
+            }
+
+            etape-conditions := VerticalLayout {
+                x: (parent.width - self.width) / 2;
+                width: min(760px, parent.width);
+                height: self.preferred-height;
+                y: (parent.height - self.preferred-height) / 2 + (BienvenueState.etape == 1 ? 0px : BienvenueState.etape < 1 ? 14px : -14px);
+                opacity: BienvenueState.etape == 1 ? 1 : 0;
+                visible: self.opacity > 0.01;
+                animate opacity, y { duration: 260ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+                spacing: 22px;
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: Tr.t("Bienvenue_ConditionsTitre");
+                        font-family: Theme.sans-font;
+                        font-size: 44px;
+                        font-weight: 600;
+                        color: Theme.ink-strong;
+                    }
+                    Text {
+                        text: Tr.t("Bienvenue_ConditionsTexte");
+                        font-family: Theme.sans-font;
+                        font-size: 16px;
+                        color: Theme.ink-2;
+                        wrap: word-wrap;
+                    }
+                }
+                Rectangle {
+                    border-radius: 24px;
+                    background: Theme.surface;
+                    border-width: 1.5px;
+                    border-color: Theme.border;
+                    clip: true;
+                    VerticalLayout {
+                        Document {
+                            glyphe: "L";
+                            titre: Tr.t("Bienvenue_Licence");
+                            texte: Tr.t("Bienvenue_LicenceTexte");
+                            trait: true;
+                            lire => { BienvenueState.lire("license"); }
+                        }
+                        Document {
+                            glyphe: "P";
+                            titre: Tr.t("Bienvenue_Confidentialite");
+                            texte: Tr.t("Bienvenue_ConfidentialiteTexte");
+                            trait: true;
+                            lire => { BienvenueState.lire("privacy"); }
+                        }
+                        Document {
+                            glyphe: "T";
+                            titre: Tr.t("Bienvenue_ConditionsUtilisation");
+                            texte: Tr.t("Bienvenue_ConditionsUtilisationTexte");
+                            lire => { BienvenueState.lire("terms"); }
+                        }
+                    }
+                }
+                Rectangle {
+                    height: 60px;
+                    border-radius: 20px;
+                    background: Theme.surface-2;
+                    border-width: 1.5px;
+                    border-color: BienvenueState.accepte ? Theme.border-strong : Theme.border-field;
+                    HorizontalLayout {
+                        padding-left: 20px;
+                        padding-right: 20px;
+                        spacing: 14px;
+                        VerticalLayout {
+                            alignment: center;
+                            Case { coche: BienvenueState.accepte; }
+                        }
+                        Text {
+                            horizontal-stretch: 1;
+                            text: Tr.t("Bienvenue_Accepter");
+                            font-family: Theme.sans-font;
+                            font-size: 14px;
+                            color: Theme.ink;
+                            vertical-alignment: center;
+                            wrap: word-wrap;
+                        }
+                    }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { BienvenueState.accepte = !BienvenueState.accepte; }
+                    }
+                }
+            }
+
+            etape-telemetrie := VerticalLayout {
+                x: (parent.width - self.width) / 2;
+                width: min(760px, parent.width);
+                height: self.preferred-height;
+                y: (parent.height - self.preferred-height) / 2 + (BienvenueState.etape == 2 ? 0px : 14px);
+                opacity: BienvenueState.etape == 2 ? 1 : 0;
+                visible: self.opacity > 0.01;
+                animate opacity, y { duration: 260ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+                spacing: 22px;
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: Tr.t("Bienvenue_TelemetrieTitre");
+                        font-family: Theme.sans-font;
+                        font-size: 44px;
+                        font-weight: 600;
+                        color: Theme.ink-strong;
+                    }
+                    Text {
+                        text: Tr.t("Bienvenue_TelemetrieTexte");
+                        font-family: Theme.sans-font;
+                        font-size: 16px;
+                        color: Theme.ink-2;
+                        wrap: word-wrap;
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    ChoixTelemetrie {
+                        coche: BienvenueState.telemetrie;
+                        titre: Tr.t("Bienvenue_TelemetrieOui");
+                        texte: Tr.t("Bienvenue_TelemetrieOuiTexte");
+                        clicked => { BienvenueState.telemetrie = true; }
+                    }
+                    ChoixTelemetrie {
+                        coche: !BienvenueState.telemetrie;
+                        titre: Tr.t("Bienvenue_TelemetrieNon");
+                        texte: Tr.t("Bienvenue_TelemetrieNonTexte");
+                        clicked => { BienvenueState.telemetrie = false; }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    Liste {
+                        oui: true;
+                        titre: Tr.t("Bienvenue_Envoye");
+                        lignes: [Tr.t("Bienvenue_Envoye1"), Tr.t("Bienvenue_Envoye2"), Tr.t("Bienvenue_Envoye3"), Tr.t("Bienvenue_Envoye4")];
+                    }
+                    Liste {
+                        oui: false;
+                        titre: Tr.t("Bienvenue_JamaisEnvoye");
+                        lignes: [Tr.t("Bienvenue_JamaisEnvoye1"), Tr.t("Bienvenue_JamaisEnvoye2"), Tr.t("Bienvenue_JamaisEnvoye3")];
+                    }
+                }
+            }
+        }
+
+        // ── En bas : retour, étape, suivant ──
+        HorizontalLayout {
+            height: 44px;
+            spacing: 12px;
+            padding-right: 12px;
+            if BienvenueState.etape > 0: Pastille {
+                text: Tr.t("Bienvenue_Retour");
+                clicked => { BienvenueState.etape -= 1; }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: Tr.t("Bienvenue_Etape") + " " + (BienvenueState.etape + 1) + " / 3";
+                font-family: Theme.mono-font;
+                font-size: 12.5px;
+                color: Theme.ink-3;
+                vertical-alignment: center;
+            }
+            Pastille {
+                principal: true;
+                text: BienvenueState.etape == 0 ? Tr.t("Bienvenue_Continuer") : BienvenueState.etape == 1 ? Tr.t("Bienvenue_AccepterContinuer") : Tr.t("Bienvenue_Terminer");
+                enabled: BienvenueState.etape != 1 || BienvenueState.accepte;
+                clicked => {
+                    if (BienvenueState.etape < 2) {
+                        BienvenueState.etape += 1;
+                    } else {
+                        BienvenueState.terminer();
+                    }
+                }
+            }
+        }
+    }
+}

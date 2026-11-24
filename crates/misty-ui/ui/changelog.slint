@@ -15,7 +15,7 @@ component Etiquette inherits Rectangle {
     in property <bool> plein: false;
     height: 20px;
     width: t.preferred-width + 14px;
-    border-radius: 6px;
+    border-radius: 10px;
     background: root.plein ? root.couleur : root.couleur.with-alpha(Theme.dark ? 0.2 : 0.14);
     border-width: root.plein ? 0px : 1px;
     border-color: root.couleur.with-alpha(0.45);
@@ -23,7 +23,7 @@ component Etiquette inherits Rectangle {
         text: root.text;
         font-family: Theme.ui-font;
         font-size: 11px;
-        font-weight: 700;
+        font-weight: 600;
         color: root.plein ? white : root.couleur;
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -56,7 +56,7 @@ component LigneNote inherits Rectangle {
     in property <string> text;
     in property <int> genre;
     min-height: contenu.preferred-height;
-    border-radius: 12px;
+    border-radius: 18px;
     background: survol.has-hover ? Theme.glass : transparent;
     animate background { duration: Theme.fast; }
     survol := TouchArea { }
@@ -69,8 +69,8 @@ component LigneNote inherits Rectangle {
         Rectangle {
             // assez large pour la plus longue des deux étiquettes, dans la langue choisie
             width: max(mesure-n.preferred-width, mesure-c.preferred-width) + 18px;
-            mesure-n := Text { visible: false; text: Tr.t("Notes_Nouveau"); font-size: 11px; font-weight: 700; }
-            mesure-c := Text { visible: false; text: Tr.t("Notes_Corrige"); font-size: 11px; font-weight: 700; }
+            mesure-n := Text { visible: false; text: Tr.t("Notes_Nouveau"); font-size: 11px; font-weight: 600; }
+            mesure-c := Text { visible: false; text: Tr.t("Notes_Corrige"); font-size: 11px; font-weight: 600; }
             if root.genre == 1: Etiquette { x: 0; y: 0; text: Tr.t("Notes_Nouveau"); couleur: Theme.green-dark; }
             if root.genre == 2: Etiquette { x: 0; y: 0; text: Tr.t("Notes_Corrige"); couleur: #E8932F; }
             if root.genre == 0: Rectangle {
@@ -111,9 +111,9 @@ component LigneVersion inherits Rectangle {
     in property <bool> choisie;
     callback clicked;
     height: 60px;
-    border-radius: 8px;
+    border-radius: 14px;
     background: root.choisie ? Theme.accent-soft : zone.has-hover ? Theme.glass-hover : transparent;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.choisie ? Theme.accent.with-alpha(0.5) : transparent;
     animate background, border-color { duration: Theme.fast; }
     HorizontalLayout {
@@ -125,9 +125,9 @@ component LigneVersion inherits Rectangle {
             Rectangle {
                 width: 44px;
                 height: 44px;
-                border-radius: 6px;
+                border-radius: 10px;
                 clip: true;
-                background: #1C2335;
+                background: Theme.control;
                 Image {
                     width: parent.width;
                     height: parent.height;
@@ -144,7 +144,7 @@ component LigneVersion inherits Rectangle {
             Text {
                 text: root.s.title;
                 font-size: 14px;
-                font-weight: 700;
+                font-weight: 600;
                 color: root.choisie ? Theme.accent : Theme.navy;
                 overflow: elide;
             }
@@ -215,7 +215,7 @@ export component ChangelogPage inherits Rectangle {
                 Rectangle {
                     height: 150px;
                     clip: true;
-                    background: #1C2335;
+                    background: Theme.control;
                     Image {
                         width: parent.width;
                         height: parent.height;
@@ -224,7 +224,7 @@ export component ChangelogPage inherits Rectangle {
                         image-rendering: pixelated;
                     }
                     Rectangle {
-                        background: @linear-gradient(180deg, #0A0F1D00 0%, #0A0F1D40 45%, #0A0F1DD9 100%);
+                        background: @linear-gradient(180deg, #07090C00 0%, #07090C40 45%, #07090CD9 100%);
                     }
                     HorizontalLayout {
                         padding-left: 24px;
@@ -241,7 +241,7 @@ export component ChangelogPage inherits Rectangle {
                                 Text {
                                     text: root.s.title;
                                     font-size: 28px;
-                                    font-weight: 800;
+                                    font-weight: 600;
                                     color: white;
                                     overflow: elide;
                                 }

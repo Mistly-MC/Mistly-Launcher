@@ -6,6 +6,7 @@
 //! - le travail lourd (réseau, fichiers) part sur le runtime tokio avec `bg(...)`, et on attend le résultat ;
 //! - chaque page a son module, avec son état dans un `RefCell`.
 
+pub mod accueil;
 pub mod amis;
 pub mod browser;
 pub mod changelog;
@@ -48,6 +49,8 @@ pub mod page {
     pub const SKIN: i32 = 7;
     /// Amis : la liste et qui joue avec Misty Client
     pub const AMIS: i32 = 8;
+    /// Bouton de la barre du haut (pas une page) : les profils, sur l'explorateur de modpacks
+    pub const DECOUVRIR: i32 = 9;
 }
 
 /// L'application : la fenêtre, le contexte (dont le runtime) et l'état de chaque page.
@@ -250,6 +253,7 @@ pub fn installer(app: &Rc<App>) {
         .on_nav_clicked(move |i| nav_clicked(&a, i));
 
     dialogs::installer(app);
+    accueil::installer(app);
     home::installer(app);
     profiles::installer(app);
     instance::installer(app);
@@ -466,7 +470,10 @@ pub async fn demarrer(app: Rc<App>) {
     app.ui.global::<AppState>().set_ready(true);
 
     // télémétrie : on demande une fois, puis l'interrupteur des options décide
-    if !misty_core::systeme::telemetry::demandee() {
+    // (au premier lancement, c'est la dernière étape de l'accueil qui pose la question)
+    if !misty_core::systeme::telemetry::demandee()
+        && !app.ui.global::<BienvenueState>().get_visible()
+    {
         let oui = dialogs::confirmer(
             &app,
             &loc::t("Telemetrie_Question"),
@@ -486,6 +493,11 @@ pub async fn demarrer(app: Rc<App>) {
 
 /// `manuel` : lancé depuis les options (on affiche aussi « à jour » et les erreurs).
 async fn verifier_mise_a_jour(app: &Rc<App>, manuel: bool) {
+    // « Mettre en pause les téléchargements pendant une partie » : pas de téléchargement en fond
+    // pendant que le jeu tourne (la vérification manuelle reste possible)
+    if !manuel && reglages::lire().pause_telechargements && journal::partie_en_cours() {
+        return;
+    }
     if manuel {
         app.ui.global::<SettingsState>().set_checking_update(true);
     }
@@ -650,6 +662,17 @@ fn nav_clicked(app: &Rc<App>, i: i32) {
         }
     }
 
+    // Découvrir : la page des profils, ouverte sur l'explorateur (modpacks, mods, shaders…)
+    if i == page::DECOUVRIR {
+        app.ui.global::<AppState>().set_nav(page::DECOUVRIR);
+        if app.ui.global::<AppState>().get_page() != page::PROFILS {
+            naviguer(app, page::PROFILS);
+        }
+        app.ui.global::<AppState>().set_nav(page::DECOUVRIR);
+        app.ui.global::<crate::ProfilesState>().invoke_modpacks();
+        return;
+    }
+
     let etat = app.ui.global::<AppState>();
     let page = etat.get_page();
 
@@ -674,7 +697,13 @@ fn nav_clicked(app: &Rc<App>, i: i32) {
             home::rafraichir(app, false);
         }
         page::OPTIONS => settings::rafraichir(app),
-        page::PROFILS => profiles::rafraichir(app),
+        page::PROFILS => {
+            // depuis Découvrir : retour à la liste des profils
+            if app.ui.global::<crate::ProfilesState>().get_view() != 0 {
+                app.ui.global::<crate::ProfilesState>().invoke_back();
+            }
+            profiles::rafraichir(app);
+        }
         _ => {}
     }
     naviguer(app, i);

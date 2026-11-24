@@ -8,7 +8,7 @@ use misty_core::{
     auth::account, contenu::content, minecraft::client, social::discord, social::pseudos,
     systeme::journal, systeme::loc, systeme::reglages, systeme::telemetry,
 };
-use slint::ComponentHandle;
+use slint::{ComponentHandle, Model};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -221,10 +221,20 @@ pub fn installer(app: &Rc<App>) {
             lancer(async move { changer_compte_microsoft(&a, uuid).await });
         }
     });
+    // Édition (barre du haut) : Mistly Client, Java (vanilla), Bedrock, Horizon
+    s.set_bedrock_supported(misty_core::minecraft::bedrock::PRISE_EN_CHARGE);
+    s.set_bedrock_available(misty_core::minecraft::bedrock::installe());
+    s.set_edition(reglages::lire().edition.min(3) as i32);
+    let a = app.clone();
+    s.on_edition_selected(move |e| choisir_edition(&a, e));
+    s.on_bedrock_play(|| {
+        misty_core::minecraft::bedrock::lancer();
+    });
     let a = app.clone();
     s.on_profile_selected(move |i| {
         h(&a).set_horizon_selected(false);
         misty_quitter(&a);
+        marquer_edition(&a, 1);
         let profil = a.home.borrow().profils.get(i as usize).cloned().flatten();
         reglages::modifier(|r| {
             r.dernier_profil = profil
@@ -349,6 +359,48 @@ pub fn installer(app: &Rc<App>) {
     });
 }
 
+/// L'édition affichée suit ce que JOUER lance (sauf Bedrock, choisi seulement dans la barre).
+pub(super) fn marquer_edition(app: &App, edition: i32) {
+    let s = h(app);
+    if s.get_edition() != 2 {
+        s.set_edition(edition);
+    }
+}
+
+/// Choix de l'édition dans la barre du haut : Mistly Client (Fabric + Mistly Client), Java
+/// (jeu rapide vanilla), Bedrock (version du Microsoft Store) ou Horizon.
+fn choisir_edition(app: &Rc<App>, edition: i32) {
+    let s = h(app);
+    let edition = edition.clamp(0, 3);
+    s.set_edition(edition);
+    reglages::modifier(|r| r.edition = edition as u8);
+    match edition {
+        0 => {
+            let mut version = s.get_misty_mc().to_string();
+            if version.is_empty() {
+                version = s
+                    .get_misty_versions()
+                    .row_data(0)
+                    .map(|v| v.to_string())
+                    .unwrap_or_default();
+            }
+            if s.get_misty_available() && !version.is_empty() {
+                misty_choisir(app, version);
+            }
+        }
+        1 => {
+            s.set_profile_index(0);
+            s.invoke_profile_selected(0);
+        }
+        2 => s.set_bedrock_available(misty_core::minecraft::bedrock::installe()),
+        _ => {
+            horizon_choisir(app);
+            horizon_afficher(app);
+            s.invoke_horizon_refresh();
+        }
+    }
+}
+
 fn statut(app: &App, texte: &str) {
     h(app).set_status(texte.into());
 }
@@ -367,7 +419,7 @@ fn nettoyer_pseudo(texte: &str) -> String {
 
 /// Au démarrage, tant qu'aucune façon de jouer n'a été choisie : l'écran Premium | Hors ligne.
 /// Un compte Microsoft déjà connecté vaut le choix « premium » (pas de question).
-fn proposer_mode_compte(app: &Rc<App>) {
+pub fn proposer_mode_compte(app: &Rc<App>) {
     if reglages::lire().mode_compte != reglages::ModeCompte::NonChoisi {
         return;
     }
@@ -410,7 +462,12 @@ pub async fn initialiser(app: &Rc<App>) {
     charger_pseudos(app);
     maj_compte(app);
     charger_profils(app);
-    proposer_mode_compte(app);
+    // première installation : langue, conditions et télémétrie, puis Premium ou Hors ligne
+    if crate::ui::accueil::necessaire() {
+        crate::ui::accueil::afficher(app);
+    } else {
+        proposer_mode_compte(app);
+    }
 
     // Connexion automatique en parallèle du chargement des versions
     // (pas pendant les captures d'écran de développement : la fenêtre de connexion s'ouvrirait)

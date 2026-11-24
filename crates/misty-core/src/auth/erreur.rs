@@ -6,12 +6,9 @@ use crate::systeme::loc;
 /// `cle()` donne la clé de traduction du message (ou du titre, pour les erreurs techniques).
 #[derive(Debug, thiserror::Error)]
 pub enum AuthErreur {
-    /// Fenêtre de connexion fermée sans se connecter
+    /// Connexion annulée, ou code de connexion expiré
     #[error("{}", loc::t("Compte_Annule"))]
     Annule,
-    /// Message de la fenêtre de connexion (« ERREUR:… »)
-    #[error("{0}")]
-    FenetreConnexion(String),
     /// Refus de login.live.com (réponse brute)
     #[error("Microsoft : {0}")]
     Microsoft(String),

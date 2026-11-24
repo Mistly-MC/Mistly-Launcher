@@ -15,7 +15,7 @@ component Pastille inherits Rectangle {
     callback choisi();
     width: 24px;
     height: 24px;
-    border-radius: 7px;
+    border-radius: 11px;
     background: root.couleur;
     border-width: 1.5px;
     border-color: white;
@@ -31,7 +31,7 @@ component OutilPill inherits Rectangle {
     in property <bool> checked;
     callback clicked;
     height: 34px;
-    border-radius: 10px;
+    border-radius: 16px;
     background: root.checked ? Theme.fill : touch.has-hover ? Theme.glass-hover : Theme.glass-strong;
     animate background { duration: Theme.fast; }
     border-width: 1.5px;
@@ -191,7 +191,7 @@ export component EditorPage inherits Rectangle {
                             vertical-stretch: 1;
                             for c[i] in EditorState.categories: Rectangle {
                                 height: 36px;
-                                border-radius: 10px;
+                                border-radius: 16px;
                                 background: i == EditorState.category-index ? Theme.fill : cat.has-hover ? Theme.glass-hover : transparent;
                                 HorizontalLayout {
                                     padding-left: 10px;
@@ -210,7 +210,7 @@ export component EditorPage inherits Rectangle {
                                     VerticalLayout {
                                         alignment: center;
                                         Rectangle {
-                                            border-radius: 7px;
+                                            border-radius: 11px;
                                             background: i == EditorState.category-index ? #FFFFFF33 : #FFFFFF40;
                                             width: nb.preferred-width + 12px;
                                             height: 20px;
@@ -252,7 +252,7 @@ export component EditorPage inherits Rectangle {
                             y: floor(i / grille.colonnes) * 62px;
                             width: 56px;
                             height: 56px;
-                            border-radius: 10px;
+                            border-radius: 16px;
                             background: i == EditorState.selected ? Theme.fill : tuile.has-hover ? Theme.panel-strong : Theme.glass;
                             border-width: 2px;
                             border-color: i == EditorState.selected ? Theme.blue : t.modified ? Theme.green : transparent;
@@ -452,7 +452,7 @@ export component EditorPage inherits Rectangle {
                                     Rectangle {
                                         width: 56px;
                                         height: 56px;
-                                        border-radius: 14px;
+                                        border-radius: 20px;
                                         background: EditorState.color;
                                         border-width: 2px;
                                         border-color: white;

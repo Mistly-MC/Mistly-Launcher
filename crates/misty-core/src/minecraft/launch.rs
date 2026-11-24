@@ -24,6 +24,28 @@ pub struct Options {
     pub ram_mo: u32,
     /// Dossier de jeu (mods, options, mondes…).
     pub dossier_jeu: PathBuf,
+    /// Taille de la fenêtre du jeu (--width / --height), None : celle du jeu
+    pub fenetre: Option<(u32, u32)>,
+    /// Le jeu s'ouvre en plein écran (--fullscreen)
+    pub plein_ecran: bool,
+}
+
+impl Options {
+    /// Arguments de la fenêtre du jeu, ajoutés après ceux de la version.
+    fn arguments_fenetre(&self) -> Vec<String> {
+        if self.plein_ecran {
+            return vec!["--fullscreen".into()];
+        }
+        match self.fenetre {
+            Some((l, h)) if l > 0 && h > 0 => vec![
+                "--width".into(),
+                l.to_string(),
+                "--height".into(),
+                h.to_string(),
+            ],
+            _ => Vec::new(),
+        }
+    }
 }
 
 /// Prépare les natives et lance le jeu. Renvoie le processus Java, sa sortie branchée sur des
@@ -172,6 +194,7 @@ pub fn preparer(dirs: &McDirs, v: &VersionInstallee, options: &Options) -> anyho
             args.extend(ligne.split_whitespace().map(remplacer));
         }
     }
+    args.extend(options.arguments_fenetre());
 
     let mut commande = Command::new(&v.java);
     commande.args(&args).current_dir(&options.dossier_jeu);

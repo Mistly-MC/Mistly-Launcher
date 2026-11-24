@@ -36,6 +36,9 @@ open.workspace = true
 discord-rich-presence.workspace = true
 md5.workspace = true
 uuid.workspace = true
+oauth2.workspace = true
+minecraft-msa-auth.workspace = true
+base64.workspace = true
 
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 # Windows : Gestionnaire d'identifiants ; Linux : Secret Service (GNOME Keyring, KWallet)

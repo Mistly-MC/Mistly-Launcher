@@ -17,10 +17,10 @@ component ProfileCardView inherits Rectangle {
 
     width: 236px;
     height: 236px;
-    border-radius: 8px;
+    border-radius: 14px;
     clip: true;
     background: root.survol ? Theme.panel-strong : Theme.panel;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.survol ? Theme.accent.with-alpha(0.6) : Theme.glass-border;
     animate background, border-color { duration: Theme.normal; }
 
@@ -33,7 +33,7 @@ component ProfileCardView inherits Rectangle {
         y: 0;
         height: root.height * 0.52;
         clip: true;
-        background: #1C2335;
+        background: Theme.control;
         Image {
             width: parent.width;
             height: parent.height;
@@ -63,7 +63,7 @@ component ProfileCardView inherits Rectangle {
         spacing: 7px;
         Text {
             text: root.carte.name;
-            font-weight: 700;
+            font-weight: 600;
             font-size: 15px;
             color: Theme.navy;
             overflow: elide;
@@ -124,7 +124,7 @@ component NouvelleCarte inherits Rectangle {
     callback clicked;
     width: 236px;
     height: 236px;
-    border-radius: 8px;
+    border-radius: 14px;
     background: zone.has-hover ? Theme.glass : transparent;
     border-width: 2px;
     border-color: zone.has-hover ? Theme.accent : Theme.glass-border;
@@ -138,7 +138,7 @@ component NouvelleCarte inherits Rectangle {
             Rectangle {
                 width: 52px;
                 height: 52px;
-                border-radius: 10px;
+                border-radius: 16px;
                 background: Theme.fill;
                 Icon {
                     text: "\u{E710}";
@@ -150,7 +150,7 @@ component NouvelleCarte inherits Rectangle {
         Text {
             text: Tr.t("Profil_NouveauCarte");
             font-size: 15px;
-            font-weight: 700;
+            font-weight: 600;
             color: Theme.navy;
             horizontal-alignment: center;
         }
@@ -391,7 +391,7 @@ export component ProfilesPage inherits Rectangle {
                     Text {
                         text: "Modpacks";
                         font-size: 20px;
-                        font-weight: 800;
+                        font-weight: 600;
                         color: Theme.navy;
                     }
                 }

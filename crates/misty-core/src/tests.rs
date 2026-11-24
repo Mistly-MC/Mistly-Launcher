@@ -34,6 +34,8 @@ async fn verifier(id: &str) {
         },
         ram_mo: 2048,
         dossier_jeu: std::env::temp_dir().join("misty-test-jeu"),
+        fenetre: None,
+        plein_ecran: false,
     };
     let cmd = launch::preparer(&dirs, &v, &options).unwrap();
     let args: Vec<String> = cmd

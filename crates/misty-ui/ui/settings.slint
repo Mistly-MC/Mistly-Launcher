@@ -3,7 +3,7 @@
 // et ses réglages sont groupés dans des cartes, avec une marge intérieure.
 
 import { Theme, Tr, Bulle } from "theme.slint";
-import { SettingsState, StorageRow, AppState, SettingResult } from "state.slint";
+import { SettingsState, StorageRow, AppState, SettingResult, StoragePart } from "state.slint";
 import { Icon, PixelLabel, BodyText, SectionTitle, IconButton, MButton, GlassInput, ToggleSwitch, GlassSlider, ChromeButton, OutlinedText } from "widgets.slint";
 import { ScrollView } from "std-widgets.slint";
 
@@ -111,13 +111,19 @@ component Entete inherits VerticalLayout {
     spacing: 3px;
     Text {
         text: root.titre;
-        font-family: Theme.ui-font;
-        font-size: 16px;
-        font-weight: 700;
-        color: Theme.navy;
+        font-family: Theme.sans-font;
+        font-size: 15px;
+        font-weight: 500;
+        color: Theme.ink;
         wrap: word-wrap;
     }
-    if root.texte != "": BodyText { text: root.texte; }
+    if root.texte != "": Text {
+        text: root.texte;
+        font-family: Theme.sans-font;
+        font-size: 12.5px;
+        color: Theme.ink-3;
+        wrap: word-wrap;
+    }
 }
 
 /// Ligne « titre + description » avec l'interrupteur à droite.
@@ -523,10 +529,10 @@ component BlocAction inherits VerticalLayout {
 /// interrupteur ne touche un bord.
 component Carte inherits Rectangle {
     in property <length> spacing: 18px;
-    border-radius: 10px;
-    background: Theme.glass;
-    border-width: 1px;
-    border-color: Theme.glass-border;
+    border-radius: 22px;
+    background: Theme.surface;
+    border-width: 1.5px;
+    border-color: Theme.border;
     min-height: corps.preferred-height;
     corps := VerticalLayout {
         padding-top: 20px;
@@ -589,64 +595,64 @@ component Resultat inherits Rectangle {
 
 // ───────────────────────── La fenêtre des options ─────────────────────────
 
-/// Onglet d'une catégorie des options : icône, nom, et un trait sous l'onglet actif.
-component OngletReglage inherits Rectangle {
-    in property <string> icon;
+/// Section de la colonne de gauche : une pastille, pleine quand elle est ouverte.
+component SectionReglage inherits Rectangle {
     in property <string> text;
     in property <bool> actif;
-    /// place comptée : l'icône seule (le nom en bulle d'aide), sauf pour l'onglet actif
-    in property <bool> compact;
     callback clicked;
-    width: contenu.preferred-width + 20px;
-    border-radius: 6px;
-    background: !root.actif && zone.has-hover ? Theme.glass-hover : transparent;
-    animate background { duration: Theme.fast; }
-    contenu := HorizontalLayout {
-        x: 10px;
-        width: self.preferred-width;
-        height: parent.height;
-        spacing: 8px;
-        Icon {
-            text: root.icon;
-            font-size: 13px;
-            color: root.actif ? Theme.accent : Theme.text-muted;
-        }
-        if !root.compact || root.actif: Text {
-            text: root.text;
-            font-size: 13.5px;
-            font-weight: root.actif ? 700 : 600;
-            color: root.actif ? Theme.navy : Theme.text-muted;
-            vertical-alignment: center;
-        }
-    }
-    // trait centré sous l'icône et le nom, qui s'ouvre depuis le milieu
-    Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: parent.height - 3px;
-        width: root.actif ? contenu.width : 0px;
-        height: 3px;
-        border-radius: 1.5px;
-        background: Theme.accent;
-        animate width { duration: 260ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+    height: 46px;
+    border-radius: 23px;
+    background: root.actif ? Theme.active : zone.has-hover ? Theme.control : transparent;
+    animate background { duration: Theme.normal; easing: ease-out; }
+    Text {
+        x: 18px;
+        width: parent.width - 36px;
+        text: root.text;
+        font-family: Theme.sans-font;
+        font-size: 14px;
+        font-weight: 500;
+        color: root.actif ? Theme.on-active : Theme.ink-4;
+        vertical-alignment: center;
+        overflow: elide;
+        animate color { duration: Theme.normal; }
     }
     zone := TouchArea {
         mouse-cursor: pointer;
-        clicked => {
-            Bulle.visible = false;
-            root.clicked();
-        }
+        clicked => { root.clicked(); }
     }
-    property <bool> survol: zone.has-hover;
-    changed survol => {
-        if (self.survol && root.compact && !root.actif) {
-            Bulle.texte = root.text;
-            Bulle.x = root.absolute-position.x + root.width / 2;
-            Bulle.y = root.absolute-position.y + root.height + 6px;
-            Bulle.a-droite = false;
-            Bulle.visible = true;
-        } else if (Bulle.texte == root.text) {
-            Bulle.visible = false;
-        }
+}
+
+/// Champ numérique court (taille de la fenêtre du jeu).
+component ChampNombre inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    callback edited(string);
+    width: 84px;
+    height: 40px;
+    border-radius: 20px;
+    background: Theme.surface-2;
+    border-width: 1.5px;
+    border-color: champ.has-focus ? Theme.active : Theme.border-field;
+    animate border-color { duration: Theme.fast; }
+    if root.text == "": Text {
+        text: root.placeholder;
+        font-family: Theme.mono-font;
+        font-size: 13.5px;
+        color: Theme.ink-3;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    champ := TextInput {
+        x: 12px;
+        width: parent.width - 24px;
+        text <=> root.text;
+        font-family: Theme.mono-font;
+        font-size: 13.5px;
+        color: Theme.ink;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        input-type: number;
+        edited => { root.edited(self.text); }
     }
 }
 
@@ -658,120 +664,83 @@ component Rangee inherits HorizontalLayout {
 export component SettingsModal inherits Rectangle {
     property <bool> ouvert: SettingsState.open;
     property <int> section: SettingsState.section;
-    // Les onglets regroupent les anciennes catégories : Onglets (8) avec l'Apparence, les comptes
-    // hors ligne (3) avec Microsoft. Les numéros de section ne changent pas (recherche, Rust).
-    property <int> cat: root.section == 8 ? 0 : root.section == 3 ? 2 : root.section;
-    property <[{ s: int, icon: string, cle: string, sous: string }]> onglets: [
-        { s: 0, icon: "\u{E771}", cle: "Param_Apparence", sous: "Param_Apparence_Sous" },
-        { s: 1, icon: "\u{E774}", cle: "Param_Langue", sous: "Param_Langue_Sous" },
-        { s: 2, icon: "\u{E77B}", cle: "Param_Comptes", sous: "Param_Microsoft_Sous" },
-        { s: 4, icon: "\u{E9D9}", cle: "Param_Memoire", sous: "Param_Memoire_Sous" },
-        { s: 5, icon: "\u{E9E9}", cle: "Param_Comportement", sous: "Param_Comportement_Sous" },
-        { s: 6, icon: "\u{EDA2}", cle: "Param_Ressources", sous: "Param_Ressources_Sous" },
-        { s: 7, icon: "\u{E90F}", cle: "Param_Depannage", sous: "Param_Depannage_Sous" },
+    // Sept sections (Jeu, Compte, Apparence, Langue, Téléchargements, Confidentialité, À propos)
+    // qui regroupent les anciennes catégories. Les numéros de section ne changent pas (recherche,
+    // Rust) : 4 et 5 → Jeu, 2 et 3 → Compte, 0 et 8 → Apparence, 1 → Langue, 6 → Téléchargements,
+    // 9 → Confidentialité, 7 → À propos.
+    property <int> tab: root.section == 4 || root.section == 5 ? 0 : root.section == 2 || root.section == 3 ? 1 : root.section == 0 || root.section == 8 ? 2 : root.section == 1 ? 3 : root.section == 6 ? 4 : root.section == 9 ? 5 : 6;
+    property <[{ s: int, cle: string, sous: string }]> onglets: [
+        { s: 4, cle: "Param_Jeu", sous: "Param_Jeu_Sous" },
+        { s: 2, cle: "Param_Compte", sous: "Param_Microsoft_Sous" },
+        { s: 0, cle: "Param_Apparence", sous: "Param_Apparence_Sous" },
+        { s: 1, cle: "Param_Langue", sous: "Param_Langue_Sous" },
+        { s: 6, cle: "Param_Telechargements_Onglet", sous: "Param_Ressources_Sous" },
+        { s: 9, cle: "Param_Confidentialite", sous: "Param_Confidentialite_Sous" },
+        { s: 7, cle: "Param_APropos", sous: "Param_Depannage_Sous" },
     ];
-    property <int> onglet-actif: root.cat == 0 ? 0 : root.cat == 1 ? 1 : root.cat == 2 ? 2 : root.cat == 4 ? 3 : root.cat == 5 ? 4 : root.cat == 6 ? 5 : 6;
 
     opacity: root.ouvert ? 1 : 0;
     visible: self.opacity > 0.01;
     animate opacity { duration: root.ouvert ? 220ms : 160ms; easing: ease-out; }
 
-    // Une seule tuile dans la zone centrale de la fenêtre : en-tête avec les onglets, puis les
-    // réglages de la catégorie en grille de tuiles. Elle glisse un peu en arrivant.
+    // La fenêtre des options : sections à gauche, réglages en cartes à droite. Elle glisse un peu
+    // en arrivant.
     carte := Rectangle {
         y: root.ouvert ? 0px : 14px;
         animate y { duration: root.ouvert ? 380ms : 160ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
-        border-radius: 8px;
-        background: Theme.panel;
-        border-width: 1px;
-        border-color: Theme.glass-border;
+        border-radius: 28px;
+        background: Theme.bg;
+        border-width: 1.5px;
+        border-color: Theme.border;
         clip: true;
         TouchArea { }
 
-        VerticalLayout {
-            // ═══ En-tête : titre, catégories, fermer ═══
-            HorizontalLayout {
-                height: 60px;
-                padding-left: 22px;
-                padding-right: 12px;
-                spacing: 18px;
-                VerticalLayout {
-                    alignment: center;
-                    Text {
-                        text: Tr.t("Param_Titre");
-                        font-size: 20px;
-                        font-weight: 800;
-                        color: Theme.navy;
-                    }
+        HorizontalLayout {
+            // ═══ Colonne de gauche : titre et sections ═══
+            VerticalLayout {
+                width: 256px;
+                padding-left: 20px;
+                padding-right: 8px;
+                padding-top: 22px;
+                spacing: 6px;
+                alignment: start;
+                Text {
+                    text: Tr.t("Param_Titre");
+                    font-family: Theme.sans-font;
+                    font-size: 30px;
+                    font-weight: 600;
+                    color: Theme.ink-strong;
+                    height: 54px;
+                    vertical-alignment: top;
                 }
-                Rectangle {
-                    width: 1px;
-                    height: 26px;
-                    y: (parent.height - self.height) / 2;
-                    background: Theme.line;
-                }
-                // les catégories défilent si elles ne tiennent pas
-                Flickable {
-                    horizontal-stretch: 1;
-                    content-width: max(self.width, rangee-onglets.preferred-width);
-                    interactive: rangee-onglets.preferred-width > self.width;
-                    rangee-onglets := HorizontalLayout {
-                        padding-top: 10px;
-                        spacing: 2px;
-                        for o[i] in root.onglets: OngletReglage {
-                            height: 50px;
-                            icon: o.icon;
-                            text: Tr.t(o.cle);
-                            actif: i == root.onglet-actif;
-                            // la tuile est étroite : les autres onglets n'affichent que leur icône
-                            compact: carte.width < 1040px;
-                            clicked => {
-                                SettingsState.search = "";
-                                SettingsState.search-changed();
-                                SettingsState.section = o.s;
-                            }
+                for o[i] in root.onglets: SectionReglage {
+                    text: Tr.t(o.cle);
+                    actif: SettingsState.search == "" && i == root.tab;
+                    clicked => {
+                        SettingsState.search = "";
+                        SettingsState.search-changed();
+                        SettingsState.section = o.s;
+                        if (o.s == 6) {
+                            SettingsState.storage-parts-show();
                         }
                     }
                 }
-                VerticalLayout {
-                    alignment: center;
-                    Rectangle {
-                        width: 38px;
-                        height: 38px;
-                        border-radius: 8px;
-                        background: fermer.pressed ? Theme.glass-strong : fermer.has-hover ? Theme.glass-hover : transparent;
-                        border-width: 1px;
-                        border-color: fermer.has-hover ? Theme.accent.with-alpha(0.6) : Theme.glass-border;
-                        animate background, border-color { duration: Theme.fast; }
-                        Icon {
-                            text: "\u{E8BB}";
-                            font-size: 11px;
-                            color: Theme.navy;
-                        }
-                        fermer := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { SettingsState.close(); }
-                        }
-                    }
-                }
-            }
-            Rectangle {
-                height: 1px;
-                background: Theme.line;
             }
 
-            // ═══ La description de la catégorie, et la recherche ═══
+            VerticalLayout {
+            // ═══ La description de la section, la recherche, et fermer ═══
             HorizontalLayout {
-                padding-left: 24px;
-                padding-right: 24px;
-                padding-top: 16px;
+                padding-left: 12px;
+                padding-right: 16px;
+                padding-top: 18px;
                 padding-bottom: 4px;
-                spacing: 16px;
+                spacing: 12px;
                 Text {
                     horizontal-stretch: 1;
-                    text: SettingsState.search != "" ? Tr.t("Param_Recherche") : Tr.t(root.onglets[root.onglet-actif].sous);
+                    text: SettingsState.search != "" ? Tr.t("Param_Recherche") : Tr.t(root.onglets[root.tab].sous);
+                    font-family: Theme.sans-font;
                     font-size: 13px;
-                    color: Theme.text-muted;
+                    color: Theme.ink-3;
                     vertical-alignment: center;
                     overflow: elide;
                 }
@@ -781,6 +750,27 @@ export component SettingsModal inherits Rectangle {
                     placeholder: Tr.t("Param_Recherche");
                     text <=> SettingsState.search;
                     edited => { SettingsState.search-changed(); }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 18px;
+                        background: fermer.has-hover ? Theme.border-strong : Theme.control;
+                        border-width: 1.5px;
+                        border-color: Theme.border-strong;
+                        animate background { duration: Theme.fast; }
+                        Icon {
+                            text: "\u{E8BB}";
+                            font-size: 11px;
+                            color: Theme.icon;
+                        }
+                        fermer := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { SettingsState.close(); }
+                        }
+                    }
                 }
             }
 
@@ -792,8 +782,9 @@ export component SettingsModal inherits Rectangle {
 
                 contenu := VerticalLayout {
                     width: parent.visible-width;
-                    padding: 24px;
-                    padding-top: 12px;
+                    padding: 12px;
+                    padding-right: 20px;
+                    padding-bottom: 24px;
                     spacing: 12px;
                     alignment: start;
 
@@ -818,7 +809,7 @@ export component SettingsModal inherits Rectangle {
                     }
 
                     // ── Apparence (et les onglets affichés) ──
-                    if SettingsState.search == "" && root.cat == 0: Volet {
+                    if SettingsState.search == "" && root.tab == 2: Volet {
                         spacing: 12px;
                         Carte {
                             Entete {
@@ -933,7 +924,7 @@ export component SettingsModal inherits Rectangle {
                     }
 
                     // ── Langue : les langues sur deux colonnes ──
-                    if SettingsState.search == "" && root.cat == 1: Volet {
+                    if SettingsState.search == "" && root.tab == 3: Volet {
                         spacing: 12px;
                         Avertissement { text: Tr.t("Param_Langue_Avert"); }
                         Carte {
@@ -960,7 +951,15 @@ export component SettingsModal inherits Rectangle {
                     }
 
                     // ── Comptes : Microsoft et hors ligne, côte à côte ──
-                    if SettingsState.search == "" && root.cat == 2: Volet {
+                    if SettingsState.search == "" && root.tab == 1: Volet {
+                        Carte {
+                            LigneInterrupteur {
+                                titre: Tr.t("Param_DemanderCompte");
+                                texte: Tr.t("Param_DemanderCompte_Texte");
+                                checked <=> SettingsState.ask-account;
+                                toggled(v) => { SettingsState.ask-account-toggled(v); }
+                            }
+                        }
                         spacing: 12px;
                         Rangee {
                             Carte {
@@ -1039,8 +1038,46 @@ export component SettingsModal inherits Rectangle {
                     }
 
                     // ── Mémoire ──
-                    if SettingsState.search == "" && root.cat == 4: Volet {
+                    if SettingsState.search == "" && root.tab == 0: Volet {
                         spacing: 12px;
+                        Carte {
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Entete {
+                                    horizontal-stretch: 1;
+                                    titre: Tr.t("Param_Fenetre");
+                                    texte: Tr.t("Param_Fenetre_Texte");
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    HorizontalLayout {
+                                        spacing: 10px;
+                                        ChampNombre {
+                                            text <=> SettingsState.game-width;
+                                            placeholder: "854";
+                                            edited => { SettingsState.game-size-changed(); }
+                                        }
+                                        Text {
+                                            text: "×";
+                                            font-size: 15px;
+                                            color: Theme.ink-3;
+                                            vertical-alignment: center;
+                                        }
+                                        ChampNombre {
+                                            text <=> SettingsState.game-height;
+                                            placeholder: "480";
+                                            edited => { SettingsState.game-size-changed(); }
+                                        }
+                                    }
+                                }
+                            }
+                            LigneInterrupteur {
+                                titre: Tr.t("Param_PleinEcran");
+                                texte: Tr.t("Param_PleinEcran_Texte");
+                                checked <=> SettingsState.fullscreen;
+                                toggled(v) => { SettingsState.fullscreen-toggled(v); }
+                            }
+                        }
                         Carte {
                             // la valeur est à droite du curseur, pas besoin de la répéter ici
                             Entete {
@@ -1077,7 +1114,7 @@ export component SettingsModal inherits Rectangle {
                     }
 
                     // ── Comportement : une tuile par réglage ──
-                    if SettingsState.search == "" && root.cat == 5: Volet {
+                    if SettingsState.search == "" && root.tab == 0: Volet {
                         spacing: 12px;
                         Rangee {
                             Carte {
@@ -1100,30 +1137,6 @@ export component SettingsModal inherits Rectangle {
                                     texte: Tr.t("Param_Console_Texte");
                                     checked <=> SettingsState.console-auto;
                                     toggled(v) => { SettingsState.console-auto-toggled(v); }
-                                }
-                            }
-                        }
-                        Rangee {
-                            Carte {
-                                horizontal-stretch: 1;
-                                // moitié de la rangée, quel que soit le texte
-                                preferred-width: 0px;
-                                LigneInterrupteur {
-                                    titre: Tr.t("Param_Discord");
-                                    texte: Tr.t("Options_Discord_Texte");
-                                    checked <=> SettingsState.rich;
-                                    toggled(v) => { SettingsState.rich-toggled(v); }
-                                }
-                            }
-                            Carte {
-                                horizontal-stretch: 1;
-                                // moitié de la rangée, quel que soit le texte
-                                preferred-width: 0px;
-                                LigneInterrupteur {
-                                    titre: Tr.t("Param_Telemetrie");
-                                    texte: Tr.t("Param_Telemetrie_Texte");
-                                    checked <=> SettingsState.telemetry;
-                                    toggled(v) => { SettingsState.telemetry-toggled(v); }
                                 }
                             }
                         }
@@ -1177,9 +1190,125 @@ export component SettingsModal inherits Rectangle {
                         }
                     }
 
-                    // ── Stockage ──
-                    if SettingsState.search == "" && root.cat == 6: Volet {
+                    // ── Confidentialité ──
+                    if SettingsState.search == "" && root.tab == 5: Volet {
                         spacing: 12px;
+                        Carte {
+                            LigneInterrupteur {
+                                titre: Tr.t("Param_Telemetrie");
+                                texte: Tr.t("Param_Telemetrie_Texte");
+                                checked <=> SettingsState.telemetry;
+                                toggled(v) => { SettingsState.telemetry-toggled(v); }
+                            }
+                            LigneInterrupteur {
+                                titre: Tr.t("Param_Discord");
+                                texte: Tr.t("Options_Discord_Texte");
+                                checked <=> SettingsState.rich;
+                                toggled(v) => { SettingsState.rich-toggled(v); }
+                            }
+                        }
+                        Carte {
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Entete {
+                                    horizontal-stretch: 1;
+                                    titre: Tr.t("Param_Politique");
+                                    texte: Tr.t("Param_Politique_Texte");
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    MButton {
+                                        text: Tr.t("Param_Politique_Bouton");
+                                        clicked => { SettingsState.open-privacy(); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Stockage ──
+                    if SettingsState.search == "" && root.tab == 4: Volet {
+                        spacing: 12px;
+                        Carte {
+                            spacing: 16px;
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Entete {
+                                    horizontal-stretch: 1;
+                                    titre: Tr.t("Param_Repartition");
+                                    texte: Tr.t("Param_Repartition_Texte");
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Text {
+                                        text: SettingsState.storage-parts-busy ? "…" : SettingsState.storage-parts-total;
+                                        font-family: Theme.mono-font;
+                                        font-size: 20px;
+                                        font-weight: 500;
+                                        color: Theme.ink-strong;
+                                    }
+                                }
+                            }
+                            // barre empilée à 100 % : une part par catégorie, de la plus grosse (blanc)
+                            // à la plus petite (gris foncé)
+                            barre := Rectangle {
+                                height: 28px;
+                                border-radius: 8px;
+                                background: Theme.control;
+                                clip: true;
+                                for p[i] in SettingsState.storage-parts: Rectangle {
+                                    x: barre.width * p.start;
+                                    width: max(0px, barre.width * p.fraction - (i < SettingsState.storage-parts.length - 1 ? 3px : 0px));
+                                    background: p.shade;
+                                    animate x, width { duration: 420ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+                                }
+                            }
+                            // légende sur trois colonnes
+                            legende := Rectangle {
+                                property <length> colonne: (self.width - 36px) / 3;
+                                height: Math.ceil(SettingsState.storage-parts.length / 3) * 26px;
+                                for p[i] in SettingsState.storage-parts: HorizontalLayout {
+                                    x: Math.mod(i, 3) * (legende.colonne + 18px);
+                                    y: Math.floor(i / 3) * 26px;
+                                    width: legende.colonne;
+                                    height: 18px;
+                                    spacing: 8px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 10px;
+                                            height: 10px;
+                                            border-radius: 3px;
+                                            background: p.shade;
+                                        }
+                                    }
+                                    Text {
+                                        horizontal-stretch: 1;
+                                        text: p.name;
+                                        font-family: Theme.sans-font;
+                                        font-size: 13px;
+                                        color: Theme.ink;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: p.size-text + " · " + p.percent;
+                                        font-family: Theme.mono-font;
+                                        font-size: 12px;
+                                        color: Theme.ink-3;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                        Carte {
+                            LigneInterrupteur {
+                                titre: Tr.t("Param_PauseTelechargements");
+                                texte: Tr.t("Param_PauseTelechargements_Texte");
+                                checked <=> SettingsState.pause-downloads;
+                                toggled(v) => { SettingsState.pause-downloads-toggled(v); }
+                            }
+                        }
                         Rangee {
                             Carte {
                                 horizontal-stretch: 1;
@@ -1279,7 +1408,35 @@ export component SettingsModal inherits Rectangle {
                     }
 
                     // ── Dépannage ──
-                    if SettingsState.search == "" && root.cat == 7: Volet {
+                    if SettingsState.search == "" && root.tab == 6: Volet {
+                        Carte {
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Entete {
+                                    horizontal-stretch: 1;
+                                    titre: Tr.t("Param_Liens");
+                                    texte: Tr.t("Param_Liens_Texte");
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    HorizontalLayout {
+                                        spacing: 8px;
+                                        MButton {
+                                            text: Tr.t("Param_Site");
+                                            clicked => { SettingsState.open-link("site"); }
+                                        }
+                                        MButton {
+                                            text: "Discord";
+                                            clicked => { AppState.open-discord(); }
+                                        }
+                                        MButton {
+                                            text: Tr.t("Param_Licence");
+                                            clicked => { SettingsState.open-link("license"); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         spacing: 12px;
                         Rangee {
                             Carte {
@@ -1390,13 +1547,15 @@ export component SettingsModal inherits Rectangle {
                             alignment: center;
                             Text {
                                 text: SettingsState.about-text + "  ·  " + SettingsState.system-text;
+                                font-family: Theme.mono-font;
                                 font-size: 12px;
-                                color: Theme.text-dim;
+                                color: Theme.ink-3;
                                 overflow: elide;
                             }
                         }
                     }
                 }
+            }
             }
         }
     }

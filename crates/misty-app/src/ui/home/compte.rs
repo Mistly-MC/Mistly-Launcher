@@ -175,3 +175,50 @@ pub(super) fn maj_avatar(app: &Rc<App>) {
         h(&a).set_avatar(image.unwrap_or_default());
     });
 }
+
+/// Option « Demander quel compte utiliser au lancement » : avant la partie, la liste des comptes
+/// (Microsoft puis hors ligne). Renvoie false si le joueur annule.
+pub(super) async fn choisir_compte_avant_partie(app: &Rc<App>) -> bool {
+    if !reglages::lire().demander_compte {
+        return true;
+    }
+    let ms = account::comptes();
+    let hors_ligne = app.home.borrow().pseudos.clone();
+    if ms.len() + hors_ligne.len() <= 1 {
+        return true;
+    }
+    let mut noms: Vec<String> = ms
+        .iter()
+        .map(|c| format!("{} · Microsoft", c.pseudo))
+        .collect();
+    noms.extend(
+        hors_ligne
+            .iter()
+            .map(|p| format!("{p} · {}", loc::t("Home_Compte_HorsLigne").to_lowercase())),
+    );
+    let Some(i) = dialogs::choisir(
+        app,
+        &loc::t("Compte_Choisir_Titre"),
+        &loc::t("Compte_Choisir_Texte"),
+        &noms,
+    )
+    .await
+    else {
+        return false;
+    };
+    if let Some(c) = ms.get(i) {
+        if !account::session().is_some_and(|s| s.uuid == c.uuid) {
+            changer_compte_microsoft(app, c.uuid.clone()).await;
+        }
+        return account::session().is_some_and(|s| s.uuid == c.uuid);
+    }
+    if let Some(p) = hors_ligne.get(i - ms.len()) {
+        reglages::modifier(|r| r.pseudo = p.to_string());
+        h(app).set_account_index((i - ms.len()) as i32);
+        if account::session().is_some() {
+            account::deconnecter();
+        }
+        session_changee(app);
+    }
+    true
+}
