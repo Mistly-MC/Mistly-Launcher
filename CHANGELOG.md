@@ -1,5 +1,5 @@
 # Changelog
-## 0.4.1-beta.2
+## 0.4.2-beta.1
 ### Launcher
 - Discover, Wardrobe, Texture packs and Settings now match the new design: no more frame around the pages, bigger titles, sharp icons on Linux too, and wider margins
 - Discover: one big search bar, the content type and source as pills, and results in cards of three columns
