@@ -4,6 +4,10 @@
 - New Discord tile at the top of the launcher: one click opens the Mistly Discord server
 - Settings → About now shows your Mistly Client version and whether it is up to date, with an Update button that downloads the latest version right away instead of waiting for your next game
 - Links now point to mistly.cc and to the renamed Mistly-MC organisation on GitHub
+### Mistly Client (in game)
+- Removed the damage indicators: showing the damage you deal over what you hit counts as cheating on servers
+- The potions and totems counters keep their first slot where you placed it: each new kind of potion is added on its left, or on its right with the new "Right" option behind the module's gear. Before, a centred counter grew on both sides and its first slot moved
+- New: Mistly Client for Minecraft 1.8.9 with Forge, for PvP. A movable HUD (FPS, CPS, ping, reach, combo, coordinates, clock, keystrokes, armor, potions), its editor on Right Shift, zoom on C, fullbright and the Misty cape. For now, download its jar from the Mistly Client release and put it in the `mods` folder of a Forge 1.8.9 profile: the launcher doesn't install it by itself yet
 ## 0.4.0
 ### Launcher
 - Mistly Launcher is now available on Linux: download `Misty-0.4.0-linux-x86_64.tar.gz`, extract it and run `Misty`. Your Microsoft sign-in opens in your browser, then you paste the address of the final page in the launcher. Updates install themselves, like on Windows
