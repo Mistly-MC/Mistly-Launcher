@@ -65,7 +65,7 @@ global CC {
     out property <color> titre: d ? #FFFFFF : #1C2335;
     out property <color> sous-titre: d ? #9FB0D0 : #5A6B82;
     out property <color> discret: d ? #8C9AB8 : #7A8AA3;
-    out property <color> vide: d ? #6F7D9C : #8394AB;
+    out property <color> vide: d ? #6F7D9C : #8A8E98;
     // boutons et filtres
     out property <color> bouton: d ? #FFFFFF12 : #FFFFFFB3;
     out property <color> bouton-survol: d ? #FFFFFF1F : #FFFFFF;
@@ -98,9 +98,9 @@ component BoutonConsole inherits Rectangle {
     callback clicked;
     height: root.taille;
     width: root.text == "" ? root.taille : contenu.preferred-width + 24px;
-    border-radius: 8px;
+    border-radius: 14px;
     background: zone.pressed && root.enabled ? CC.bouton-appui : zone.has-hover && root.enabled ? (root.danger ? #FF5A6E33 : CC.bouton-survol) : CC.bouton;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.danger ? #FF5A6E66 : CC.bouton-bord;
     opacity: root.enabled ? 1 : 0.5;
     animate background { duration: 120ms; }
@@ -138,9 +138,9 @@ component FiltreConsole inherits Rectangle {
     callback clicked;
     height: 30px;
     width: ligne.preferred-width + 22px;
-    border-radius: 9px;
+    border-radius: 14px;
     background: root.checked ? CC.filtre-actif : zone.has-hover ? CC.filtre-survol : transparent;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.checked ? CC.filtre-bord : CC.bord;
     animate background { duration: 120ms; }
     ligne := HorizontalLayout {
@@ -150,7 +150,7 @@ component FiltreConsole inherits Rectangle {
             width: 7px;
             height: 7px;
             y: (parent.height - self.height) / 2;
-            border-radius: 4px;
+            border-radius: 6px;
             background: root.pastille;
         }
         Text {
@@ -209,9 +209,9 @@ component PanneauLogs inherits Rectangle {
         }
     }
 
-    border-radius: 8px;
+    border-radius: 14px;
     background: CC.zone;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.p.crashed ? #FF5A6E66 : CC.bord;
     clip: true;
 
@@ -231,8 +231,8 @@ component PanneauLogs inherits Rectangle {
                     width: 9px;
                     height: 9px;
                     y: (parent.height - self.height) / 2;
-                    border-radius: 5px;
-                    background: root.p.running ? #1DE062 : root.p.crashed ? #FF5A6E : CC.discret;
+                    border-radius: 8px;
+                    background: root.p.running ? #4ADE80 : root.p.crashed ? #FF5A6E : CC.discret;
                 }
                 VerticalLayout {
                     horizontal-stretch: 1;
@@ -242,7 +242,7 @@ component PanneauLogs inherits Rectangle {
                         text: root.p.title;
                         font-family: Theme.ui-font;
                         font-size: 13.5px;
-                        font-weight: 700;
+                        font-weight: 600;
                         color: CC.titre;
                         overflow: elide;
                     }
@@ -426,7 +426,7 @@ component PanneauLogs inherits Rectangle {
                 y: parent.height - self.height - 12px;
                 width: bas.preferred-width + 24px;
                 height: 32px;
-                border-radius: 16px;
+                border-radius: 22px;
                 background: zone-bas.has-hover ? #3B82F6 : #2563EB;
                 drop-shadow-blur: 14px;
                 drop-shadow-color: CC.d ? #00000088 : #1C233540;
@@ -443,7 +443,7 @@ component PanneauLogs inherits Rectangle {
                         text: Tr.t("Console_Suivre");
                         font-family: Theme.ui-font;
                         font-size: 12px;
-                        font-weight: 700;
+                        font-weight: 600;
                         color: white;
                         vertical-alignment: center;
                     }
@@ -483,9 +483,9 @@ export component ConsoleOverlay inherits Rectangle {
     TouchArea { }
 
     Rectangle {
-        border-radius: 8px;
+        border-radius: 14px;
         background: Theme.surface.with-alpha(1);
-        border-width: 1px;
+        border-width: 1.5px;
         border-color: Theme.glass-border;
         drop-shadow-blur: 24px;
         drop-shadow-color: Theme.shadow;
@@ -503,7 +503,7 @@ export component ConsoleOverlay inherits Rectangle {
                     Rectangle {
                         width: 36px;
                         height: 36px;
-                        border-radius: 8px;
+                        border-radius: 14px;
                         background: Theme.accent-soft;
                         Icon {
                             text: "\u{E756}";
@@ -517,7 +517,7 @@ export component ConsoleOverlay inherits Rectangle {
                     Text {
                         text: Tr.t("Console_Titre");
                         font-size: 20px;
-                        font-weight: 800;
+                        font-weight: 600;
                         color: Theme.navy;
                     }
                 }
@@ -526,14 +526,14 @@ export component ConsoleOverlay inherits Rectangle {
                     Rectangle {
                         height: 24px;
                         width: sous-titre.preferred-width + 16px;
-                        border-radius: 12px;
+                        border-radius: 18px;
                         background: Theme.glass-strong;
-                        border-width: 1px;
+                        border-width: 1.5px;
                         border-color: Theme.glass-border;
                         sous-titre := Text {
                             text: ConsoleState.subtitle;
                             font-size: 12px;
-                            font-weight: 700;
+                            font-weight: 600;
                             color: Theme.text-muted;
                             horizontal-alignment: center;
                             vertical-alignment: center;
@@ -594,9 +594,9 @@ export component ConsoleOverlay inherits Rectangle {
                 Rectangle {
                     width: min(260px, max(150px, root.width - 560px));
                     height: 32px;
-                    border-radius: 8px;
+                    border-radius: 14px;
                     background: CC.bouton;
-                    border-width: 1px;
+                    border-width: 1.5px;
                     border-color: recherche.has-focus ? CC.bleu : CC.bouton-bord;
                     HorizontalLayout {
                         padding-left: 10px;
@@ -667,9 +667,9 @@ export component ConsoleOverlay inherits Rectangle {
                     }
 
                     if ConsoleState.panes.length == 0: Rectangle {
-                        border-radius: 8px;
+                        border-radius: 14px;
                         background: CC.zone;
-                        border-width: 1px;
+                        border-width: 1.5px;
                         border-color: CC.bord;
                         Text {
                             text: Tr.t("Console_Vide");

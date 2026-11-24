@@ -155,6 +155,9 @@ pub struct Reglages {
     /// Version de Minecraft choisie dans la section Mistly Client, ex. "26.3" (mistyversion)
     #[serde(default)]
     pub misty_version: String,
+    /// Édition choisie dans la barre du haut : 0 Mistly Client · 1 Java · 2 Bedrock · 3 Horizon
+    #[serde(default)]
+    pub edition: u8,
     /// Serveurs et barres d'objets partagés entre toutes les versions et tous les profils (partage)
     #[serde(default = "vrai")]
     pub partage: bool,
@@ -266,6 +269,7 @@ impl Reglages {
             chapeau: texte("chapeau"),
             misty_choisi: choix("mistychoisi"),
             misty_version: texte("mistyversion"),
+            edition: 0,
             partage: booleen("partage", defaut.partage),
             barre_masquee: texte("barremasquee")
                 .split(',')
@@ -496,6 +500,7 @@ tag=arc-en-ciel\r\n";
             chapeau: "cloudly".into(),
             misty_choisi: Some(true),
             misty_version: "26.3".into(),
+            edition: 0,
             partage: false,
             barre_masquee: vec!["skin".into(), "notes".into()],
             mode_compte: ModeCompte::Premium,

@@ -1,21 +1,21 @@
-// Barre du bas (sur toutes les pages sauf le détail d'un profil et l'éditeur), en tuiles alignées
-// sur la grille de la fenêtre, comme la maquette : options · version (contre JOUER) · JOUER ·
-// compte · avatar. Le statut d'un lancement remplace la 2e ligne de la version.
+// Barre du haut du thème Nuit (0.4.1), comme la maquette Figma : le logo, le choix de l'édition
+// (Mistly Client · Java · Bedrock · Horizon), les boutons ronds des pages, l'avatar du compte, puis
+// la place des boutons de la fenêtre (dessinés par main.slint, au-dessus de tout).
+// Toute la barre sert aussi à déplacer la fenêtre (double-clic : agrandir).
 
 import { Theme, Tr, Assets, Bulle } from "theme.slint";
 import { HomeState, AppState, SettingsState } from "state.slint";
-import { Icon, PixelLabel, Thumb, PlayButton, GlassCombo } from "widgets.slint";
+import { Icon, Thumb, IconeNuit, BoutonRond } from "widgets.slint";
 
-
-/// Tuile : la brique de la mise en page (même rayon, même verre, même bord partout).
+/// Tuile : la brique des anciennes pages (même rayon, même fond, même bord partout).
 export component Tuile inherits Rectangle {
-    border-radius: 8px;
-    background: Theme.panel;
-    border-width: 1px;
-    border-color: Theme.glass-border;
+    border-radius: 20px;
+    background: Theme.surface;
+    border-width: 1.5px;
+    border-color: Theme.border;
 }
 
-/// Tuile carrée avec une icône (options, console, dossier…), et sa bulle d'aide au survol.
+/// Tuile carrée avec une icône (et sa bulle d'aide au survol).
 export component TuileIcone inherits Rectangle {
     in property <string> icon;
     in property <string> tooltip;
@@ -26,16 +26,16 @@ export component TuileIcone inherits Rectangle {
     /// la bulle s'ouvre sous la tuile (rangée du haut)
     in property <bool> bulle-dessous: false;
     callback clicked;
-    border-radius: 8px;
-    background: root.active ? Theme.fill : zone.has-hover && root.enabled ? Theme.panel-strong : Theme.panel;
-    border-width: 1px;
-    border-color: root.active ? Theme.fill : zone.has-hover && root.enabled ? Theme.accent.with-alpha(0.6) : Theme.glass-border;
+    border-radius: min(self.width, self.height) / 2;
+    background: root.active ? Theme.active : zone.has-hover && root.enabled ? Theme.glass-hover : Theme.control;
+    border-width: 1.5px;
+    border-color: root.active ? Theme.active : zone.has-hover && root.enabled ? Theme.ink-3 : Theme.border-strong;
     opacity: root.enabled ? 1 : 0.5;
     animate background, border-color { duration: Theme.fast; }
     Icon {
         text: root.icon;
-        font-size: 18px;
-        color: root.active ? Theme.on-fill : Theme.navy;
+        font-size: 16px;
+        color: root.active ? Theme.on-active : Theme.icon;
         transform-scale: zone.pressed ? 0.88 : 1;
         animate transform-scale { duration: 120ms; easing: ease-out; }
     }
@@ -61,255 +61,402 @@ export component TuileIcone inherits Rectangle {
     }
 }
 
-/// Choix de la version (jeu rapide), de Misty, d'Horizon ou du profil : toute la tuile ouvre la
-/// fenêtre de choix. Pendant un lancement, la deuxième ligne devient le statut.
-component TuileChoix inherits Rectangle {
-    property <bool> actif: HomeState.selectors-enabled;
-    property <bool> occupe: HomeState.status != "" && HomeState.status != Tr.t("Home_Pret");
-    border-radius: 8px;
-    background: zone.has-hover && root.actif ? Theme.panel-strong : Theme.panel;
-    border-width: 1px;
-    border-color: zone.has-hover && root.actif ? Theme.accent.with-alpha(0.6) : Theme.glass-border;
-    animate background, border-color { duration: Theme.fast; }
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 18px;
-        spacing: 14px;
-        VerticalLayout {
+/// Une édition du sélecteur : pastille blanche quand elle est choisie.
+component Edition inherits Rectangle {
+    in property <string> text;
+    in property <bool> actif;
+    in property <bool> nuage;
+    in property <bool> rust;
+    in property <bool> compact;
+    callback clicked;
+    height: 38px;
+    width: contenu.preferred-width;
+    border-radius: 19px;
+    background: root.actif ? Theme.active : zone.has-hover ? Theme.glass-hover : transparent;
+    animate background { duration: Theme.normal; easing: ease-out; }
+    contenu := HorizontalLayout {
+        padding-left: root.nuage ? 10px : 14px;
+        padding-right: 14px;
+        spacing: 8px;
+        if root.nuage: VerticalLayout {
+            alignment: center;
+            IconeNuit {
+                nom: "nuage";
+                taille: 16px;
+                couleur: root.actif ? Theme.on-active : Theme.ink-4;
+            }
+        }
+        Text {
+            text: root.text;
+            font-family: Theme.ui-font;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: root.actif ? Theme.on-active : zone.has-hover ? Theme.ink : Theme.ink-4;
+            vertical-alignment: center;
+            animate color { duration: Theme.normal; }
+        }
+        if root.rust && !root.compact: VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 42px;
-                height: 42px;
+                height: 18px;
+                width: tag.preferred-width + 12px;
                 border-radius: 6px;
-                clip: true;
-                background: HomeState.horizon-selected ? #F0795A29 : Theme.dark ? #162140 : #1C2335;
-                if HomeState.has-card-icon && !HomeState.quick: Image {
-                    width: parent.width;
-                    height: parent.height;
-                    source: HomeState.card-icon;
-                    image-fit: cover;
-                }
-                if !(HomeState.has-card-icon && !HomeState.quick): Image {
-                    width: 28px;
-                    height: 28px;
-                    source: Assets.logo;
-                    image-fit: contain;
-                }
-            }
-        }
-        VerticalLayout {
-            horizontal-stretch: 1;
-            alignment: center;
-            spacing: 2px;
-            Text {
-                text: HomeState.horizon-selected ? "Horizon " + HomeState.horizon-build
-                    : HomeState.misty-selected && HomeState.quick ? "Mistly Client " + HomeState.misty-mc
-                    : HomeState.quick ? "Minecraft " + HomeState.card-version
-                    : (HomeState.profile-index >= 0 && HomeState.profile-index < HomeState.profiles.length ? HomeState.profiles[HomeState.profile-index] : HomeState.card-version);
-                font-size: 15px;
-                font-weight: 700;
-                color: Theme.navy;
-                overflow: elide;
-            }
-            Text {
-                text: root.occupe ? HomeState.status + (HomeState.percent-text != "" ? "  ·  " + HomeState.percent-text : "")
-                    : HomeState.horizon-selected ? Tr.t("Hz_Moteur")
-                    : HomeState.quick ? HomeState.card-loader
-                    : HomeState.card-version + " · " + HomeState.card-loader;
-                font-size: 12.5px;
-                color: root.occupe ? Theme.accent : Theme.text-muted;
-                overflow: elide;
-            }
-        }
-        VerticalLayout {
-            alignment: center;
-            Icon {
-                text: "\u{E70E}";
-                font-size: 11px;
-                color: Theme.text-muted;
-                opacity: root.actif ? 1 : 0.4;
-            }
-        }
-    }
-    zone := TouchArea {
-        enabled: root.actif;
-        mouse-cursor: pointer;
-        // un second clic referme le choix
-        clicked => {
-            if (HomeState.picker-open) {
-                HomeState.picker-open = false;
-                return;
-            }
-            HomeState.picker-tab = HomeState.quick || HomeState.horizon-selected ? 0 : 1;
-            HomeState.picker-horizon = HomeState.horizon-selected;
-            HomeState.picker-misty = HomeState.misty-selected && HomeState.quick && !HomeState.horizon-selected;
-            HomeState.picker-open = true;
-            if (HomeState.horizon-selected) {
-                HomeState.horizon-refresh();
-            }
-        }
-    }
-}
-
-/// JOUER : un nuage sur lequel on clique. Il flotte un peu, monte au survol, s'écrase et
-/// s'enfonce dans son ombre quand on appuie ; gris quand on ne peut pas jouer. La progression d'un
-/// JOUER : une tuile pleine, aux coins des autres, en dégradé bleu Misty ; elle s'éclaircit au
-/// survol et s'enfonce un peu quand on appuie. La progression d'un téléchargement court en bas.
-component BlocJouer inherits Rectangle {
-    property <bool> actif: HomeState.play-enabled;
-    property <bool> appui: zone.pressed && root.actif;
-    property <bool> survol: zone.has-hover && root.actif;
-    border-radius: 8px;
-    background: !root.actif ? @linear-gradient(180deg, #8B9BB0 0%, #6B7C93 100%)
-        : root.appui ? @linear-gradient(180deg, #4F7FE0 0%, #3A66C4 100%)
-        : root.survol ? @linear-gradient(180deg, #8AAEFF 0%, #5B88EE 100%)
-        : @linear-gradient(180deg, #7FA6FF 0%, #4F7FE0 100%);
-    border-width: 1px;
-    border-color: #FFFFFF59;
-    drop-shadow-blur: root.survol ? 18px : 8px;
-    drop-shadow-offset-y: 3px;
-    drop-shadow-color: root.actif ? #2C4F9E66 : #00000033;
-    animate drop-shadow-blur { duration: Theme.fast; }
-    Text {
-        text: HomeState.play-text;
-        font-family: Theme.pixel-font;
-        font-size: 26px;
-        color: white;
-        stroke: root.actif ? #2C4F9E : #3E526A;
-        stroke-width: 2px;
-        stroke-style: outside;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-    if HomeState.progress > 0 && HomeState.progress < 1: Rectangle {
-        x: 12px;
-        y: parent.height - 9px;
-        width: parent.width - 24px;
-        height: 3px;
-        border-radius: 1.5px;
-        background: #FFFFFF40;
-        Rectangle {
-            x: 0;
-            width: parent.width * clamp(HomeState.progress, 0, 1);
-            border-radius: 1.5px;
-            background: white;
-            animate width { duration: 200ms; }
-        }
-    }
-    zone := TouchArea {
-        enabled: root.actif;
-        mouse-cursor: pointer;
-        clicked => { HomeState.play(); }
-    }
-}
-
-/// Compte : un nuage blanc (en ligne, compte Microsoft) ou gris (hors ligne) devant le pseudo, et
-/// la liste des comptes.
-component TuileCompte inherits Rectangle {
-    border-radius: 8px;
-    background: Theme.panel;
-    border-width: 1px;
-    border-color: Theme.glass-border;
-    HorizontalLayout {
-        padding-left: 14px;
-        padding-right: 10px;
-        spacing: 10px;
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 26px;
-                height: 26px;
-                Image {
-                    width: parent.width;
-                    height: parent.height;
-                    source: Assets.logo;
-                    image-fit: contain;
-                    colorize: HomeState.premium ? (Theme.dark ? white : #2F6FD6) : (Theme.dark ? #6F7C99 : #8394AB);
-                }
-            }
-        }
-        VerticalLayout {
-            horizontal-stretch: 1;
-            alignment: center;
-            Rectangle {
-                height: 40px;
-                if HomeState.all-accounts.length > 1: GlassCombo {
-                    model: HomeState.all-accounts;
-                    current-index <=> HomeState.all-index;
-                    enabled: !HomeState.ms-busy;
-                    selected(i) => { HomeState.all-selected(i); }
-                }
-                if HomeState.all-accounts.length <= 1 && !HomeState.premium: GlassCombo {
-                    model: HomeState.accounts;
-                    current-index <=> HomeState.account-index;
-                    selected(i) => { HomeState.account-selected(i); }
-                }
-                if HomeState.all-accounts.length <= 1 && HomeState.premium: Text {
-                    text: HomeState.premium-name;
-                    font-size: 15px;
-                    font-weight: 700;
-                    color: Theme.navy;
+                background: root.actif ? Theme.on-active : Theme.border-field;
+                animate background { duration: Theme.normal; }
+                tag := Text {
+                    text: "RUST";
+                    font-family: Theme.mono-font;
+                    font-size: 10.5px;
+                    font-weight: 500;
+                    color: root.actif ? Theme.active : Theme.ink-4;
+                    horizontal-alignment: center;
                     vertical-alignment: center;
-                    overflow: elide;
+                }
+            }
+        }
+    }
+    zone := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            Bulle.visible = false;
+            root.clicked();
+        }
+    }
+}
+
+/// Le choix de l'édition : Mistly Client (par défaut) · Java · Bedrock · Horizon.
+component SelecteurEdition inherits Rectangle {
+    in property <bool> compact;
+    height: 48px;
+    width: rang.preferred-width;
+    border-radius: 24px;
+    background: Theme.surface-2;
+    border-width: 1.5px;
+    border-color: Theme.border-field;
+    rang := HorizontalLayout {
+        padding: 4px;
+        spacing: 4px;
+        Edition {
+            text: "Mistly Client";
+            nuage: true;
+            actif: HomeState.edition == 0;
+            clicked => { HomeState.edition-selected(0); }
+        }
+        VerticalLayout {
+            alignment: center;
+            padding-left: 2px;
+            padding-right: 2px;
+            Rectangle {
+                width: 1.5px;
+                height: 20px;
+                background: Theme.border-strong;
+            }
+        }
+        Edition {
+            text: "Java";
+            actif: HomeState.edition == 1;
+            clicked => { HomeState.edition-selected(1); }
+        }
+        Edition {
+            text: "Bedrock";
+            actif: HomeState.edition == 2;
+            clicked => { HomeState.edition-selected(2); }
+        }
+        Edition {
+            text: "Horizon";
+            rust: true;
+            compact: root.compact;
+            actif: HomeState.edition == 3;
+            clicked => { HomeState.edition-selected(3); }
+        }
+    }
+}
+
+/// L'avatar du compte : un clic ouvre la liste des comptes (et l'ajout d'un compte Microsoft).
+component BoutonCompte inherits Rectangle {
+    in property <length> taille: 48px;
+    width: root.taille;
+    height: root.taille;
+    border-radius: root.taille / 2;
+    border-width: 1.5px;
+    border-color: zone.has-hover ? Theme.ink-3 : Theme.border-strong;
+    background: Theme.control;
+    clip: true;
+    transform-scale: zone.pressed ? 0.92 : zone.has-hover ? 1.05 : 1;
+    animate border-color { duration: Theme.fast; }
+    animate transform-scale { duration: 200ms; easing: cubic-bezier(0.34, 1.4, 0.64, 1); }
+    Thumb {
+        width: parent.width;
+        height: parent.height;
+        radius: root.taille / 2;
+        logo-margin: 12px;
+        logo-opacity: 0.9;
+        source: HomeState.avatar;
+        has-image: HomeState.has-avatar;
+        pixel-art: true;
+    }
+    zone := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            Bulle.visible = false;
+            liste.show();
+        }
+    }
+    property <bool> survol: zone.has-hover;
+    property <string> nom: HomeState.premium ? HomeState.premium-name : Tr.t("Nav_Compte");
+    changed survol => {
+        if (self.survol) {
+            Bulle.texte = root.nom;
+            Bulle.x = root.absolute-position.x + root.width / 2;
+            Bulle.y = root.absolute-position.y + root.height + 8px;
+            Bulle.a-droite = false;
+            Bulle.visible = true;
+        } else if (Bulle.texte == root.nom) {
+            Bulle.visible = false;
+        }
+    }
+    liste := PopupWindow {
+        x: root.width - self.width;
+        y: root.height + 10px;
+        width: 260px;
+        height: comptes.preferred-height;
+        Rectangle {
+            background: Theme.popup;
+            border-radius: 20px;
+            border-width: 1.5px;
+            border-color: Theme.border-strong;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: Theme.shadow;
+            comptes := VerticalLayout {
+                padding: 8px;
+                spacing: 2px;
+                for c[i] in HomeState.all-accounts: Rectangle {
+                    height: 42px;
+                    border-radius: 14px;
+                    background: ligne.has-hover ? Theme.popup-hover : i == HomeState.all-index ? Theme.accent-soft : transparent;
+                    animate background { duration: Theme.fast; }
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 4px;
+                                background: i == HomeState.all-index ? Theme.online : Theme.border-strong;
+                            }
+                        }
+                        Text {
+                            text: c;
+                            font-family: Theme.ui-font;
+                            font-size: 13.5px;
+                            font-weight: i == HomeState.all-index ? 600 : 400;
+                            color: Theme.ink;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                    ligne := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            HomeState.all-index = i;
+                            HomeState.all-selected(i);
+                        }
+                    }
+                }
+                if HomeState.all-accounts.length > 0: Rectangle {
+                    height: 9px;
+                    Rectangle {
+                        height: 1.5px;
+                        background: Theme.border;
+                    }
+                }
+                Rectangle {
+                    height: 42px;
+                    border-radius: 14px;
+                    background: ajout.has-hover ? Theme.popup-hover : transparent;
+                    opacity: HomeState.ms-busy ? 0.5 : 1;
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 12px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            IconeNuit {
+                                nom: "plus";
+                                taille: 16px;
+                            }
+                        }
+                        Text {
+                            text: Tr.t("Nav_AjouterCompte");
+                            font-family: Theme.ui-font;
+                            font-size: 13.5px;
+                            color: Theme.icon;
+                            vertical-alignment: center;
+                        }
+                    }
+                    ajout := TouchArea {
+                        enabled: !HomeState.ms-busy;
+                        mouse-cursor: pointer;
+                        clicked => { HomeState.ms-clicked(); }
+                    }
                 }
             }
         }
     }
 }
 
-export component Dock inherits HorizontalLayout {
-    /// largeur des tuiles carrées (la colonne de gauche de la fenêtre)
-    in property <length> case: 64px;
-    spacing: 12px;
-
-    TuileIcone {
-        width: root.case;
-        icon: "\u{E713}";
-        tooltip: Tr.t("Nav_Options");
-        active: SettingsState.open;
-        clicked => { AppState.nav-clicked(2); }
-    }
-    TuileChoix {
-        horizontal-stretch: 1;
-        min-width: 240px;
-    }
-    BlocJouer {
-        width: 250px;
-    }
-    // compte (ou « annuler » pendant un téléchargement), à la même place et de la même taille :
-    // JOUER ne bouge pas quand l'un remplace l'autre
-    Rectangle {
-        horizontal-stretch: 1;
-        min-width: 200px;
-        if !HomeState.can-cancel: TuileCompte { }
-        if HomeState.can-cancel: TuileIcone {
-            icon: "\u{E711}";
-            tooltip: Tr.t("Commun_Annuler");
-            clicked => { HomeState.cancel-install(); }
+export component BarreHaut inherits Rectangle {
+    /// fenêtre étroite : le nom MISTLY et l'étiquette RUST se cachent
+    in property <bool> compact;
+    /// place laissée à droite pour les boutons de la fenêtre (dessinés par main.slint)
+    in property <length> place-fenetre: 110px;
+    height: 76px;
+    // déplacer la fenêtre : toute la barre, sauf ses boutons (qui reçoivent le clic avant)
+    TouchArea {
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                AppState.drag();
+            }
         }
+        double-clicked => { AppState.toggle-maximize(); }
     }
-    // avatar : ouvre l'onglet Skin
-    Rectangle {
-        width: root.case;
-        border-radius: 8px;
-        background: Theme.panel;
-        border-width: 1px;
-        border-color: zone-avatar.has-hover ? Theme.accent.with-alpha(0.6) : Theme.glass-border;
-        clip: true;
-        animate border-color { duration: Theme.fast; }
-        Thumb {
-            width: parent.width - 16px;
-            height: self.width;
-            radius: 6px;
-            logo-margin: 8px;
-            logo-opacity: 1;
-            source: HomeState.avatar;
-            has-image: HomeState.has-avatar;
-            pixel-art: true;
+    HorizontalLayout {
+        padding-left: 24px;
+        padding-right: 24px + root.place-fenetre;
+        spacing: 16px;
+        // logo : la tuile au nuage et MISTLY en pixel
+        HorizontalLayout {
+            spacing: 14px;
+            alignment: start;
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 12px;
+                    background: Theme.control;
+                    border-width: 1.5px;
+                    border-color: Theme.border-strong;
+                    IconeNuit {
+                        nom: "nuage";
+                        taille: 22px;
+                        couleur: Theme.ink;
+                    }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { AppState.nav-clicked(0); }
+                    }
+                }
+            }
+            if !root.compact: Text {
+                text: "MISTLY";
+                font-family: Theme.pixel-font;
+                font-weight: 700;
+                font-size: 22px;
+                letter-spacing: 2px;
+                color: Theme.ink-strong;
+                vertical-alignment: center;
+            }
         }
-        zone-avatar := TouchArea {
-            mouse-cursor: pointer;
-            clicked => { AppState.nav-clicked(7); }
+        VerticalLayout {
+            alignment: center;
+            SelecteurEdition {
+                compact: root.compact;
+            }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: end;
+            VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: "accueil";
+                    tooltip: Tr.t("Onglet_Jouer");
+                    actif: AppState.nav == 0 && !SettingsState.open;
+                    clicked => { AppState.nav-clicked(0); }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: "decouvrir";
+                    tooltip: Tr.t("Nav_Decouvrir");
+                    actif: AppState.nav == 9 && !SettingsState.open;
+                    clicked => { AppState.nav-clicked(9); }
+                }
+            }
+            if AppState.nav-skin: VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: "garde-robe";
+                    tooltip: Tr.t("Onglet_Skin");
+                    actif: AppState.nav == 7 && !SettingsState.open;
+                    clicked => { AppState.nav-clicked(7); }
+                }
+            }
+            if AppState.nav-profils: VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: "instances";
+                    tooltip: Tr.t("Onglet_Profils");
+                    actif: (AppState.nav == 1 || AppState.page == 5) && !SettingsState.open;
+                    clicked => { AppState.nav-clicked(1); }
+                }
+            }
+            if AppState.nav-packs: VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: "couches";
+                    tooltip: Tr.t("Onglet_Packs");
+                    actif: (AppState.nav == 4 || AppState.page == 6) && !SettingsState.open;
+                    clicked => { AppState.nav-clicked(4); }
+                }
+            }
+            if AppState.nav-amis: VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: "amis";
+                    tooltip: Tr.t("Onglet_Amis");
+                    actif: AppState.nav == 8 && !SettingsState.open;
+                    clicked => { AppState.nav-clicked(8); }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: "reglages";
+                    tooltip: Tr.t("Nav_Options");
+                    actif: SettingsState.open;
+                    clicked => { AppState.nav-clicked(2); }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                padding-left: 4px;
+                BoutonCompte {
+                    taille: 44px;
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                padding-left: 6px;
+                Rectangle {
+                    width: 1.5px;
+                    height: 24px;
+                    background: Theme.border-strong;
+                }
+            }
         }
     }
 }

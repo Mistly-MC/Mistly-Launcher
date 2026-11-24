@@ -210,6 +210,7 @@ pub(super) fn misty_choisir(app: &Rc<App>, version: String) {
     s.set_horizon_selected(false);
     s.set_misty_selected(true);
     s.set_picker_misty(true);
+    super::marquer_edition(app, 0);
     reglages::modifier(|r| r.misty_choisi = Some(true));
     let a = app.clone();
     lancer(async move {
@@ -239,6 +240,7 @@ pub(super) fn horizon_choisir(app: &App) {
     let s = h(app);
     misty_quitter(app);
     s.set_horizon_selected(true);
+    super::marquer_edition(app, 3);
     s.set_card_label(loc::t("Hz_Etiquette").into());
     s.set_card_version("26.3".into());
     s.set_card_loader("HORIZON".into());

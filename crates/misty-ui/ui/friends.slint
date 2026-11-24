@@ -10,12 +10,12 @@ import { ScrollView } from "std-widgets.slint";
 component CarteAmi inherits Rectangle {
     in property <FriendCard> ami;
     property <bool> survol: zone.has-hover;
-    property <color> statut: !FriendsState.status-known ? Theme.text-muted : root.ami.online ? #1DE062 : #8B9BB0;
+    property <color> statut: !FriendsState.status-known ? Theme.text-muted : root.ami.online ? #4ADE80 : #8B9BB0;
     height: 76px;
-    border-radius: 8px;
+    border-radius: 14px;
     background: root.survol ? Theme.panel-strong : Theme.glass;
-    border-width: 1px;
-    border-color: root.ami.online ? #1DE06266 : Theme.glass-border;
+    border-width: 1.5px;
+    border-color: root.ami.online ? #4ADE8066 : Theme.glass-border;
     animate background, border-color { duration: Theme.fast; }
     zone := TouchArea { }
     HorizontalLayout {
@@ -28,7 +28,7 @@ component CarteAmi inherits Rectangle {
                 width: 44px;
                 height: 44px;
                 Rectangle {
-                    border-radius: 6px;
+                    border-radius: 10px;
                     clip: true;
                     background: Theme.fill;
                     if root.ami.has-head: Image {
@@ -41,7 +41,7 @@ component CarteAmi inherits Rectangle {
                     if !root.ami.has-head: Text {
                         text: root.ami.name.character-count > 0 ? "?" : "";
                         font-size: 18px;
-                        font-weight: 800;
+                        font-weight: 600;
                         color: Theme.on-fill;
                         horizontal-alignment: center;
                         vertical-alignment: center;
@@ -52,7 +52,7 @@ component CarteAmi inherits Rectangle {
                     y: parent.height - 11px;
                     width: 14px;
                     height: 14px;
-                    border-radius: 4px;
+                    border-radius: 6px;
                     background: root.statut;
                     border-width: 2px;
                     border-color: root.survol ? Theme.panel-strong : Theme.panel;
@@ -66,7 +66,7 @@ component CarteAmi inherits Rectangle {
             Text {
                 text: root.ami.name;
                 font-size: 15px;
-                font-weight: 700;
+                font-weight: 600;
                 color: Theme.navy;
                 overflow: elide;
             }
@@ -106,7 +106,7 @@ component Vide inherits VerticalLayout {
         Rectangle {
             width: 54px;
             height: 54px;
-            border-radius: 10px;
+            border-radius: 16px;
             background: Theme.accent-soft;
             Icon {
                 text: root.icone;
@@ -118,7 +118,7 @@ component Vide inherits VerticalLayout {
     Text {
         text: root.titre;
         font-size: 18px;
-        font-weight: 800;
+        font-weight: 600;
         color: Theme.navy;
         horizontal-alignment: center;
     }
@@ -200,9 +200,9 @@ export component FriendsPage inherits Rectangle {
                 padding-right: 20px;
                 padding-top: 12px;
                 Rectangle {
-                    border-radius: 8px;
+                    border-radius: 14px;
                     background: Theme.accent-soft;
-                    border-width: 1px;
+                    border-width: 1.5px;
                     border-color: Theme.accent.with-alpha(0.35);
                     height: bandeau.preferred-height;
                     bandeau := HorizontalLayout {

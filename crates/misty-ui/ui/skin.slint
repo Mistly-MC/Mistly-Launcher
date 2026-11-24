@@ -110,9 +110,9 @@ component Seg inherits Rectangle {
     callback choisi(int);
     height: 38px;
     width: rangee.preferred-width + 8px;
-    border-radius: 12px;
-    background: Theme.dark ? #0A0F1D9E : #FFFFFF8C;
-    border-width: 1px;
+    border-radius: 18px;
+    background: Theme.dark ? #07090C9E : #FFFFFF8C;
+    border-width: 1.5px;
     border-color: Theme.glass-border;
     rangee := HorizontalLayout {
         x: 4px;
@@ -122,7 +122,7 @@ component Seg inherits Rectangle {
         for t[i] in root.items: Rectangle {
             property <bool> actif: i == root.current;
             width: lib.preferred-width + 18px;
-            border-radius: 9px;
+            border-radius: 14px;
             background: self.actif ? Theme.fill : zone.has-hover ? Theme.glass-hover : transparent;
             drop-shadow-offset-y: self.actif ? 3px : 0px;
             drop-shadow-color: Theme.fill-lip;
@@ -165,8 +165,8 @@ component Bascule inherits Rectangle {
         y: root.active ? 2px : 0px;
         height: parent.height - 3px;
         border-radius: 11px;
-        background: root.active ? Theme.accent.with-alpha(0.35) : Theme.dark ? #0A0F1D9E : #FFFFFFB3;
-        border-width: 1px;
+        background: root.active ? Theme.accent.with-alpha(0.35) : Theme.dark ? #07090C9E : #FFFFFFB3;
+        border-width: 1.5px;
         border-color: root.active ? Theme.accent : Theme.glass-border;
         animate y { duration: 120ms; easing: ease-out; }
         animate background, border-color { duration: Theme.normal; }
@@ -207,7 +207,7 @@ component NomTag inherits Rectangle {
     width: lib-tag.preferred-width + 22px * root.echelle;
     height: 30px * root.echelle;
     border-radius: 3px * root.echelle;
-    background: root.style == "brume" ? #1C2F5ACC : root.style == "nuage" ? #FFFFFFE6 : root.style == "or" ? #2A1F08D9 : root.style == "aurore" ? #1A0F2ED9 : #0A0F1D8C;
+    background: root.style == "brume" ? #1F2126CC : root.style == "nuage" ? #FFFFFFE6 : root.style == "or" ? #2A1F08D9 : root.style == "aurore" ? #1A0F2ED9 : #07090C8C;
     border-width: root.surligne ? 2px : 0px;
     border-color: #6F9CFF;
     drop-shadow-blur: root.surligne ? 12px : 0px;
@@ -217,7 +217,7 @@ component NomTag inherits Rectangle {
         text: root.text;
         font-family: Theme.pixel-font;
         font-size: 16px * root.echelle;
-        color: root.style == "brume" ? #9CC0FF : root.style == "nuage" ? #1C2335 : root.style == "or" ? #FFD66B : root.style == "aurore" ? #F2A6FF : #EAF1FF;
+        color: root.style == "brume" ? #C4C7D0 : root.style == "nuage" ? #1C2335 : root.style == "or" ? #FFD66B : root.style == "aurore" ? #F2A6FF : #EAF1FF;
         stroke: root.style == "aurore" ? #7CF5D0 : transparent;
         stroke-width: root.style == "aurore" ? 1px : 0px;
         horizontal-alignment: center;
@@ -277,10 +277,10 @@ component Scene3D inherits Rectangle {
         }
     }
 
-    border-radius: 8px;
+    border-radius: 14px;
     clip: true;
-    background: Theme.dark ? @linear-gradient(180deg, #162140B8 0%, #0C1324D1 100%) : @linear-gradient(180deg, #FFFFFF59 0%, #DCE8F8A6 100%);
-    border-width: 1px;
+    background: Theme.dark ? @linear-gradient(180deg, #16181CB8 0%, #0E1014D1 100%) : @linear-gradient(180deg, #FFFFFF59 0%, #DCE8F8A6 100%);
+    border-width: 1.5px;
     border-color: Theme.glass-border;
 
     // halo de lune, fixe
@@ -517,7 +517,7 @@ component Scene3D inherits Rectangle {
         y: min(root.souris-y + 14px, parent.height - self.height - 8px);
         width: etiquette-survol.preferred-width + 24px;
         height: 28px;
-        border-radius: 8px;
+        border-radius: 14px;
         background: Theme.fill;
         drop-shadow-blur: 10px;
         drop-shadow-color: #00000040;
@@ -532,7 +532,7 @@ component Scene3D inherits Rectangle {
             Text {
                 text: SkinState.hover-slot == 0 ? Tr.t("Cos_Capes") : SkinState.hover-slot == 1 ? Tr.t("Cos_Ailes") : SkinState.hover-slot == 3 ? Tr.t("Cos_Tags") : Tr.t("Cos_Chapeaux");
                 font-size: 12.5px;
-                font-weight: 700;
+                font-weight: 600;
                 color: Theme.on-fill;
                 vertical-alignment: center;
             }
@@ -667,7 +667,7 @@ component CaseMisty inherits Rectangle {
     in property <int> genre;
     property <bool> equipe: root.genre == 4 ? SkinState.misty-hat : SkinState.misty-equip == root.genre;
     property <bool> verrou: root.genre == 3 && !SkinState.misty-early;
-    border-radius: 12px;
+    border-radius: 18px;
     background: root.equipe ? Theme.accent-soft : zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
     border-width: root.equipe ? 2px : 1px;
     border-color: root.equipe ? Theme.accent : Theme.glass-border;
@@ -764,7 +764,7 @@ component CaseCape inherits Rectangle {
     in property <bool> has-image;
     in property <bool> active;
     callback clicked;
-    border-radius: 12px;
+    border-radius: 18px;
     background: root.active ? Theme.accent-soft : zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
     border-width: root.active ? 2px : 1px;
     border-color: root.active ? Theme.accent : Theme.glass-border;
@@ -809,7 +809,7 @@ component CaseCape inherits Rectangle {
 component TeteSkin inherits Rectangle {
     in property <SkinHistoryItem> item;
     callback clicked;
-    border-radius: 8px;
+    border-radius: 14px;
     background: Theme.glass-strong;
     border-width: root.item.current ? 2px : 1px;
     border-color: root.item.current ? Theme.accent : zone.has-hover ? Theme.accent.with-alpha(0.5) : Theme.glass-border;
@@ -833,7 +833,7 @@ component TeteSkin inherits Rectangle {
         Text {
             text: Tr.t("Skin_Porte");
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 600;
             color: Theme.on-fill;
         }
     }
@@ -853,9 +853,9 @@ component Emplacement inherits Rectangle {
     in property <bool> a-apercu;
     callback clicked;
     height: 54px;
-    border-radius: 8px;
+    border-radius: 14px;
     background: zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: zone.has-hover ? Theme.accent.with-alpha(0.6) : Theme.glass-border;
     animate background, border-color { duration: Theme.fast; }
     HorizontalLayout {
@@ -867,8 +867,8 @@ component Emplacement inherits Rectangle {
             Rectangle {
                 width: 44px;
                 height: 44px;
-                border-radius: 6px;
-                background: Theme.dark ? #0A0F1D9E : #1C233514;
+                border-radius: 10px;
+                background: Theme.dark ? #07090C9E : #1C233514;
                 if root.a-apercu: Image {
                     x: 4px;
                     y: 4px;
@@ -898,7 +898,7 @@ component Emplacement inherits Rectangle {
             Text {
                 text: root.nom;
                 font-size: 14px;
-                font-weight: 700;
+                font-weight: 600;
                 color: root.a-apercu ? Theme.navy : Theme.text-muted;
                 overflow: elide;
             }
@@ -919,7 +919,7 @@ component Emplacement inherits Rectangle {
 component CaseAucun inherits Rectangle {
     in property <bool> active;
     callback clicked;
-    border-radius: 8px;
+    border-radius: 14px;
     background: root.active ? Theme.accent-soft : zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
     border-width: root.active ? 2px : 1px;
     border-color: root.active ? Theme.accent : Theme.glass-border;
@@ -980,9 +980,9 @@ export component SkinPanel inherits Rectangle {
                 // ── la fiche du joueur et « Mes skins » (défile si elle est trop longue) ──
                 Rectangle {
                     height: min(fiche.preferred-height, 220px);
-                    border-radius: 8px;
+                    border-radius: 14px;
                     background: Theme.panel;
-                    border-width: 1px;
+                    border-width: 1.5px;
                     border-color: Theme.glass-border;
                     clip: true;
                     ScrollView {
@@ -998,9 +998,9 @@ export component SkinPanel inherits Rectangle {
                                 Rectangle {
                                     width: 44px;
                                     height: 44px;
-                                    border-radius: 8px;
+                                    border-radius: 14px;
                                     background: Theme.glass-strong;
-                                    border-width: 1px;
+                                    border-width: 1.5px;
                                     border-color: Theme.glass-border;
                                     clip: true;
                                     Image {
@@ -1016,7 +1016,7 @@ export component SkinPanel inherits Rectangle {
                                     Text {
                                         text: HomeState.premium ? HomeState.premium-name : "Steve";
                                         font-size: 17px;
-                                        font-weight: 800;
+                                        font-weight: 600;
                                         color: Theme.navy;
                                         overflow: elide;
                                     }
@@ -1034,9 +1034,9 @@ export component SkinPanel inherits Rectangle {
                                     preferred-width: 0px;
                                     property <bool> actif: (i == 1) == SkinState.slim;
                                     height: 30px;
-                                    border-radius: 8px;
+                                    border-radius: 14px;
                                     background: self.actif ? Theme.accent-soft : mz.has-hover ? Theme.glass-hover : Theme.glass;
-                                    border-width: 1px;
+                                    border-width: 1.5px;
                                     border-color: self.actif ? Theme.accent : Theme.glass-border;
                                     animate background, border-color { duration: Theme.fast; }
                                     HorizontalLayout {
@@ -1048,7 +1048,7 @@ export component SkinPanel inherits Rectangle {
                                             Rectangle {
                                                 width: 14px;
                                                 height: 14px;
-                                                border-radius: 7px;
+                                                border-radius: 11px;
                                                 border-width: 1.5px;
                                                 border-color: modele.actif ? Theme.accent : Theme.text-dim;
                                                 Rectangle {
@@ -1121,9 +1121,9 @@ export component SkinPanel inherits Rectangle {
                 // un clic ouvre la liste de ce qu'on peut y mettre ──
                 Rectangle {
                     vertical-stretch: 1;
-                    border-radius: 8px;
+                    border-radius: 14px;
                     background: Theme.panel;
-                    border-width: 1px;
+                    border-width: 1.5px;
                     border-color: Theme.glass-border;
                     clip: true;
                     VerticalLayout {
@@ -1185,9 +1185,9 @@ export component SkinPanel inherits Rectangle {
                                 // (avec le mod, rien à dire)
                                 if (SkinState.misty-equip != 0 || SkinState.misty-hat) && !SkinState.misty-in-game: Rectangle {
                                     min-height: av.preferred-height;
-                                    border-radius: 8px;
+                                    border-radius: 14px;
                                     background: Theme.dark ? #FFBE5A14 : #FFF1DC;
-                                    border-width: 1px;
+                                    border-width: 1.5px;
                                     border-color: Theme.dark ? #FFBE5A59 : #F0B35E;
                                     av := HorizontalLayout {
                                         padding: 10px;
@@ -1217,9 +1217,9 @@ export component SkinPanel inherits Rectangle {
                             Rectangle {
                                 width: 30px;
                                 height: 30px;
-                                border-radius: 8px;
+                                border-radius: 14px;
                                 background: zr.has-hover ? Theme.glass-hover : Theme.glass-strong;
-                                border-width: 1px;
+                                border-width: 1.5px;
                                 border-color: Theme.glass-border;
                                 Icon {
                                     text: "\u{E72B}";
@@ -1238,7 +1238,7 @@ export component SkinPanel inherits Rectangle {
                                 horizontal-stretch: 1;
                                 text: SkinState.popup == 0 ? Tr.t("Cos_Capes") : SkinState.popup == 1 ? Tr.t("Cos_Ailes") : SkinState.popup == 3 ? Tr.t("Cos_Tags") : Tr.t("Cos_Chapeaux");
                                 font-size: 16px;
-                                font-weight: 800;
+                                font-weight: 600;
                                 color: Theme.navy;
                                 vertical-alignment: center;
                                 overflow: elide;
@@ -1330,7 +1330,7 @@ export component SkinPanel inherits Rectangle {
                         spacing: 8px;
                         for t[i] in ["", "nuage"]: Rectangle {
                             height: 54px;
-                            border-radius: 8px;
+                            border-radius: 14px;
                             background: SkinState.tag == t ? Theme.accent-soft : zt.has-hover ? Theme.glass-hover : Theme.glass-strong;
                             border-width: SkinState.tag == t ? 2px : 1px;
                             border-color: SkinState.tag == t ? Theme.accent : Theme.glass-border;
@@ -1351,7 +1351,7 @@ export component SkinPanel inherits Rectangle {
                                     horizontal-stretch: 1;
                                     text: root.nom-style(t);
                                     font-size: 13.5px;
-                                    font-weight: 700;
+                                    font-weight: 600;
                                     color: SkinState.tag == t ? Theme.accent : Theme.navy;
                                     vertical-alignment: center;
                                     horizontal-alignment: right;
@@ -1416,7 +1416,7 @@ export component SkinPanel inherits Rectangle {
         Rectangle {
             width: 46px;
             height: 46px;
-            border-radius: 8px;
+            border-radius: 14px;
             background: ajout-skin.has-hover ? Theme.glass-hover : Theme.glass;
             border-width: 2px;
             border-color: ajout-skin.has-hover ? Theme.accent : Theme.glass-border;

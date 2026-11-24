@@ -7,6 +7,7 @@
 //!   %LOCALAPPDATA%\Misty\runtime\<composant>\              Java fourni par Mojang
 //! Le dossier de jeu (mods, options, mondes) est celui du profil, ou Misty lui-même en jeu rapide.
 
+pub mod bedrock;
 pub mod client;
 pub mod erreur;
 pub mod install;

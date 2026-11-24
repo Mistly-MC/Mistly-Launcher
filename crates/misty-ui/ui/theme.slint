@@ -3,6 +3,11 @@
 
 import "../../misty-app/assets/fonts/Silkscreen-Regular.ttf";
 import "../../misty-app/assets/fonts/Silkscreen-Bold.ttf";
+import "../../misty-app/assets/fonts/Geist-Regular.ttf";
+import "../../misty-app/assets/fonts/Geist-Medium.ttf";
+import "../../misty-app/assets/fonts/Geist-SemiBold.ttf";
+import "../../misty-app/assets/fonts/GeistMono-Regular.ttf";
+import "../../misty-app/assets/fonts/GeistMono-Medium.ttf";
 
 
 export global Theme {
@@ -54,69 +59,56 @@ export global Theme {
     out property <string> sans-font: "Geist";
     out property <string> mono-font: "Geist Mono";
 
-    // ── Palette de base ──
-    out property <color> sky-light: #C4DFF8;
-    out property <color> sky: dark ? #0A0F1D : #A8C8EC;
-    out property <color> steel: halloween ? #F07A2A : noel ? #E5484D : dark ? #6F9CFF : #6B90BD;
-    out property <color> deep: #4F74A6;
-    /// Contour et ombre des grands titres pixel
-    out property <color> slate: halloween ? #6B2FA3 : noel ? #B3262B : dark ? #3C5486 : #58738E;
-    out property <color> slate-dark: halloween ? #2A0F45 : noel ? #4A0E10 : dark ? #1A2440 : #3E526A;
-    /// Étiquettes (texte gris-bleu) : lisibles sur les deux fonds
-    out property <color> label: halloween ? #B79CCB : noel ? #A9B8CC : dark ? #8796B5 : #58738E;
-    out property <color> label-strong: dark ? #A3B0CB : #3E526A;
-    /// Encre principale (texte fort, icônes)
-    out property <color> navy: dark ? #EEF3FF : #1C2335;
-    out property <color> navy2: dark ? #CFDAF0 : #2A3347;
-    out property <color> green: #1DE062;
-    out property <color> green-dark: #13B24C;
+    // ── Anciens noms ──
+    // Les écrans d'avant 0.4.1 utilisent ces noms : ils pointent maintenant vers les jetons du thème
+    // Nuit ci-dessus, pour que tout le launcher prenne le nouveau style.
+    out property <color> sky-light: dark ? #2A2D33 : #C4DFF8;
+    out property <color> sky: bg;
+    out property <color> steel: ink-2;
+    out property <color> deep: halloween ? #F07A2A : noel ? #E5484D : #4F74A6;
+    /// Contour et ombre des grands titres pixel (fondus dans le fond : le titre reste net)
+    out property <color> slate: border-strong;
+    out property <color> slate-dark: bg;
+    out property <color> label: ink-3;
+    out property <color> label-strong: ink-2;
+    out property <color> navy: ink;
+    out property <color> navy2: ink-4;
+    out property <color> green: online;
+    out property <color> green-dark: online-text;
     out property <color> green-edge: #0E7F37;
-    out property <color> blue: halloween ? #F07A2A : noel ? #E5484D : dark ? #6F9CFF : #2F8CFF;
-    out property <color> danger: #FF5A6E;
-
-    // ── Accent (sélection, focus) : bleu brume du site ──
-    out property <color> accent: halloween ? #FFA14A : noel ? #FF7A7A : dark ? #9CC0FF : #2F6FD6;
-    out property <color> accent-soft: halloween ? #FFA14A29 : noel ? #FF7A7A29 : dark ? #9CC0FF29 : #2F8CFF24;
-    /// Fond d'un élément choisi / bouton principal, et son texte
-    out property <color> fill: halloween ? #F07A2A : noel ? #D93A3F : dark ? #6F9CFF : #1C2335;
-    out property <color> fill-hover: halloween ? #FF8F45 : noel ? #E85257 : dark ? #8AAEFF : #2A3347;
-    out property <color> on-fill: #FFFFFF;
-    /// Relief sous les boutons (comme les .btn du site)
-    out property <color> lip: dark ? #060A14 : #9DB4D3;
-    out property <color> fill-lip: halloween ? #8A3A0E : noel ? #7A1518 : dark ? #3D63C4 : #070B16;
-
-    // ── Texte ──
-    out property <color> text: dark ? #EEF3FF : #1C2335;
-    out property <color> text-muted: dark ? #A3B0CB : #5A6B82;
-    out property <color> text-dim: dark ? #6F7C99 : #8394AB;
-
-    // ── Verre dépoli ──
-    out property <color> glass: halloween ? #1E1230B8 : noel ? #0F1E30B8 : dark ? #111A30C7 : #FFFFFF85;
-    out property <color> glass-strong: halloween ? #2A1A40F0 : noel ? #142A42F0 : dark ? #162140F0 : #FFFFFFC4;
-    out property <color> glass-hover: halloween ? #36214FF0 : noel ? #1B3654F0 : dark ? #1C2A50F0 : #FFFFFFE0;
-    out property <color> glass-border: dark ? #FFFFFF1F : #FFFFFFD9;
-    /// Grands panneaux de page (barre de lancement, carte du skin…)
-    out property <color> panel: halloween ? #1E1230D9 : noel ? #0F1E30D9 : dark ? #111A30E0 : #FFFFFF9E;
-    out property <color> panel-strong: halloween ? #36214FF0 : noel ? #1B3654F0 : dark ? #1C2A50F0 : #FFFFFFD1;
-    out property <color> line: dark ? #FFFFFF14 : #1C23351A;
-
-    // ── Surfaces ──
-    // (fenêtres modales et leur colonne : `surface` et `surface-2` du thème Nuit, plus haut)
-    /// Listes déroulantes
-    out property <color> popup: halloween ? #1E1230 : noel ? #10213A : dark ? #121B33 : #F6FAFF;
-    out property <color> popup-hover: dark ? #FFFFFF12 : #2F8CFF26;
-    out property <brush> scrim: dark ? @linear-gradient(180deg, #05080F8C 0%, #05080FC0 100%) : @linear-gradient(180deg, #14203A59 0%, #14203A99 100%);
-    out property <color> shadow: dark ? #00000099 : #1C233540;
-    out property <color> track: dark ? #FFFFFF1F : #1C233526;
-    out property <color> toggle-on: halloween ? #F07A2A : noel ? #2FAE66 : dark ? #6F9CFF : #2F6FD6;
-    out property <color> toggle-off: dark ? #FFFFFF26 : #1C233533;
-    /// Panneau d'aperçu du personnage (accueil, skin)
-    out property <color> stage: halloween ? #150D22 : noel ? #0B1828 : dark ? #0E1527 : #D9E9FA;
+    /// Pastilles d'icône des dialogues (icône blanche par-dessus)
+    out property <color> blue: halloween ? #F07A2A : noel ? #E5484D : dark ? #4F74A6 : #2F6FD6;
+    out property <color> danger: #E5484D;
+    out property <color> accent: active;
+    out property <color> accent-soft: active.with-alpha(0.10);
+    out property <color> fill: active;
+    out property <color> fill-hover: halloween ? #FF8F45 : noel ? #EE5E63 : dark ? #FFFFFF : #2A3347;
+    out property <color> on-fill: on-active;
+    out property <color> lip: bg;
+    out property <color> fill-lip: border-strong;
+    out property <color> text: ink;
+    out property <color> text-muted: ink-2;
+    out property <color> text-dim: ink-3;
+    out property <color> glass: surface;
+    out property <color> glass-strong: control;
+    out property <color> glass-hover: halloween ? #2A1A3C : noel ? #1C2838 : dark ? #1D1F24 : #D8E1EE;
+    out property <color> glass-border: border;
+    out property <color> panel: surface;
+    out property <color> panel-strong: control;
+    out property <color> line: border;
+    out property <color> popup: surface-2;
+    out property <color> popup-hover: control;
+    out property <brush> scrim: dark ? @linear-gradient(180deg, #000000A6 0%, #000000C7 100%) : @linear-gradient(180deg, #11151F4D 0%, #11151F80 100%);
+    out property <color> shadow: dark ? #000000B3 : #11151F33;
+    out property <color> track: border-strong;
+    out property <color> toggle-on: active;
+    out property <color> toggle-off: control;
+    out property <color> stage: surface;
 
     // ── Mouvement ──
-    out property <duration> fast: 120ms;
-    out property <duration> normal: 200ms;
-    out property <duration> slow: 320ms;
+    out property <duration> fast: 140ms;
+    out property <duration> normal: 220ms;
+    out property <duration> slow: 360ms;
 
     // ── Mise en page (grille de 4 px, comme Fluent) ──
     /// Espacements : entre deux boutons, entre deux blocs, marge d'une surface, entre sections
@@ -127,8 +119,8 @@ export global Theme {
     /// Rayons : petit (étiquette), contrôle (bouton, champ), carte, panneau
     out property <length> radius-s: 8px;
     out property <length> radius-m: 12px;
-    out property <length> radius-l: 16px;
-    out property <length> radius-xl: 22px;
+    out property <length> radius-l: 18px;
+    out property <length> radius-xl: 24px;
     /// Échelle de texte : légende, corps, corps large, sous-titre, titre
     out property <length> text-caption: 12px;
     out property <length> text-body: 13.5px;
@@ -138,7 +130,7 @@ export global Theme {
 
     // ── Polices ──
     out property <string> pixel-font: "Silkscreen";
-    out property <string> ui-font: "Segoe UI Variable Text";
+    out property <string> ui-font: "Geist";
     out property <string> icon-font: "Segoe MDL2 Assets"; // présente sur Windows 10 ET 11 (Segoe Fluent Icons = Win11 seulement)
 }
 
@@ -172,4 +164,9 @@ export global Bulle {
 export global Assets {
     /// Le nuage de Misty (vignettes vides, fond, carte de version)
     in property <image> logo;
+    /// Paysages en pixel art du bas de l'accueil, un par édition (1180 × 256)
+    out property <image> scene-mistly: @image-url("../../misty-app/assets/scenes/mistly.png");
+    out property <image> scene-java: @image-url("../../misty-app/assets/scenes/java.png");
+    out property <image> scene-bedrock: @image-url("../../misty-app/assets/scenes/bedrock.png");
+    out property <image> scene-horizon: @image-url("../../misty-app/assets/scenes/horizon.png");
 }

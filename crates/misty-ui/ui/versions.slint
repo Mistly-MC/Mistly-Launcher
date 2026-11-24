@@ -18,7 +18,7 @@ component Puce inherits Rectangle {
     width: contenu.preferred-width;
     border-radius: 11px;
     background: root.checked ? Theme.fill : zone.has-hover && root.enabled ? Theme.glass-hover : Theme.glass;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.checked ? Theme.fill : Theme.glass-border;
     opacity: root.enabled ? 1 : 0.4;
     transform-scale: zone.pressed && root.enabled ? 0.95 : 1;
@@ -54,7 +54,7 @@ component Puce inherits Rectangle {
 
 global Couleurs {
     /// types : release, snapshot, bêta, alpha
-    out property <[color]> types: [#1DE062, #FFBE5A, #9CC0FF, #FF8A7A];
+    out property <[color]> types: [#4ADE80, #FFBE5A, #C4C7D0, #FF8A7A];
     /// loaders filtrés : tous, Fabric, Forge, NeoForge, OptiFine, LiteLoader, Quilt
     out property <[color]> loaders: [transparent, #DBC9A3, #E0915A, #F2A65A, #E25A5A, #6FA3F0, #B58CF0];
 }
@@ -67,9 +67,9 @@ component Affiche inherits Rectangle {
     callback clicked;
     property <bool> survol: zone.has-hover;
     height: 158px;
-    border-radius: 10px;
+    border-radius: 16px;
     clip: true;
-    background: #1C2335;
+    background: Theme.control;
     drop-shadow-blur: root.checked ? 18px : 0px;
     drop-shadow-color: Theme.accent.with-alpha(0.4);
     Image {
@@ -102,7 +102,7 @@ component Affiche inherits Rectangle {
                 text: root.g.name;
                 font-size: 12px;
                 font-weight: 600;
-                color: #CFDAF0;
+                color: #D6D8DD;
                 vertical-alignment: center;
                 overflow: elide;
             }
@@ -110,7 +110,7 @@ component Affiche inherits Rectangle {
         Text {
             text: root.g.count + " · " + root.g.years;
             font-size: 11px;
-            color: #8394AB;
+            color: #8A8E98;
             overflow: elide;
         }
     }
@@ -133,9 +133,9 @@ component PuceVersion inherits Rectangle {
     in property <bool> checked;
     callback clicked;
     height: 42px;
-    border-radius: 12px;
+    border-radius: 18px;
     background: root.checked ? Theme.fill : zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.checked ? Theme.fill : zone.has-hover ? Theme.accent.with-alpha(0.5) : Theme.glass-border;
     drop-shadow-blur: root.checked ? 16px : 0px;
     drop-shadow-color: Theme.accent.with-alpha(0.4);
@@ -183,7 +183,7 @@ component CarteLoader inherits Rectangle {
     min-width: nom.preferred-width + 20px;
     preferred-width: nom.preferred-width + 46px;
     max-width: 150px;
-    border-radius: 14px;
+    border-radius: 20px;
     background: root.checked ? Theme.accent-soft : zone.has-hover && root.enabled ? Theme.glass-hover : Theme.glass-strong;
     border-width: root.checked ? 2px : 1px;
     border-color: root.checked ? Theme.accent : Theme.glass-border;
@@ -194,7 +194,7 @@ component CarteLoader inherits Rectangle {
     nom := Text {
         text: root.text;
         font-size: 14px;
-        font-weight: 700;
+        font-weight: 600;
         color: root.checked ? Theme.accent : Theme.navy;
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -211,7 +211,7 @@ component CarteProfil inherits Rectangle {
     in property <ProfileItem> p;
     in property <bool> checked;
     callback clicked;
-    border-radius: 16px;
+    border-radius: 22px;
     clip: true;
     background: Theme.glass-strong;
     border-width: root.checked ? 2px : 1px;
@@ -233,7 +233,7 @@ component CarteProfil inherits Rectangle {
     Rectangle {
         y: 40px;
         height: 56px;
-        background: @linear-gradient(180deg, #0A0F1D00 0%, #0A0F1DB3 100%);
+        background: @linear-gradient(180deg, #07090C00 0%, #07090CB3 100%);
     }
     // icône du profil, posée à cheval sur l'illustration
     Rectangle {
@@ -242,7 +242,7 @@ component CarteProfil inherits Rectangle {
         width: 54px;
         height: 54px;
         border-radius: 13px;
-        background: Theme.dark ? #162140 : #1C2335;
+        background: Theme.control;
         border-width: 3px;
         border-color: Theme.surface;
         clip: true;
@@ -270,7 +270,7 @@ component CarteProfil inherits Rectangle {
         Text {
             text: root.p.name;
             font-size: 15px;
-            font-weight: 700;
+            font-weight: 600;
             color: root.checked ? Theme.accent : Theme.navy;
             overflow: elide;
         }
@@ -294,9 +294,9 @@ component PuceMisty inherits Rectangle {
     callback clicked;
     width: 150px;
     height: 42px;
-    border-radius: 12px;
+    border-radius: 18px;
     background: root.checked ? Theme.accent : zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.checked ? Theme.accent : Theme.glass-border;
     animate background { duration: Theme.normal; }
     HorizontalLayout {
@@ -352,18 +352,18 @@ component PanneauMisty inherits HorizontalLayout {
     // à droite : la bannière, puis Choisir
     Rectangle {
         width: 340px;
-        border-radius: 12px;
+        border-radius: 18px;
         background: Theme.panel-strong;
-        border-width: 1px;
+        border-width: 1.5px;
         border-color: Theme.glass-border;
         VerticalLayout {
             padding: 14px;
             spacing: 10px;
             Rectangle {
                 height: 200px;
-                border-radius: 8px;
+                border-radius: 14px;
                 clip: true;
-                background: @linear-gradient(135deg, #0E1A38 0%, #1D3F86 55%, #3B7BE8 100%);
+                background: @linear-gradient(135deg, #111317 0%, #24262B 55%, #3A3D44 100%);
                 Image {
                     x: 0;
                     width: parent.width;
@@ -375,7 +375,7 @@ component PanneauMisty inherits HorizontalLayout {
                     opacity: 0.5;
                 }
                 Rectangle {
-                    background: @linear-gradient(0deg, #0A1226E6 0%, #0A122680 55%, #0A122600 100%);
+                    background: @linear-gradient(0deg, #07090CE6 0%, #07090C80 55%, #07090C00 100%);
                 }
                 Image {
                     width: 64px;
@@ -391,7 +391,7 @@ component PanneauMisty inherits HorizontalLayout {
                     PixelLabel {
                         text: Tr.t("Misty_Etiquette");
                         font-size: 10px;
-                        color: #CFE0FF;
+                        color: #E6E8EC;
                     }
                     HorizontalLayout {
                         alignment: start;
@@ -400,21 +400,21 @@ component PanneauMisty inherits HorizontalLayout {
                             font-size: 30px;
                             thickness: 3px;
                             depth: 3px;
-                            stroke-color: #142A5C;
-                            shadow: #0A1430;
+                            stroke-color: #1A1C21;
+                            shadow: #07090C;
                         }
                     }
                     Text {
                         text: Tr.t("Misty_Titre");
                         font-size: 14px;
-                        font-weight: 800;
+                        font-weight: 600;
                         color: white;
                         wrap: word-wrap;
                     }
                     Text {
                         text: "Minecraft " + HomeState.misty-mc + " · Fabric";
                         font-size: 12px;
-                        color: #CFDAF0;
+                        color: #D6D8DD;
                     }
                 }
             }
@@ -440,10 +440,10 @@ component PuceBuild inherits Rectangle {
     in property <bool> checked;
     property <bool> charge: HomeState.horizon-busy && HomeState.horizon-busy-tag == root.b.tag;
     height: 42px;
-    border-radius: 12px;
+    border-radius: 18px;
     clip: true;
     background: root.checked ? #F0795A : zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.checked ? #F0795A : zone.has-hover ? #F0795A88 : Theme.glass-border;
     opacity: root.b.installed || root.charge || zone.has-hover ? 1 : 0.7;
     drop-shadow-blur: root.checked ? 16px : 0px;
@@ -468,7 +468,7 @@ component PuceBuild inherits Rectangle {
                 width: 6px;
                 height: 6px;
                 border-radius: 2px;
-                background: root.checked ? white : root.b.nightly ? #FFBE5A : #1DE062;
+                background: root.checked ? white : root.b.nightly ? #FFBE5A : #4ADE80;
             }
         }
         Text {
@@ -482,7 +482,7 @@ component PuceBuild inherits Rectangle {
         Icon {
             text: root.b.installed ? "\u{E73E}" : "\u{E896}";
             font-size: 10px;
-            color: root.checked ? white : root.b.installed ? #1DE062 : Theme.text-muted;
+            color: root.checked ? white : root.b.installed ? #4ADE80 : Theme.text-muted;
         }
     }
     zone := TouchArea {
@@ -542,16 +542,16 @@ component PanneauHorizon inherits HorizontalLayout {
     // à droite : la bannière, puis supprimer et Choisir
     Rectangle {
         width: 340px;
-        border-radius: 12px;
+        border-radius: 18px;
         background: Theme.panel-strong;
-        border-width: 1px;
+        border-width: 1.5px;
         border-color: Theme.glass-border;
         VerticalLayout {
             padding: 14px;
             spacing: 10px;
             Rectangle {
                 height: 200px;
-                border-radius: 8px;
+                border-radius: 14px;
                 clip: true;
                 Image {
                     // comme les mises à jour : le bas visible s'arrête juste sous le sol
@@ -589,7 +589,7 @@ component PanneauHorizon inherits HorizontalLayout {
                     Text {
                         text: Tr.t("Hz_Titre");
                         font-size: 14px;
-                        font-weight: 800;
+                        font-weight: 600;
                         color: white;
                         wrap: word-wrap;
                     }
@@ -652,7 +652,7 @@ export component VersionPicker inherits Rectangle {
                 Text {
                     text: Tr.t("Ver_Titre");
                     font-size: 24px;
-                    font-weight: 800;
+                    font-weight: 600;
                     color: Theme.navy;
                     vertical-alignment: center;
                 }
@@ -691,7 +691,7 @@ export component VersionPicker inherits Rectangle {
                         height: 40px;
                         border-radius: 20px;
                         background: fermer.has-hover ? Theme.glass-hover : Theme.glass;
-                        border-width: 1px;
+                        border-width: 1.5px;
                         border-color: fermer.has-hover ? Theme.accent : Theme.glass-border;
                         transform-rotation: fermer.has-hover ? 90deg : 0deg;
                         animate transform-rotation { duration: 260ms; easing: ease-out; }
@@ -745,7 +745,7 @@ export component VersionPicker inherits Rectangle {
                 }
                 if HomeState.misty-available: Puce {
                     text: "Mistly Client";
-                    point: #9CC0FF;
+                    point: #C4C7D0;
                     checked: HomeState.picker-misty;
                     clicked => {
                         HomeState.picker-misty = true;
@@ -768,7 +768,7 @@ export component VersionPicker inherits Rectangle {
                     spacing: 6px;
                     for f[i] in [Tr.t("Ver_TousLoaders"), "Nightly", Tr.t("Hz_Stables")]: Puce {
                         text: f;
-                        point: i == 1 ? #FFBE5A : i == 2 ? #1DE062 : transparent;
+                        point: i == 1 ? #FFBE5A : i == 2 ? #4ADE80 : transparent;
                         checked: HomeState.horizon-filter == i;
                         clicked => {
                             HomeState.horizon-filter = i;
@@ -824,9 +824,9 @@ export component VersionPicker inherits Rectangle {
                 // détail de la mise à jour choisie : versions, mod loader, et un bouton qui confirme
                 Rectangle {
                     width: 340px;
-                    border-radius: 12px;
+                    border-radius: 18px;
                     background: Theme.panel-strong;
-                    border-width: 1px;
+                    border-width: 1.5px;
                     border-color: Theme.glass-border;
                     if !root.a-groupe: Text {
                         width: parent.width - 40px;
@@ -842,7 +842,7 @@ export component VersionPicker inherits Rectangle {
                         // bannière
                         Rectangle {
                             height: 120px;
-                            border-radius: 8px;
+                            border-radius: 14px;
                             clip: true;
                             Image {
                                 x: 0;
@@ -854,7 +854,7 @@ export component VersionPicker inherits Rectangle {
                                 image-rendering: pixelated;
                             }
                             Rectangle {
-                                background: @linear-gradient(0deg, #0A0F1DD9 0%, #0A0F1D00 70%);
+                                background: @linear-gradient(0deg, #07090CD9 0%, #07090C00 70%);
                             }
                             VerticalLayout {
                                 padding: 12px;
@@ -867,14 +867,14 @@ export component VersionPicker inherits Rectangle {
                                         font-size: 28px;
                                         thickness: 3px;
                                         depth: 3px;
-                                        stroke-color: #141B2B;
-                                        shadow: #0A0E18;
+                                        stroke-color: #1A1C21;
+                                        shadow: #07090C;
                                     }
                                 }
                                 Text {
                                     text: root.groupe.name;
                                     font-size: 14px;
-                                    font-weight: 800;
+                                    font-weight: 600;
                                     color: white;
                                     overflow: elide;
                                 }
