@@ -58,10 +58,76 @@ export component IconeNuit inherits Rectangle {
             : root.nom == "check" ? "M5 12l5 5 9-10"
             : root.nom == "telecharger" ? "M12 4v12 M6 11l6 6 6-6 M5 20h14"
             : root.nom == "rafraichir" ? "M21 12a9 9 0 1 1-3-6.7L21 8 M21 3v5h-5"
+            : root.nom == "recherche" ? "M4 11a7 7 0 1 0 14 0a7 7 0 1 0 -14 0 M20 20l-3.5-3.5"
+            : root.nom == "poubelle" ? "M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3"
+            : root.nom == "crayon" ? "M4 20h4L19 9l-4-4L4 16v4Z"
+            : root.nom == "exporter" ? "M12 15V3 M7 8l5-5 5 5 M5 21h14"
+            : root.nom == "copier" ? "M10 8h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"
+            : root.nom == "annuler" ? "M9 14 4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3"
+            : root.nom == "retablir" ? "M15 14l5-5-5-5 M20 9H10a6 6 0 0 0 0 12h3"
+            : root.nom == "avertissement" ? "M12 4 2.5 20h19L12 4Z M12 10v4 M12 17h.01"
+            : root.nom == "etoile" ? "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"
+            : root.nom == "ailes" ? "M12 7c-3 0-7.5 2-9.5 6.5 2.2-.2 4.2.8 5.2 2.8C8.6 13 10 9.8 12 7Z M12 7c3 0 7.5 2 9.5 6.5-2.2-.2-4.2.8-5.2 2.8C15.4 13 14 9.8 12 7Z"
+            : root.nom == "cape" ? "M7 4h10l2 16-7-3-7 3Z M9 4c0 2 1.3 3 3 3s3-1 3-3"
+            : root.nom == "etiquette" ? "M3 12V4h8l10 10-8 8L3 12Z M7.5 8.5h.01"
+            : root.nom == "cadenas" ? "M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z M8 11V8a4 4 0 0 1 8 0v3"
             : root.nom == "jouer" ? "M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5Z"
             : root.nom == "options" ? "M3.2 12a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0 M10.2 12a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0 M17.2 12a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0"
             : "";
         animate stroke, fill { duration: Theme.fast; }
+    }
+}
+
+/// Icône d'un code Segoe MDL2 (« \u{E896} »…) dessinée avec les tracés du thème Nuit quand elle
+/// en a un : mêmes icônes sous Windows et Linux (où la police Segoe n'existe pas).
+export component IconeAuto inherits Rectangle {
+    in property <string> code;
+    in property <length> taille: 14px;
+    in property <color> couleur: Theme.icon;
+    property <string> nom: root.code == "\u{E896}" ? "telecharger"
+        : root.code == "\u{E73E}" || root.code == "\u{E74E}" ? "check"
+        : root.code == "\u{E74D}" ? "poubelle"
+        : root.code == "\u{E895}" || root.code == "\u{E72C}" || root.code == "\u{E777}" ? "rafraichir"
+        : root.code == "\u{E710}" ? "plus"
+        : root.code == "\u{E8B7}" || root.code == "\u{E838}" || root.code == "\u{E8E5}" || root.code == "\u{E8DA}" ? "dossier"
+        : root.code == "\u{E8BB}" || root.code == "\u{E711}" ? "fermer"
+        : root.code == "\u{E72B}" ? "retour"
+        : root.code == "\u{E72A}" || root.code == "\u{E76C}" ? "suivant"
+        : root.code == "\u{E70D}" ? "chevron"
+        : root.code == "\u{E7BA}" ? "avertissement"
+        : root.code == "\u{E721}" || root.code == "\u{E71E}" ? "recherche"
+        : root.code == "\u{E946}" ? "info"
+        : root.code == "\u{E77B}" || root.code == "\u{E716}" ? "amis"
+        : root.code == "\u{E756}" ? "console"
+        : root.code == "\u{E753}" ? "nuage"
+        : root.code == "\u{E734}" ? "etoile"
+        : root.code == "\u{E7C1}" ? "cape"
+        : root.code == "\u{E709}" ? "ailes"
+        : root.code == "\u{E8EC}" ? "etiquette"
+        : root.code == "\u{E72E}" ? "cadenas"
+        : root.code == "\u{E70F}" ? "crayon"
+        : root.code == "\u{E713}" ? "reglages"
+        : root.code == "\u{E8A7}" ? "lien-externe"
+        : root.code == "\u{E768}" ? "jouer"
+        : root.code == "\u{E898}" ? "exporter"
+        : root.code == "\u{E8C8}" ? "copier"
+        : root.code == "\u{E7A7}" ? "annuler"
+        : root.code == "\u{E7A6}" ? "retablir"
+        : root.code == "\u{E80F}" ? "accueil"
+        : root.code == "\u{E8F1}" ? "couches"
+        : root.code == "\u{E774}" ? "globe"
+        : "";
+    width: root.taille;
+    height: root.taille;
+    if root.nom != "": IconeNuit {
+        nom: root.nom;
+        taille: root.taille;
+        couleur: root.couleur;
+    }
+    if root.nom == "": Icon {
+        text: root.code;
+        font-size: root.taille * 0.85;
+        color: root.couleur;
     }
 }
 
@@ -314,11 +380,14 @@ export component MButton inherits Rectangle {
             padding-right: 18px;
             spacing: 8px;
             alignment: center;
-            if root.icon != "": Icon {
-                text: root.icon;
-                font-size: 12px;
-                color: root.encre;
-                transform-rotation: root.icon-spin ? (animation-tick() / 900ms) * 360deg : 0deg;
+            if root.icon != "": VerticalLayout {
+                alignment: center;
+                IconeAuto {
+                    code: root.icon;
+                    taille: 15px;
+                    couleur: root.encre;
+                    transform-rotation: root.icon-spin ? (animation-tick() / 900ms) * 360deg : 0deg;
+                }
             }
             Text {
                 text: root.text;
@@ -359,10 +428,10 @@ export component IconButton inherits Rectangle {
     animate background, border-color { duration: Theme.fast; }
     animate transform-scale { duration: 140ms; easing: ease-out; }
 
-    Icon {
-        text: root.icon;
-        font-size: root.icon-size;
-        color: root.encre;
+    IconeAuto {
+        code: root.icon;
+        taille: root.icon-size + 3px;
+        couleur: root.encre;
     }
     touch := TouchArea {
         enabled: root.enabled;
@@ -638,11 +707,12 @@ export component GlassCombo inherits Rectangle {
         vertical-alignment: center;
         overflow: elide;
     }
-    Icon {
+    IconeNuit {
         x: parent.width - 34px;
-        width: 18px;
-        text: "\u{E70D}";
-        font-size: 10px;
+        y: (parent.height - self.height) / 2;
+        nom: "chevron";
+        taille: 16px;
+        couleur: Theme.ink-3;
     }
     touch := TouchArea {
         enabled: root.enabled;
@@ -876,6 +946,8 @@ export struct LangItem {
     /// Nom de la langue en anglais (« French »), affiché en gris
     english: string,
     flag: image,
+    /// Code de la langue en majuscules (« FR »), affiché dans une pastille
+    code: string,
 }
 
 export component LangCombo inherits Rectangle {
@@ -1029,10 +1101,8 @@ export component Etiquette inherits Rectangle {
 
 /// Tuile d'une page (profils, notes…) : le même verre et les mêmes coins que les tuiles de la grille.
 export component TuilePage inherits Rectangle {
-    border-radius: 24px;
-    background: Theme.surface;
-    border-width: 1.5px;
-    border-color: Theme.border;
+    // Thème Nuit : la page est posée sur le fond, sans cadre (comme la maquette Figma)
+    background: transparent;
     clip: true;
 }
 
@@ -1041,17 +1111,19 @@ export component TuilePage inherits Rectangle {
 export component EnTetePage inherits HorizontalLayout {
     in property <string> titre;
     in property <string> info;
-    height: 62px;
-    padding-left: 22px;
-    padding-right: 14px;
-    spacing: 10px;
+    in property <string> puce;
+    height: 60px;
+    padding-left: 8px;
+    padding-right: 0px;
+    spacing: 14px;
     VerticalLayout {
         alignment: center;
         Text {
             text: root.titre;
-            font-size: 24px;
+            font-family: Theme.sans-font;
+            font-size: 32px;
             font-weight: 600;
-            letter-spacing: -0.5px;
+            letter-spacing: -1px;
             color: Theme.ink-strong;
             overflow: elide;
         }
@@ -1069,6 +1141,24 @@ export component EnTetePage inherits HorizontalLayout {
                 font-size: 12px;
                 font-weight: 500;
                 color: Theme.text-muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+    // petite pastille de texte après le titre (« Expérimental »…), comme la maquette
+    if root.puce != "": VerticalLayout {
+        alignment: center;
+        Rectangle {
+            height: 26px;
+            width: puce.preferred-width + 20px;
+            border-radius: 13px;
+            background: Theme.control;
+            puce := Text {
+                text: root.puce;
+                font-family: Theme.sans-font;
+                font-size: 12px;
+                color: Theme.ink-4;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }

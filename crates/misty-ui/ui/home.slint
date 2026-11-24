@@ -797,9 +797,10 @@ export component HomePage inherits Rectangle {
 
     // ═══════════ Skin : le studio ═══════════
     if SkinState.tab == 1: Rectangle {
-        x: 24px;
-        width: parent.width - 48px;
-        height: parent.height - 24px;
+        // mêmes marges que les autres pages (40 px)
+        x: 40px;
+        width: parent.width - 80px;
+        height: parent.height - 40px;
         SkinPanel { }
     }
 }

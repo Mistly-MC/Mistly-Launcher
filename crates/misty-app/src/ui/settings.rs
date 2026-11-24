@@ -586,6 +586,7 @@ pub fn rafraichir(app: &Rc<App>) {
             name: l.nom.clone().into(),
             english: nom_anglais(&l.code).into(),
             flag: drapeau(&l.pays),
+            code: l.code.to_uppercase().into(),
         })
         .collect();
     st.set_langs(modele(items));

@@ -3210,7 +3210,7 @@ dependencies = [
 
 [[package]]
 name = "misty"
-version = "0.4.1-beta.1"
+version = "0.4.1-beta.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3231,7 +3231,7 @@ dependencies = [
 
 [[package]]
 name = "misty-core"
-version = "0.4.1-beta.1"
+version = "0.4.1-beta.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3272,7 +3272,7 @@ dependencies = [
 
 [[package]]
 name = "misty-ui"
-version = "0.4.1-beta.1"
+version = "0.4.1-beta.2"
 dependencies = [
  "slint",
  "slint-build",

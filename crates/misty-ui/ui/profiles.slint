@@ -372,38 +372,10 @@ export component ProfilesPage inherits Rectangle {
     }
     // ═══════════ Modpacks : la même tuile, avec un retour ═══════════
     if ProfilesState.view == 1: TuilePage {
-        VerticalLayout {
-            HorizontalLayout {
-                height: 62px;
-                padding-left: 14px;
-                padding-right: 14px;
-                spacing: 12px;
-                VerticalLayout {
-                    alignment: center;
-                    IconButton {
-                        icon: "\u{E72B}";
-                        tooltip: Tr.t("Profil_Retour");
-                        clicked => { ProfilesState.back(); }
-                    }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    Text {
-                        text: "Modpacks";
-                        font-size: 20px;
-                        font-weight: 600;
-                        color: Theme.navy;
-                    }
-                }
-                Rectangle { horizontal-stretch: 1; }
-            }
-            Rectangle {
-                height: 1px;
-                background: Theme.line;
-            }
-            ContentBrowser {
-                vertical-stretch: 1;
-            }
+        ContentBrowser {
+            titre: Tr.t("Nav_Decouvrir");
+            retour: true;
+            back => { ProfilesState.back(); }
         }
     }
 }

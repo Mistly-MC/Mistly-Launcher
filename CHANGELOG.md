@@ -1,4 +1,11 @@
 # Changelog
+## 0.4.1-beta.2
+### Launcher
+- Discover, Wardrobe, Texture packs and Settings now match the new design: no more frame around the pages, bigger titles, sharp icons on Linux too, and wider margins
+- Discover: one big search bar, the content type and source as pills, and results in cards of three columns
+- Wardrobe: your character on the left, every cosmetic in one grid on the right, with All, Capes, Wings, Hats and Tags tabs
+- Texture packs: square previews of each pack in a four-column grid, with Edit, export, folder and delete on each card
+- Settings: the memory, background blur and parallel downloads are now set with pixel blocks, simple settings are grouped in one card, the game window size has presets (720p, 1080p…), languages show their code, and About lists the website, Discord, license and GitHub
 ## 0.4.1-beta.1
 ### Launcher
 - New look: the Night theme. Black window, round buttons, white Play button, pixel-art scenes and the Geist font. Mist (light), Christmas and Halloween keep their own colors, and buttons, pages and menus now move smoothly
