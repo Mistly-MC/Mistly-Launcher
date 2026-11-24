@@ -7,12 +7,6 @@
 // Pas de console noire derrière la fenêtre (en release)
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[cfg(windows)]
-mod ms_login;
-// hors Windows : page de connexion dans le navigateur, adresse de fin collée dans une fenêtre Slint
-#[cfg(not(windows))]
-#[path = "ms_login_linux.rs"]
-mod ms_login;
 mod ui;
 
 use misty_core::systeme::contexte::{self, Contexte};
@@ -33,12 +27,6 @@ fn main() {
     // Lanceur fixe (<racine>\Misty.exe, visé par les raccourcis et les épingles) : il démarre la
     // version la plus récente et se ferme
     if misty_core::systeme::lanceur::relayer() {
-        return;
-    }
-
-    // Mode « fenêtre de connexion Microsoft » (lancé par le launcher lui-même)
-    if std::env::args().any(|a| a == "--ms-login") {
-        ms_login::executer();
         return;
     }
 

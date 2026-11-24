@@ -1,13 +1,15 @@
 //! Session Microsoft (premium).
 //!
-//! Chaîne d'authentification (ce que faisait CmlLib.Core.Auth.Microsoft en C#) :
-//!   1. Connexion Microsoft dans une fenêtre web → code
-//!   2. code → jeton Microsoft (+ jeton de renouvellement, mis en cache)
-//!   3. jeton Microsoft → jeton Xbox Live → jeton XSTS
-//!   4. XSTS → jeton Minecraft → profil (pseudo + UUID)
+//! La chaîne Microsoft → Xbox Live → XSTS → Minecraft passe par la crate `azalea-auth` :
+//!   1. connexion par code d'appareil : le launcher affiche un code, le joueur le saisit sur
+//!      microsoft.com/link dans son navigateur (même chose sous Windows et sous Linux) ;
+//!   2. jeton Microsoft (+ jeton de renouvellement, gardé dans le coffre) ;
+//!   3. jeton Microsoft → Xbox Live → XSTS → jeton Minecraft → profil (pseudo + UUID).
 //!
-//! La fenêtre web tourne dans un sous-processus (`Misty.exe --ms-login`), car l'interface Slint
-//! et la WebView ne peuvent pas partager la même boucle d'événements.
+//! Les comptes ajoutés avant azalea-auth (identifiant d'application de l'ancien launcher
+//! officiel) gardent leur jeton : ils sont renouvelés avec cet identifiant (`client` vide).
+//! Si azalea-auth échoue, l'ancienne chaîne XSTS est rejouée pour donner l'erreur exacte au
+//! joueur (pas de compte Xbox, compte enfant, pays…).
 
 use crate::auth::coffre::{self, Coffre, Secrets};
 use crate::auth::AuthErreur;
@@ -16,31 +18,66 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::RwLock;
 
-/// Identifiant du launcher Minecraft officiel (accepté par l'API Minecraft sans validation).
-pub const CLIENT_ID: &str = "00000000402b5328";
-pub const REDIRECT: &str = "https://login.live.com/oauth20_desktop.srf";
+/// Identifiant d'application des comptes ajoutés avant azalea-auth (ancien launcher officiel).
+const CLIENT_ID_ANCIEN: &str = "00000000402b5328";
+const REDIRECT_ANCIEN: &str = "https://login.live.com/oauth20_desktop.srf";
 const SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
+/// Identifiant d'application utilisé avec azalea-auth (connexion par code d'appareil, valable
+/// aussi pour les comptes de moins de 18 ans).
+const CLIENT_ID: &str = "00000000441cc96b";
 
-pub fn url_connexion() -> String {
-    format!(
-        "https://login.live.com/oauth20_authorize.srf?client_id={CLIENT_ID}&response_type=code&scope={}&redirect_uri={}&prompt=select_account",
-        urlencoding::encode(SCOPE),
-        urlencoding::encode(REDIRECT)
-    )
+/// Code à saisir sur la page de Microsoft pendant une connexion.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CodeConnexion {
+    pub code: String,
+    /// Page où saisir le code (https://www.microsoft.com/link)
+    pub adresse: String,
 }
 
-/// Lit un paramètre d'une URL (après "?" ou "#") : le code de l'adresse de fin de connexion
-/// (`REDIRECT?code=…`), ou l'erreur renvoyée par Microsoft.
-pub fn parametre_url(url: &str, nom: &str) -> Option<String> {
-    let requete = url.trim().split_once(['?', '#'])?.1;
-    requete.split(['&', '#']).find_map(|p| {
-        let (k, v) = p.split_once('=')?;
-        (k == nom).then(|| {
-            urlencoding::decode(&v.replace('+', " "))
-                .map(|s| s.into_owned())
-                .unwrap_or_default()
-        })
-    })
+type Afficheur = Box<dyn Fn(Option<CodeConnexion>) + Send + Sync>;
+static AFFICHEUR: std::sync::OnceLock<Afficheur> = std::sync::OnceLock::new();
+static ANNULATION: std::sync::LazyLock<tokio::sync::Notify> =
+    std::sync::LazyLock::new(tokio::sync::Notify::new);
+
+/// L'interface s'enregistre ici pour afficher le code de connexion (`Some`) et le cacher (`None`).
+pub fn definir_afficheur(f: impl Fn(Option<CodeConnexion>) + Send + Sync + 'static) {
+    let _ = AFFICHEUR.set(Box::new(f));
+}
+
+fn afficher(code: Option<CodeConnexion>) {
+    if let Some(f) = AFFICHEUR.get() {
+        f(code);
+    }
+}
+
+/// Annule la connexion en cours (bouton « Annuler » de la fenêtre du code).
+pub fn annuler_connexion() {
+    ANNULATION.notify_waiters();
+}
+
+/// Client HTTP d'azalea-auth (reqwest 0.13, distinct de celui du reste du launcher).
+fn client_azalea() -> reqwest_azalea::Client {
+    static CLIENT: std::sync::LazyLock<reqwest_azalea::Client> = std::sync::LazyLock::new(|| {
+        reqwest_azalea::Client::builder()
+            .user_agent(crate::systeme::app_info::user_agent())
+            .timeout(std::time::Duration::from_secs(60))
+            .connect_timeout(std::time::Duration::from_secs(20))
+            .build()
+            .expect("client HTTP de la connexion")
+    });
+    CLIENT.clone()
+}
+
+/// Le xuid du joueur, lu dans le jeton Minecraft (un JWT qui le contient).
+fn xuid_du_jeton(jeton: &str) -> String {
+    use base64::Engine;
+    jeton
+        .split('.')
+        .nth(1)
+        .and_then(|p| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(p.trim_end_matches('=')).ok())
+        .and_then(|o| serde_json::from_slice::<serde_json::Value>(&o).ok())
+        .and_then(|v| v["xuid"].as_str().map(str::to_string))
+        .unwrap_or_default()
 }
 
 /// Session de jeu Minecraft.
@@ -71,6 +108,9 @@ struct Cache {
     uuid: String,
     #[serde(default)]
     xuid: String,
+    /// Identifiant d'application du jeton de renouvellement (vide : ancien launcher officiel)
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    client: String,
 }
 
 impl Cache {
@@ -303,7 +343,7 @@ pub async fn connecter() -> Result<Session, AuthErreur> {
             jeton: c.mc_token,
             xuid: c.xuid,
         },
-        Some(c) if !c.refresh_token.is_empty() => match renouveler(&c.refresh_token).await {
+        Some(c) if !c.refresh_token.is_empty() => match renouveler(&c.refresh_token, &c.client).await {
             Ok(s) => s,
             Err(_) => connexion_interactive().await?, // jeton expiré ou révoqué
         },
@@ -345,7 +385,7 @@ pub async fn session_pour_jouer() -> Option<Session> {
     if cache.refresh_token.is_empty() {
         return Some(session);
     }
-    match renouveler(&cache.refresh_token).await {
+    match renouveler(&cache.refresh_token, &cache.client).await {
         Ok(s) if s.uuid == session.uuid => {
             crate::systeme::journal::info("Jeton Minecraft renouvelé avant le lancement");
             *SESSION.write().unwrap() = Some(s.clone());
@@ -381,36 +421,51 @@ pub fn deconnexion_totale() -> Result<(), AuthErreur> {
 }
 
 /// Ouvre la fenêtre de connexion (sous-processus) et attend le code.
+/// Connexion par code d'appareil : le code s'affiche dans le launcher et le joueur le saisit
+/// sur la page de Microsoft. Annulable avec `annuler_connexion`.
 async fn connexion_interactive() -> Result<Session, AuthErreur> {
-    let sortie = tokio::process::Command::new(paths::app_exe())
-        .arg("--ms-login")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .output()
-        .await?;
-    let texte = String::from_utf8_lossy(&sortie.stdout);
-    let code = texte
-        .lines()
-        .find_map(|l| l.strip_prefix("CODE:"))
-        .map(str::trim)
-        .map(str::to_string);
-    let Some(code) = code else {
-        if let Some(erreur) = texte.lines().find_map(|l| l.strip_prefix("ERREUR:")) {
-            return Err(AuthErreur::FenetreConnexion(erreur.trim().to_string()));
-        }
-        return Err(AuthErreur::Annule);
+    let client = client_azalea();
+    let demande = azalea_auth::get_ms_link_code(&client, Some(CLIENT_ID), Some(SCOPE))
+        .await
+        .map_err(|e| AuthErreur::Microsoft(e.to_string()))?;
+    let code = CodeConnexion {
+        code: demande.user_code.clone(),
+        adresse: demande.verification_uri.clone(),
     };
-    let jetons = jeton_microsoft(&[("code", &code), ("grant_type", "authorization_code")]).await?;
-    terminer(jetons).await
+    let annulation = ANNULATION.notified();
+    tokio::pin!(annulation);
+    afficher(Some(code));
+    let resultat = tokio::select! {
+        r = azalea_auth::get_ms_auth_token(&client, demande, Some(CLIENT_ID)) => r,
+        _ = &mut annulation => {
+            afficher(None);
+            return Err(AuthErreur::Annule);
+        }
+    };
+    afficher(None);
+    let msa = resultat.map_err(|e| match e {
+        azalea_auth::GetMicrosoftAuthTokenError::Timeout => AuthErreur::Annule,
+        autre => AuthErreur::Microsoft(autre.to_string()),
+    })?;
+    session_depuis_msa(msa.data.access_token, msa.data.refresh_token, CLIENT_ID).await
 }
 
-async fn renouveler(refresh_token: &str) -> Result<Session, AuthErreur> {
-    let jetons = jeton_microsoft(&[
-        ("refresh_token", refresh_token),
-        ("grant_type", "refresh_token"),
-    ])
-    .await?;
-    terminer(jetons).await
+/// Nouveau jeton Microsoft à partir du jeton de renouvellement du compte.
+async fn renouveler(refresh_token: &str, client: &str) -> Result<Session, AuthErreur> {
+    if client.is_empty() {
+        // compte ajouté avant azalea-auth : renouvelé avec l'identifiant de l'ancien launcher
+        let jetons = jeton_microsoft_ancien(refresh_token).await?;
+        return session_depuis_msa(jetons.access_token, jetons.refresh_token, "").await;
+    }
+    let msa = azalea_auth::refresh_ms_auth_token(
+        &client_azalea(),
+        refresh_token,
+        Some(client),
+        Some(SCOPE),
+    )
+    .await
+    .map_err(|e| AuthErreur::Microsoft(e.to_string()))?;
+    session_depuis_msa(msa.data.access_token, msa.data.refresh_token, client).await
 }
 
 #[derive(Deserialize)]
@@ -420,16 +475,16 @@ struct JetonsMs {
     refresh_token: String,
 }
 
-async fn jeton_microsoft(parametres: &[(&str, &str)]) -> Result<JetonsMs, AuthErreur> {
-    let mut formulaire: Vec<(&str, &str)> = vec![
-        ("client_id", CLIENT_ID),
-        ("redirect_uri", REDIRECT),
-        ("scope", SCOPE),
-    ];
-    formulaire.extend_from_slice(parametres);
+async fn jeton_microsoft_ancien(refresh_token: &str) -> Result<JetonsMs, AuthErreur> {
     let reponse = http::client()
         .post("https://login.live.com/oauth20_token.srf")
-        .form(&formulaire)
+        .form(&[
+            ("client_id", CLIENT_ID_ANCIEN),
+            ("redirect_uri", REDIRECT_ANCIEN),
+            ("scope", SCOPE),
+            ("refresh_token", refresh_token),
+            ("grant_type", "refresh_token"),
+        ])
         .send()
         .await?;
     if !reponse.status().is_success() {
@@ -440,8 +495,60 @@ async fn jeton_microsoft(parametres: &[(&str, &str)]) -> Result<JetonsMs, AuthEr
     Ok(reponse.json().await?)
 }
 
-/// Étapes Xbox Live → XSTS → Minecraft → profil, puis mise en cache.
-async fn terminer(jetons: JetonsMs) -> Result<Session, AuthErreur> {
+/// Jeton Microsoft → Xbox Live → Minecraft → profil, avec azalea-auth. En cas d'échec, l'ancienne
+/// chaîne est rejouée : elle donne l'erreur exacte de Xbox (pas de compte, compte enfant…).
+async fn session_depuis_msa(
+    access_token: String,
+    refresh_token: String,
+    client: &str,
+) -> Result<Session, AuthErreur> {
+    let http = client_azalea();
+    let mc = match azalea_auth::get_minecraft_token(&http, &access_token).await {
+        Ok(mc) => mc,
+        Err(e) => {
+            crate::systeme::journal::info(&format!("azalea-auth : {e} (vérification détaillée)"));
+            return terminer(
+                JetonsMs {
+                    access_token,
+                    refresh_token,
+                },
+                client,
+            )
+            .await;
+        }
+    };
+    let jeton_mc = mc.minecraft_access_token.clone();
+    let expire = mc.mca.expires_at as i64;
+    let profil = match azalea_auth::get_profile(&http, &jeton_mc).await {
+        Ok(p) => p,
+        Err(e) => {
+            return match azalea_auth::check_ownership(&http, &jeton_mc).await {
+                Ok(false) => Err(AuthErreur::PasDeJeu),
+                _ => Err(AuthErreur::Minecraft(e.to_string())),
+            };
+        }
+    };
+    let xuid = xuid_du_jeton(&jeton_mc);
+    let session = Session {
+        pseudo: profil.name.clone(),
+        uuid: profil.id.simple().to_string(),
+        jeton: jeton_mc.clone(),
+        xuid: xuid.clone(),
+    };
+    enregistrer(Cache {
+        refresh_token,
+        mc_token: jeton_mc,
+        mc_expire: expire,
+        pseudo: session.pseudo.clone(),
+        uuid: session.uuid.clone(),
+        xuid,
+        client: client.to_string(),
+    });
+    Ok(session)
+}
+
+/// Ancienne chaîne Xbox Live → XSTS → Minecraft (secours : donne l'erreur XSTS exacte).
+async fn terminer(jetons: JetonsMs, client: &str) -> Result<Session, AuthErreur> {
     let client = http::client();
 
     // Xbox Live. Selon le compte, le ticket doit être préfixé ("t=" / "d=") ou non.
@@ -529,6 +636,7 @@ async fn terminer(jetons: JetonsMs) -> Result<Session, AuthErreur> {
         pseudo: session.pseudo.clone(),
         uuid: session.uuid.clone(),
         xuid,
+        client: client.to_string(),
     });
     Ok(session)
 }

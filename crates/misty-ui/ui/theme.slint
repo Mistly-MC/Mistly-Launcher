@@ -26,6 +26,34 @@ export global Theme {
     in property <bool> system-dark;
     out property <bool> dark: event != 0 || mode == 1 || (mode == 2 && system-dark);
 
+    // ── Thème « Nuit » 0.4.1 (Figma « Mistly Launcher – Nuit ») ──
+    // Quatre jeux de couleurs : Night (sombre), Mist (clair), Christmas, Halloween.
+    // Les nouveaux écrans n'utilisent que ces jetons.
+    out property <color> bg: halloween ? #0C0812 : noel ? #080C12 : dark ? #07090C : #F3F6FB;
+    out property <color> surface: halloween ? #150D22 : noel ? #0E1520 : dark ? #0E1014 : #FFFFFF;
+    out property <color> surface-2: halloween ? #1A1029 : noel ? #111A27 : dark ? #111317 : #EAF0F8;
+    out property <color> control: halloween ? #21142F : noel ? #16202E : dark ? #16181C : #E3EAF4;
+    out property <color> border: halloween ? #2A1A3C : noel ? #1B2636 : dark ? #1A1C21 : #DCE4EF;
+    out property <color> border-field: halloween ? #301E44 : noel ? #202C3D : dark ? #1F2126 : #D3DCE9;
+    out property <color> border-strong: halloween ? #3A2550 : noel ? #283546 : dark ? #24262B : #C5D0E0;
+    out property <color> star: halloween ? #4A2F66 : noel ? #D9E2EE : dark ? #2A2D33 : #C4D2E6;
+    out property <color> icon: halloween ? #D3C0E5 : noel ? #D2D9E4 : dark ? #C4C7D0 : #3E526A;
+    out property <color> ink: halloween ? #F1EAF8 : noel ? #EEF2F8 : dark ? #ECEDEF : #1C2335;
+    out property <color> ink-strong: halloween ? #FAF5FF : noel ? #F7F9FC : dark ? #F4F4F5 : #11151F;
+    out property <color> ink-2: halloween ? #A893BD : noel ? #93A0B4 : dark ? #8A8E98 : #55667D;
+    out property <color> ink-3: halloween ? #9C88B1 : noel ? #8592A6 : dark ? #7C808A : #5F6F85;
+    out property <color> ink-4: halloween ? #B9A6CD : noel ? #A9B5C6 : dark ? #A5A9B3 : #4E5E75;
+    out property <color> active: halloween ? #F07A2A : noel ? #E5484D : dark ? #F1F2F4 : #1C2335;
+    out property <color> on-active: halloween ? #1A0E05 : noel ? #FFFFFF : dark ? #0A0B0E : #FFFFFF;
+    out property <color> online: dark ? #4ADE80 : #16A34A;
+    out property <color> online-text: dark ? #7FE3A6 : #15803D;
+    out property <color> online-bg: dark ? #12241A : #DCFCE7;
+    out property <color> danger-text: #F59A9A;
+    out property <color> danger-border: #3A2226;
+    /// Polices du nouveau thème (fichiers dans misty-app/assets/fonts)
+    out property <string> sans-font: "Geist";
+    out property <string> mono-font: "Geist Mono";
+
     // ── Palette de base ──
     out property <color> sky-light: #C4DFF8;
     out property <color> sky: dark ? #0A0F1D : #A8C8EC;
