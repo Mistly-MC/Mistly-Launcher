@@ -1,4 +1,5 @@
-# Release : pousser un tag « x.y.z » (sans v, ou « x.y.z-beta.n » pour une pré-release) compile le
+# Release : pousser un tag « x.y.z » (sans v, ou « x.y.z-beta.n » pour une pré-release), ou lancer
+# ce workflow à la main depuis main (Actions › Release › Run workflow, avec la version), compile le
 # launcher pour Windows (installer/build.ps1) et pour Linux (installer/build-linux.sh), signe les
 # deux archives puis publie la release GitHub avec :
 #   Misty-x.y.z.zip, Misty-Setup-x.y.z.exe                  Windows
@@ -19,6 +20,14 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
       - "[0-9]+.[0-9]+.[0-9]+-*"
+  # Bouton « Run workflow » : publie la version de Cargo.toml depuis main. Le tag est créé par la
+  # release, sur le commit lancé (même vérification : il doit être égal à Cargo.toml).
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version à publier (exactement celle de Cargo.toml, ex. 0.4.1-beta.2)"
+        required: true
+        type: string
 
 # Lecture seule par défaut : seul le job « publier » peut écrire (créer la release)
 permissions:
@@ -38,9 +47,25 @@ jobs:
 
       - name: Le tag doit être la version de Cargo.toml
         id: v
+        env:
+          # entrée du bouton, passée par une variable (jamais collée dans le script)
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           version="$(grep -m1 -E '^version = "' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')"
-          tag="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="$INPUT_VERSION"
+            # à la main : seulement depuis main, et jamais par-dessus une version déjà publiée
+            if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+              echo "Lancer la release depuis main (lancée depuis ${{ github.ref }})" >&2
+              exit 1
+            fi
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+              echo "Le tag $tag existe déjà : changer la version dans Cargo.toml" >&2
+              exit 1
+            fi
+          else
+            tag="${{ github.ref_name }}"
+          fi
           if [ "$tag" != "$version" ]; then
             echo "Le tag $tag ne correspond pas à la version de Cargo.toml ($version) : le launcher proposerait la mise à jour en boucle" >&2
             exit 1
@@ -197,7 +222,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${{ needs.version.outputs.version }}"
-          options=(--title "Mistly Launcher $version" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag)
+          options=(--title "Mistly Launcher $version" --notes-file "$RUNNER_TEMP/notes.md")
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # bouton : la release crée le tag sur le commit compilé
+            options+=(--target "${{ github.sha }}")
+          else
+            options+=(--verify-tag)
+          fi
           if [ "${{ needs.version.outputs.prerelease }}" = "true" ]; then options+=(--prerelease); fi
           gh release create "$version" \
             "publish/Misty-$version.zip" \
