@@ -59,12 +59,12 @@ rfd = "0.18"
 discord-rich-presence = "1.1"
 md5 = "0.8"
 uuid = { version = "1", features = ["v4"] }
-# Connexion Microsoft → Xbox → Minecraft (code d'appareil, renouvellement) : azalea-auth, qui
-# apporte son propre reqwest 0.13 (auth/account.rs)
-azalea-auth = { version = "0.16", default-features = false, features = ["online-mode"] }
+# Connexion Microsoft (auth/account.rs) : OAuth 2 par code d'appareil et renouvellement (oauth2),
+# puis Xbox Live → Minecraft (minecraft-msa-auth). Les deux utilisent le reqwest 0.12 du launcher.
+oauth2 = { version = "5", default-features = false, features = ["reqwest"] }
+minecraft-msa-auth = "0.4"
 # Lecture du xuid dans le jeton Minecraft (JWT)
 base64 = "0.22"
-reqwest-azalea = { package = "reqwest", version = "0.13", default-features = false, features = ["json", "rustls"] }
 # Windows
 winreg = "0.56"
 mslnk = "0.1"
