@@ -43,7 +43,7 @@ Mistly runs natively on Linux since 0.4.0, from the same code as the Windows ver
 - **Systems:** x86_64 with glibc 2.35 or newer: Ubuntu 22.04, Debian 12, Fedora 36, Linux Mint 21 and later, and the distributions based on them.
 - **Install:** download `Misty-<version>-linux-x86_64.tar.gz` from [mistly.cc](https://mistly.cc/#download) or the [latest release](https://github.com/Mistly-MC/Mistly-Launcher/releases/latest), extract it where you want to keep it (`tar -xzf Misty-<version>-linux-x86_64.tar.gz`) and run `Misty-<version>/Misty`. On first start it adds itself to your applications menu.
 - **Needs:** GTK 3 for the file dialogs, and a keyring (GNOME Keyring or KWallet) to keep your Microsoft sign-in safe. Without one, the sign-in is kept in `msa.json` in the data folder, like before 0.4.0.
-- **Microsoft sign-in:** opens in your web browser. Once signed in, the page turns blank: copy its full address (it starts with `https://login.live.com/oauth20_desktop.srf?code=`) and paste it into Mistly.
+- **Microsoft sign-in:** Mistly shows a short code; type it on [microsoft.com/link](https://www.microsoft.com/link) in your browser, and Mistly signs in on its own (same on Windows).
 - **Data:** `~/.local/share/Misty` (versions, profiles, settings). Java is downloaded for Linux automatically, like on Windows.
 - **Updates:** install themselves, checked with the same SHA-256 and signature as on Windows.
 - **Uninstall:** delete the extracted folder and `~/.local/share/applications/mistly.desktop`; delete `~/.local/share/Misty` to remove the game data too.
@@ -77,7 +77,6 @@ crates/
     ├── assets/        icon, Silkscreen pixel font (OFL), flags, cursors
     └── src/
         ├── main.rs    startup
-        ├── ms_login.rs  Microsoft sign-in window (subprocess "Misty.exe --ms-login")
         └── ui/        code behind each page
 ```
 

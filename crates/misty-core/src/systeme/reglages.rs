@@ -63,6 +63,9 @@ impl<'de> Deserialize<'de> for ModeCompte {
 fn vrai() -> bool {
     true
 }
+fn theme_par_defaut() -> i32 {
+    1
+}
 fn pseudo_par_defaut() -> String {
     "Mistly".into()
 }
@@ -103,11 +106,12 @@ pub struct Reglages {
     /// Statut Discord (richpresence)
     #[serde(default = "vrai")]
     pub rich_presence: bool,
-    /// Langue choisie ("" : celle de Windows) (langue)
+    /// Langue choisie ("" : pas encore choisie, l'anglais) (langue)
     #[serde(default)]
     pub langue: String,
-    /// Apparence : 0 brume (clair), 1 nuit (sombre), 2 comme Windows (theme)
-    #[serde(default)]
+    /// Apparence : 0 brume (clair), 1 nuit (sombre), 2 comme Windows (theme). Nuit pour une
+    /// nouvelle installation ; un réglage déjà enregistré est gardé.
+    #[serde(default = "theme_par_defaut")]
     pub theme: i32,
     /// Fenêtre floutée (flou)
     #[serde(default = "vrai")]
@@ -163,6 +167,23 @@ pub struct Reglages {
     /// Style du pseudo au-dessus de la tête : "" classique, ou voir minecraft::client::TAGS (tag)
     #[serde(default)]
     pub tag: String,
+    /// Premier lancement terminé : langue choisie, licence et conditions acceptées
+    #[serde(default)]
+    pub accueil_fait: bool,
+    /// Taille de la fenêtre du jeu en pixels (0 : celle du jeu)
+    #[serde(default)]
+    pub fenetre_largeur: u32,
+    #[serde(default)]
+    pub fenetre_hauteur: u32,
+    /// Le jeu s'ouvre en plein écran (--fullscreen)
+    #[serde(default)]
+    pub plein_ecran: bool,
+    /// Avant chaque partie, demander quel compte utiliser
+    #[serde(default)]
+    pub demander_compte: bool,
+    /// Pas de téléchargement en arrière-plan pendant une partie (repris à la fin de la partie)
+    #[serde(default = "vrai")]
+    pub pause_telechargements: bool,
 }
 
 impl Default for Reglages {
@@ -180,6 +201,11 @@ impl Reglages {
         }
         self.fond_flou = self.fond_flou.min(10);
         self.telechargements = self.telechargements.clamp(2, 32);
+        // fenêtre du jeu : 0 (taille du jeu) ou une taille raisonnable
+        if self.fenetre_largeur != 0 || self.fenetre_hauteur != 0 {
+            self.fenetre_largeur = self.fenetre_largeur.clamp(320, 7680);
+            self.fenetre_hauteur = self.fenetre_hauteur.clamp(240, 4320);
+        }
     }
 
     /// Convertit le contenu de l'ancien data.txt (mêmes règles que l'ancien `settings::get_bool`,
@@ -248,6 +274,7 @@ impl Reglages {
                 .collect(),
             mode_compte: ModeCompte::depuis(&texte("modecompte")),
             tag: texte("tag"),
+            ..defaut.clone()
         };
         r.normaliser();
         r
@@ -473,6 +500,7 @@ tag=arc-en-ciel\r\n";
             barre_masquee: vec!["skin".into(), "notes".into()],
             mode_compte: ModeCompte::Premium,
             tag: "arc-en-ciel".into(),
+            ..Reglages::default()
         }
     }
 

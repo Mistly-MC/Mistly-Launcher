@@ -2,7 +2,7 @@
 //! comportement, ressources, dépannage.
 
 use super::{dialogs, lancer, modele, App};
-use crate::{LangItem, PseudoRow, SettingResult, SettingsState, StorageRow};
+use crate::{LangItem, PseudoRow, SettingResult, SettingsState, StoragePart, StorageRow};
 use misty_core::{
     auth::account, minecraft::client, social::discord, social::pseudos, systeme::app_info,
     systeme::loc, systeme::paths, systeme::reglages, systeme::shortcut, systeme::storage,
@@ -37,7 +37,7 @@ fn texte_client() -> String {
 }
 
 /// Catégories des options (dans l'ordre de SettingsState.section) : titre et sous-titre.
-const CATEGORIES: [&str; 9] = [
+const CATEGORIES: [&str; 10] = [
     "Param_Apparence",
     "Param_Langue",
     "Param_Microsoft",
@@ -47,10 +47,16 @@ const CATEGORIES: [&str; 9] = [
     "Param_Ressources",
     "Param_Depannage",
     "Param_Barre",
+    "Param_Confidentialite",
 ];
 
 /// Réglages trouvables par la recherche : clé du titre (sa description est « clé_Texte ») et catégorie.
-const REGLAGES: [(&str, i32); 19] = [
+const REGLAGES: [(&str, i32); 24] = [
+    ("Param_Fenetre", 4),
+    ("Param_PleinEcran", 4),
+    ("Param_DemanderCompte", 2),
+    ("Param_PauseTelechargements", 6),
+    ("Param_Repartition", 6),
     ("Param_Theme", 0),
     ("Param_Saison", 0),
     ("Param_FondFlou", 0),
@@ -58,9 +64,9 @@ const REGLAGES: [(&str, i32); 19] = [
     ("Param_Memoire_Titre", 4),
     ("Param_Raccourci", 5),
     ("Param_Partage", 5),
-    ("Param_Discord", 5),
+    ("Param_Discord", 9),
     ("Param_Console", 5),
-    ("Param_Telemetrie", 5),
+    ("Param_Telemetrie", 9),
     ("Param_Stockage", 6),
     ("Param_Dossier", 6),
     ("Param_Telechargements", 6),
@@ -255,6 +261,30 @@ pub fn installer(app: &Rc<App>) {
             }
         });
     });
+
+    // Jeu : taille de la fenêtre (vide ou 0 : celle du jeu) et plein écran
+    let a = app.clone();
+    st.on_game_size_changed(move || {
+        let st = s(&a);
+        let lire = |t: slint::SharedString| t.trim().parse::<u32>().unwrap_or(0);
+        let (l, h) = (lire(st.get_game_width()), lire(st.get_game_height()));
+        // la taille ne compte qu'une fois les deux valeurs saisies
+        reglages::modifier(|r| {
+            (r.fenetre_largeur, r.fenetre_hauteur) = if l > 0 && h > 0 { (l, h) } else { (0, 0) };
+        });
+    });
+    st.on_fullscreen_toggled(|v| reglages::modifier(|r| r.plein_ecran = v));
+    st.on_ask_account_toggled(|v| reglages::modifier(|r| r.demander_compte = v));
+    st.on_pause_downloads_toggled(|v| reglages::modifier(|r| r.pause_telechargements = v));
+    st.on_open_privacy(|| system_info::ouvrir("https://mistly.cc/privacy"));
+    st.on_open_link(|quoi| {
+        system_info::ouvrir(match quoi.as_str() {
+            "license" => "https://mistly.cc/license",
+            _ => "https://mistly.cc",
+        })
+    });
+    let a = app.clone();
+    st.on_storage_parts_show(move || repartition(&a));
 
     // Langue
     let a = app.clone();
@@ -568,6 +598,17 @@ pub fn rafraichir(app: &Rc<App>) {
     );
     app.settings.borrow_mut().langues = langues.into_iter().map(|l| l.code).collect();
 
+    let r = reglages::lire();
+    let taille = |n: u32| if n == 0 { String::new() } else { n.to_string() };
+    st.set_game_width(taille(r.fenetre_largeur).into());
+    st.set_game_height(taille(r.fenetre_hauteur).into());
+    st.set_fullscreen(r.plein_ecran);
+    st.set_ask_account(r.demander_compte);
+    st.set_pause_downloads(r.pause_telechargements);
+    if st.get_section() == 6 {
+        repartition(app);
+    }
+
     charger_pseudos(app);
 
     let ram_max = system_info::ram_max_proposee_mo();
@@ -595,7 +636,7 @@ pub fn rafraichir(app: &Rc<App>) {
 }
 
 /// Nom de la langue en anglais, affiché en gris à côté de son nom.
-fn nom_anglais(code: &str) -> &'static str {
+pub fn nom_anglais(code: &str) -> &'static str {
     match code {
         "fr" => "French",
         "en" => "English",
@@ -608,7 +649,7 @@ fn nom_anglais(code: &str) -> &'static str {
 }
 
 /// Drapeau intégré (assets/flags/xx.png).
-fn drapeau(pays: &str) -> slint::Image {
+pub fn drapeau(pays: &str) -> slint::Image {
     let octets: &[u8] = match pays {
         "fr" => include_bytes!("../../assets/flags/fr.png"),
         "us" => include_bytes!("../../assets/flags/us.png"),
@@ -960,6 +1001,57 @@ fn basculer_onglet(app: &App, onglet: &str, visible: bool) {
     }
     reglages::modifier(|r| r.barre_masquee = masques);
     appliquer_barre(app);
+}
+
+/// Nuances de la barre de stockage : du blanc (la plus grosse part) au gris foncé.
+const NUANCES: [(u8, u8, u8); 7] = [
+    (0xF1, 0xF2, 0xF4),
+    (0xC4, 0xC7, 0xD0),
+    (0x9A, 0x9E, 0xA8),
+    (0x6E, 0x72, 0x7C),
+    (0x4A, 0x4D, 0x55),
+    (0x3A, 0x3D, 0x44),
+    (0x2E, 0x30, 0x36),
+];
+
+/// Calcule la répartition du dossier de données (hors du fil de l'interface) et remplit le
+/// graphique de la section Téléchargements.
+fn repartition(app: &Rc<App>) {
+    if s(app).get_storage_parts_busy() {
+        return;
+    }
+    s(app).set_storage_parts_busy(true);
+    let a = app.clone();
+    lancer(async move {
+        let parts = a.bloquant(storage::repartition).await;
+        let total: u64 = parts.iter().map(|(_, t)| t).sum();
+        let mut debut = 0.0f32;
+        let lignes: Vec<StoragePart> = parts
+            .iter()
+            .enumerate()
+            .map(|(i, (cle, taille))| {
+                let fraction = if total > 0 {
+                    *taille as f32 / total as f32
+                } else {
+                    0.0
+                };
+                let (r, g, b) = NUANCES[i.min(NUANCES.len() - 1)];
+                let part = StoragePart {
+                    name: loc::t(&format!("Stock_Part_{cle}")).into(),
+                    size_text: taille_texte(*taille).into(),
+                    percent: format!("{} %", (fraction * 100.0).round() as u32).into(),
+                    start: debut,
+                    fraction,
+                    shade: slint::Color::from_rgb_u8(r, g, b),
+                };
+                debut += fraction;
+                part
+            })
+            .collect();
+        s(&a).set_storage_parts_total(taille_texte(total).into());
+        s(&a).set_storage_parts(modele(lignes));
+        s(&a).set_storage_parts_busy(false);
+    });
 }
 
 #[cfg(test)]

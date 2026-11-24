@@ -101,7 +101,11 @@ fn xuid_du_jeton(jeton: &str) -> String {
     jeton
         .split('.')
         .nth(1)
-        .and_then(|p| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(p.trim_end_matches('=')).ok())
+        .and_then(|p| {
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(p.trim_end_matches('='))
+                .ok()
+        })
         .and_then(|o| serde_json::from_slice::<serde_json::Value>(&o).ok())
         .and_then(|v| v["xuid"].as_str().map(str::to_string))
         .unwrap_or_default()
@@ -371,10 +375,12 @@ pub async fn connecter() -> Result<Session, AuthErreur> {
             jeton: c.mc_token,
             xuid: c.xuid,
         },
-        Some(c) if !c.refresh_token.is_empty() => match renouveler(&c.refresh_token, &c.client).await {
-            Ok(s) => s,
-            Err(_) => connexion_interactive().await?, // jeton expiré ou révoqué
-        },
+        Some(c) if !c.refresh_token.is_empty() => {
+            match renouveler(&c.refresh_token, &c.client).await {
+                Ok(s) => s,
+                Err(_) => connexion_interactive().await?, // jeton expiré ou révoqué
+            }
+        }
         _ => connexion_interactive().await?,
     };
 
@@ -468,9 +474,10 @@ async fn connexion_interactive() -> Result<Session, AuthErreur> {
     let annulation = ANNULATION.notified();
     tokio::pin!(annulation);
     afficher(Some(code));
-    let attente = oauth
-        .exchange_device_access_token(&demande)
-        .request_async(&http, tokio::time::sleep, None);
+    let attente =
+        oauth
+            .exchange_device_access_token(&demande)
+            .request_async(&http, tokio::time::sleep, None);
     let resultat = tokio::select! {
         r = attente => r,
         _ = &mut annulation => {

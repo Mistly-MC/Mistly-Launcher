@@ -8,9 +8,10 @@ Le mod en jeu (Mistly Client) vient du repo Mistly-MC/Mistly-Client (il a son pr
 Workspace Cargo à la racine du repo (détail dans `crates/README.md`) :
 - `crates/misty-core` : toute la logique, **sans Slint ni interface** (`auth/`, `minecraft/`, `contenu/`, `social/`, `systeme/`, `media/`). `cargo test -p misty-core` doit compiler sans Slint : ne jamais y ajouter de dépendance à `slint`, `misty-ui` ou une fenêtre.
 - `crates/misty-ui` : les fichiers `.slint` (`ui/`), compilés à part.
+- Connexion Microsoft (`misty-core/src/auth/account.rs`) : code d'appareil saisi sur microsoft.com/link (crate `oauth2`), puis Xbox Live → Minecraft (crate `minecraft-msa-auth`, avec la chaîne Xbox du launcher en secours pour les erreurs exactes). Même chose sous Windows et Linux, sans WebView ; la fenêtre du code est dans `misty-ui/ui/accueil.slint`.
 - Dossier de données, client HTTP et runtime : `misty_core::systeme::contexte` (créé et installé dans `main`, lu par `paths::data_dir()` et `http::client()`). Un test qui touche au dossier de données prend `let _garde = contexte::pour_test(&dossier_temporaire);` : jamais les vraies données du joueur, sans variable d'environnement.
 - Erreurs de `misty-core` : une enum `thiserror` par domaine (`AuthErreur`, `InstallErreur`, `ContenuErreur`, `MajErreur`) avec `cle()` (clé de traduction) ; `misty-app` garde `anyhow`.
-- `crates/misty-app` : `main.rs`, `ms_login.rs`, `ui/*.rs` (le code des pages), `assets/` ; produit `Misty.exe`.
+- `crates/misty-app` : `main.rs`, `ui/*.rs` (le code des pages), `assets/` ; produit `Misty.exe`.
 
 ## Cloner et compiler
 
@@ -23,7 +24,7 @@ cargo run                   # lancer le launcher
 ```
 
 - Le mod n'est pas dans l'exe. Pour essayer un mod compilé en local : `MISTY_CLIENT_DIR=<dossier du mod>` au lancement (c'est ce que fait « Lancer Misty.cmd » à la racine de l'espace de travail), sinon le launcher prend la dernière release de Misty-Client.
-- Windows et Linux (x86_64). Ce qui dépend du système est derrière `cfg(windows)` / `cfg(not(windows))` : connexion Microsoft (`ms_login.rs` avec WebView2 sous Windows, `ms_login_linux.rs` avec le navigateur et une adresse collée sous Linux), coffre des jetons, raccourcis (.lnk / .desktop), lanceur fixe, Java et natives de Mojang (`minecraft/mod.rs` : `OS_MOJANG`…). Nom de l'exe : `paths::NOM_EXE` (`Misty.exe` / `Misty`), à ne pas changer.
+- Windows et Linux (x86_64). Ce qui dépend du système est derrière `cfg(windows)` / `cfg(not(windows))` : coffre des jetons, raccourcis (.lnk / .desktop), lanceur fixe, Java et natives de Mojang (`minecraft/mod.rs` : `OS_MOJANG`…). Nom de l'exe : `paths::NOM_EXE` (`Misty.exe` / `Misty`), à ne pas changer.
 - Linux en local : `installer/build-linux.sh` (paquets nécessaires en tête du script). Une release contient une seule archive en `.zip` (Windows) : les launchers d'avant 0.4 prennent le premier `.zip` venu.
 - CI (`.github/workflows/ci.yml`) à chaque push et PR : `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`. Un avertissement clippy fait échouer la CI.
 - Release : pousser un tag `x.y.z` (sans `v`, égal à la version de `Cargo.toml` ; `x.y.z-beta.n` pour une pré-release). `.github/workflows/release.yml` compile sous Windows (`installer\build.ps1`) et sous Linux (`installer/build-linux.sh`), signe les deux archives (`.sha256` + `.minisig` avec le secret `MINISIGN_KEY`) et publie une seule release. Toujours demander avant de pousser un tag : la release part aussitôt chez les joueurs. `installer\build.ps1` reste utilisable en local, mais un zip sans `.sha256` ni `.minisig` est refusé par la mise à jour automatique.

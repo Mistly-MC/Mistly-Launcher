@@ -6,6 +6,7 @@
 //! - le travail lourd (réseau, fichiers) part sur le runtime tokio avec `bg(...)`, et on attend le résultat ;
 //! - chaque page a son module, avec son état dans un `RefCell`.
 
+pub mod accueil;
 pub mod amis;
 pub mod browser;
 pub mod changelog;
@@ -250,6 +251,7 @@ pub fn installer(app: &Rc<App>) {
         .on_nav_clicked(move |i| nav_clicked(&a, i));
 
     dialogs::installer(app);
+    accueil::installer(app);
     home::installer(app);
     profiles::installer(app);
     instance::installer(app);
@@ -466,7 +468,10 @@ pub async fn demarrer(app: Rc<App>) {
     app.ui.global::<AppState>().set_ready(true);
 
     // télémétrie : on demande une fois, puis l'interrupteur des options décide
-    if !misty_core::systeme::telemetry::demandee() {
+    // (au premier lancement, c'est la dernière étape de l'accueil qui pose la question)
+    if !misty_core::systeme::telemetry::demandee()
+        && !app.ui.global::<BienvenueState>().get_visible()
+    {
         let oui = dialogs::confirmer(
             &app,
             &loc::t("Telemetrie_Question"),
@@ -486,6 +491,11 @@ pub async fn demarrer(app: Rc<App>) {
 
 /// `manuel` : lancé depuis les options (on affiche aussi « à jour » et les erreurs).
 async fn verifier_mise_a_jour(app: &Rc<App>, manuel: bool) {
+    // « Mettre en pause les téléchargements pendant une partie » : pas de téléchargement en fond
+    // pendant que le jeu tourne (la vérification manuelle reste possible)
+    if !manuel && reglages::lire().pause_telechargements && journal::partie_en_cours() {
+        return;
+    }
     if manuel {
         app.ui.global::<SettingsState>().set_checking_update(true);
     }

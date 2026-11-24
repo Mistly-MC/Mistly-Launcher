@@ -32,6 +32,9 @@ pub(super) async fn jouer(app: &Rc<App>) {
     if version.is_empty() || app.home.borrow().installation_en_cours {
         return;
     }
+    if !choisir_compte_avant_partie(app).await {
+        return;
+    }
 
     app.home.borrow_mut().installation_en_cours = true;
     h(app).set_play_enabled(false);
@@ -130,9 +133,13 @@ pub(super) async fn lancer_jeu(
 ) {
     let pseudo_joueur = joueur.pseudo.clone();
     // Un profil a son propre dossier de jeu (mods, options, mondes) ; le jeu rapide utilise le dossier principal
+    let r = reglages::lire();
     let options = launch::Options {
         joueur,
-        ram_mo: reglages::lire().ram_mo,
+        ram_mo: r.ram_mo,
+        fenetre: (r.fenetre_largeur > 0 && r.fenetre_hauteur > 0)
+            .then_some((r.fenetre_largeur, r.fenetre_hauteur)),
+        plein_ecran: r.plein_ecran,
         dossier_jeu: instance
             .as_ref()
             .map(|i| i.dossier())

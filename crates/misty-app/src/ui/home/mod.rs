@@ -367,7 +367,7 @@ fn nettoyer_pseudo(texte: &str) -> String {
 
 /// Au démarrage, tant qu'aucune façon de jouer n'a été choisie : l'écran Premium | Hors ligne.
 /// Un compte Microsoft déjà connecté vaut le choix « premium » (pas de question).
-fn proposer_mode_compte(app: &Rc<App>) {
+pub fn proposer_mode_compte(app: &Rc<App>) {
     if reglages::lire().mode_compte != reglages::ModeCompte::NonChoisi {
         return;
     }
@@ -410,7 +410,12 @@ pub async fn initialiser(app: &Rc<App>) {
     charger_pseudos(app);
     maj_compte(app);
     charger_profils(app);
-    proposer_mode_compte(app);
+    // première installation : langue, conditions et télémétrie, puis Premium ou Hors ligne
+    if crate::ui::accueil::necessaire() {
+        crate::ui::accueil::afficher(app);
+    } else {
+        proposer_mode_compte(app);
+    }
 
     // Connexion automatique en parallèle du chargement des versions
     // (pas pendant les captures d'écran de développement : la fenêtre de connexion s'ouvrirait)

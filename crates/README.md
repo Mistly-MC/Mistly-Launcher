@@ -60,7 +60,6 @@ misty-app/          l'application : produit Misty.exe
   assets/           polices, drapeaux, icône, curseurs
   src/
     main.rs         démarrage
-    ms_login.rs     fenêtre de connexion Microsoft (sous-processus « Misty.exe --ms-login »)
     ui/             le code derrière chaque page (l'équivalent des .xaml.cs)
 ```
 
@@ -74,7 +73,7 @@ misty-app/          l'application : produit Misty.exe
 | `Dialogs.ConfirmerAsync`        | `dialogs::confirmer(&app, …).await`    |
 | `ObservableCollection`          | `VecModel` / `ModelRc`                 |
 | CmlLib.Core                     | `misty-core`, `minecraft/`             |
-| CmlLib.Core.Auth.Microsoft      | `misty-core`, `auth/account.rs` + `misty-app`, `ms_login.rs` |
+| CmlLib.Core.Auth.Microsoft      | `misty-core`, `auth/account.rs` (crates `oauth2` et `minecraft-msa-auth`) |
 
 ## Ce qui a changé
 

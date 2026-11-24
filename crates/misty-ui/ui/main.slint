@@ -5,6 +5,7 @@ import { AppState, DialogState, HomeState, ProfilesState, InstanceState, Browser
 import { Icon, PixelLabel, BodyText, SectionTitle, IconButton, ChromeButton, MButton, SlimProgress, Spinner, OutlinedText } from "widgets.slint";
 import { Tuile, TuileIcone, Dock } from "dock.slint";
 import { ChoixCompte } from "bienvenue.slint";
+import { Bienvenue, BienvenueState, ConnexionCode, ConnexionState } from "accueil.slint";
 import { HomePage } from "home.slint";
 import { ProfilesPage, ProfileCreateOverlay, ProfileWaitOverlay } from "profiles.slint";
 import { InstancePage } from "instance.slint";
@@ -20,6 +21,7 @@ import { VersionPicker } from "versions.slint";
 import { ConsoleOverlay, ConsoleState, LogLine, LogPane } from "console.slint";
 
 export { ConsoleState, LogLine, LogPane }
+export { BienvenueState, ConnexionState }
 export { Theme, Tr, Assets, Bulle, AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, PacksState, EditorState, SkinState, FriendsState }
 
 /// Onglet de la tuile du haut (Jouer, Skin, Profils…) : le texte, et un trait sous l'onglet actif.
@@ -241,7 +243,7 @@ component Chargement inherits Rectangle {
     property <[color]> couleurs: root.nuit ? [#24345A, #1A2748, #121C36, #0D1528] : [#B7CDEB, #A0BBE2, #8BA9D7, #7896CA];
     property <color> bas: root.nuit ? #070B16 : #6D8EC2;
 
-    background: root.nuit ? @linear-gradient(180deg, #0A0F1D 0%, #17264D 100%) : @linear-gradient(180deg, #DDEBFB 0%, #B4D0F1 55%, #95B9E4 100%);
+    background: root.nuit ? @linear-gradient(180deg, Theme.bg 0%, #121B33 100%) : @linear-gradient(180deg, #F3F6FB 0%, #DCE7F5 55%, #B4D0F1 100%);
     clip: true;
     TouchArea { }
 
@@ -308,34 +310,31 @@ component Chargement inherits Rectangle {
         image-fit: fill;
     }
 
-    // la barre se remplit pendant le chargement, puis d'un coup quand le launcher est prêt
+    // la barre de blocs se remplit pendant le chargement, puis d'un coup quand le launcher est prêt
     property <float> avance: AppState.ready ? 1 : root.lance ? 0.85 : 0;
     animate avance { duration: AppState.ready ? 240ms : 2200ms; easing: ease-out; }
-    Rectangle {
-        property <length> l: min(root.width - 40px, 60 * root.pixel);
-        property <length> h: max(2px, 2 * root.pixel);
-        x: (root.width - self.l) / 2 - 1px;
-        y: root.y0 + 49 * root.pixel - 1px;
-        width: self.l + 2px;
-        height: self.h + 2px;
-        background: root.nuit ? #FFFFFF2E : #FFFFFFB3;
-        Rectangle {
-            x: 1px;
-            y: 1px;
-            width: parent.l;
-            height: parent.h;
-            background: root.nuit ? #0E1527 : #FFFFFF73;
-            Rectangle {
-                x: 0;
-                width: parent.width * root.avance;
-                background: root.nuit ? #6F9CFF : #2F6FD6;
-                Rectangle {
-                    y: 0;
-                    height: max(1px, round(parent.height / 2 / 1px) * 1px);
-                    background: root.nuit ? #9CC0FF : #5B93EA;
-                }
-            }
+    property <length> bloc: max(10px, 4 * root.pixel);
+    property <length> espace: max(3px, root.pixel);
+    HorizontalLayout {
+        x: (root.width - self.preferred-width) / 2;
+        y: root.y0 + 48 * root.pixel;
+        height: root.bloc;
+        spacing: root.espace;
+        for n in 16: Rectangle {
+            width: root.bloc;
+            height: root.bloc;
+            background: (n + 1) / 16 <= root.avance ? Theme.active : (n / 16 < root.avance ? Theme.ink-3 : Theme.control);
+            animate background { duration: 120ms; }
         }
+    }
+    Text {
+        y: root.y0 + 48 * root.pixel + root.bloc + 14px;
+        width: root.width;
+        text: AppState.version-text;
+        font-family: Theme.mono-font;
+        font-size: 12px;
+        color: Theme.ink-3;
+        horizontal-alignment: center;
     }
 }
 
@@ -796,6 +795,13 @@ export component MainWindow inherits Window {
                 }
             }
         }
+
+        // ═══ Premier lancement : langue, conditions, télémétrie (avant le choix du compte), par-dessus
+        // tout le reste de la fenêtre (ses commandes comprises : l'accueil a les siennes) ═══
+        if BienvenueState.visible: Bienvenue { }
+
+        // ═══ Connexion Microsoft : le code à saisir sur microsoft.com/link ═══
+        if ConnexionState.visible: ConnexionCode { }
 
         // ═══ Boîte de dialogue ═══
         if DialogState.visible: Rectangle {
