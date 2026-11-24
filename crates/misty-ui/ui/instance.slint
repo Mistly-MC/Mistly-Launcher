@@ -34,7 +34,7 @@ component CaseMisty inherits Rectangle {
             Rectangle {
                 width: 18px;
                 height: 18px;
-                border-radius: 5px;
+                border-radius: 8px;
                 border-width: 1.5px;
                 border-color: InstanceState.misty-on ? Theme.accent : Theme.navy2;
                 background: InstanceState.misty-on ? Theme.accent : transparent;
@@ -69,15 +69,15 @@ component SideChip inherits Rectangle {
     property <color> teinte: root.side == 1 ? #13B24C : root.side == 2 ? #F08A24 : #2F8CFF;
     height: 18px;
     width: label.preferred-width + 14px;
-    border-radius: 9px;
+    border-radius: 14px;
     background: root.teinte.with-alpha(0.18);
-    border-width: 1px;
+    border-width: 1.5px;
     border-color: root.teinte.with-alpha(0.55);
     label := Text {
         text: root.side == 1 ? Tr.t("Env_Client") : root.side == 2 ? Tr.t("Env_Serveur") : Tr.t("Env_LesDeux");
         font-family: Theme.ui-font;
         font-size: 11px;
-        font-weight: 700;
+        font-weight: 600;
         color: root.teinte.brighter(0.25);
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -126,7 +126,7 @@ export component InstancePage inherits Rectangle {
                 if !InstanceState.renaming: Text {
                     text: InstanceState.name;
                     font-size: 28px;
-                    font-weight: 800;
+                    font-weight: 600;
                     color: Theme.navy;
                     overflow: elide;
                 }
@@ -299,7 +299,7 @@ export component InstancePage inherits Rectangle {
                         y: 0;
                         height: parent.height - 8px;
                         width: parent.width - 10px;
-                        border-radius: 16px;
+                        border-radius: 22px;
                         background: Theme.glass;
                         border-width: 1.5px;
                         border-color: Theme.glass-border;
@@ -354,7 +354,7 @@ export component InstancePage inherits Rectangle {
                                         text: "→ " + c.update;
                                         font-family: Theme.ui-font;
                                         font-size: 12px;
-                                        font-weight: 700;
+                                        font-weight: 600;
                                         color: Theme.green-dark;
                                         overflow: elide;
                                     }

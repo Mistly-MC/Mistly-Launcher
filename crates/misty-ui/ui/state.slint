@@ -146,6 +146,14 @@ export struct VersionGroup {
 }
 
 export global HomeState {
+    /// Édition choisie dans la barre du haut : 0 Mistly Client · 1 Java (vanilla) · 2 Bedrock · 3 Horizon
+    in-out property <int> edition: 0;
+    callback edition-selected(int);
+    /// Bedrock (version du Microsoft Store) installé sur ce PC (Windows seulement)
+    in property <bool> bedrock-available;
+    /// Windows : Bedrock peut exister ici (sinon l'écran Bedrock l'explique)
+    in property <bool> bedrock-supported;
+    callback bedrock-play();
     /// Fenêtre de choix de la version (0 versions · 1 profils)
     in-out property <bool> picker-open;
     in-out property <int> picker-tab: 0;

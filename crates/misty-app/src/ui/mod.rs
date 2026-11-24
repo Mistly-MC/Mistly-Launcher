@@ -48,6 +48,8 @@ pub mod page {
     pub const SKIN: i32 = 7;
     /// Amis : la liste et qui joue avec Misty Client
     pub const AMIS: i32 = 8;
+    /// Bouton de la barre du haut (pas une page) : les profils, sur l'explorateur de modpacks
+    pub const DECOUVRIR: i32 = 9;
 }
 
 /// L'application : la fenêtre, le contexte (dont le runtime) et l'état de chaque page.
@@ -650,6 +652,17 @@ fn nav_clicked(app: &Rc<App>, i: i32) {
         }
     }
 
+    // Découvrir : la page des profils, ouverte sur l'explorateur (modpacks, mods, shaders…)
+    if i == page::DECOUVRIR {
+        app.ui.global::<AppState>().set_nav(page::DECOUVRIR);
+        if app.ui.global::<AppState>().get_page() != page::PROFILS {
+            naviguer(app, page::PROFILS);
+        }
+        app.ui.global::<AppState>().set_nav(page::DECOUVRIR);
+        app.ui.global::<crate::ProfilesState>().invoke_modpacks();
+        return;
+    }
+
     let etat = app.ui.global::<AppState>();
     let page = etat.get_page();
 
@@ -674,7 +687,13 @@ fn nav_clicked(app: &Rc<App>, i: i32) {
             home::rafraichir(app, false);
         }
         page::OPTIONS => settings::rafraichir(app),
-        page::PROFILS => profiles::rafraichir(app),
+        page::PROFILS => {
+            // depuis Découvrir : retour à la liste des profils
+            if app.ui.global::<crate::ProfilesState>().get_view() != 0 {
+                app.ui.global::<crate::ProfilesState>().invoke_back();
+            }
+            profiles::rafraichir(app);
+        }
         _ => {}
     }
     naviguer(app, i);

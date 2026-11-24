@@ -1,200 +1,805 @@
-// Page d'accueil, comme la maquette : un grand cadre ouvert sur le paysage de Misty (le fond de la
-// fenêtre), le logo MISTY au milieu et la dernière news dans une petite pastille en bas. Sur
-// l'onglet Skin, le studio. Les onglets sont dans la tuile du haut, le lancement dans la barre du
-// bas (dock.slint).
+// Accueil du thème Nuit (0.4.1), comme la maquette Figma : une page par édition (Mistly Client,
+// Java, Bedrock, Horizon). En haut le titre, ses puces et JOUER ; à droite les amis en ligne et la
+// dernière news ; en bas les parties récentes, posées sur un paysage en pixel art qui se fond dans
+// le fond. Sur l'onglet Skin (garde-robe), le studio.
 
-import { Theme, Tr } from "theme.slint";
-import { HomeState, AppState } from "state.slint";
-import { Icon, PixelLabel, OutlinedText } from "widgets.slint";
+import { Theme, Tr, Assets } from "theme.slint";
+import { HomeState, AppState, FriendsState, FriendCard, ProfileItem } from "state.slint";
+import { Icon, PixelLabel, PlayButton, IconeNuit, BoutonRond, Puce, CarteNuit, Thumb } from "widgets.slint";
 import { SkinState, SkinPanel } from "skin.slint";
+import { ConsoleState } from "console.slint";
 
-/// La news affichée : un point, « Nouveautés », son titre et sa date, une flèche. Un clic l'ouvre ;
-/// les petites flèches passent à la précédente ou à la suivante.
-component PastilleNews inherits Rectangle {
-    property <int> n: clamp(HomeState.news-index, 0, max(0, HomeState.news-items.length - 1));
-    property <bool> survol: zone.has-hover;
-    height: 48px;
-    width: contenu.preferred-width;
-    border-radius: 8px;
-    background: Theme.dark ? #0A0F1DCC : #FFFFFFD9;
-    border-width: 1px;
-    border-color: root.survol ? Theme.accent.with-alpha(0.7) : Theme.glass-border;
-    animate border-color { duration: Theme.fast; }
-    zone := TouchArea {
-        mouse-cursor: pointer;
-        clicked => { HomeState.news-open(root.n); }
+// ───────────────────────── Pixel art ─────────────────────────
+
+/// La lune de la maquette : un disque de 14 × 14 pixels, avec ses cratères.
+component Lune inherits Rectangle {
+    in property <length> pixel: 12px;
+    width: 14 * root.pixel;
+    height: 14 * root.pixel;
+    for i in 196: Rectangle {
+        property <int> px: Math.mod(i, 14);
+        property <int> py: Math.floor(i / 14);
+        property <float> d: Math.sqrt((self.px - 6.5) * (self.px - 6.5) + (self.py - 6.5) * (self.py - 6.5));
+        property <bool> cratere: i == 60 || i == 61 || i == 74 || i == 120 || i == 121 || i == 135 || i == 50 || i == 129;
+        visible: self.d <= 6.6;
+        x: self.px * root.pixel;
+        y: self.py * root.pixel;
+        width: root.pixel;
+        height: root.pixel;
+        background: self.cratere ? #C3C8D2 : self.d > 5.4 && self.px + self.py > 14 ? #D4D8E0 : #ECEFF4;
     }
+}
+
+/// Un bloc d'herbe (Bedrock) : 12 × 12 pixels, herbe dessus, terre dessous.
+component BlocHerbe inherits Rectangle {
+    in property <length> pixel: 13px;
+    width: 12 * root.pixel;
+    height: 12 * root.pixel;
+    for i in 144: Rectangle {
+        property <int> px: Math.mod(i, 12);
+        property <int> py: Math.floor(i / 12);
+        property <int> h: Math.mod(self.px * 7 + self.py * 13, 5);
+        property <bool> herbe: self.py < 3 || (self.py == 3 && self.h < 3);
+        x: self.px * root.pixel;
+        y: self.py * root.pixel;
+        width: root.pixel;
+        height: root.pixel;
+        background: self.herbe ? (self.h == 0 ? #3E8232 : #4E9A3E) : self.h == 0 ? #5E4029 : self.h == 3 ? #8C6440 : #7A5536;
+    }
+}
+
+/// L'engrenage d'Horizon (Rust) : 14 × 14 pixels.
+component Engrenage inherits Rectangle {
+    in property <length> pixel: 12px;
+    width: 14 * root.pixel;
+    height: 14 * root.pixel;
+    for i in 196: Rectangle {
+        property <int> px: Math.mod(i, 14);
+        property <int> py: Math.floor(i / 14);
+        property <float> dx: self.px - 6.5;
+        property <float> dy: self.py - 6.5;
+        property <float> d: Math.sqrt(self.dx * self.dx + self.dy * self.dy);
+        property <bool> dent: Math.cos(Math.atan2(self.dy, self.dx) * 8) > 0.55;
+        visible: self.d >= 2.2 && (self.d < 4.8 || (self.d < 6.8 && self.dent));
+        x: self.px * root.pixel;
+        y: self.py * root.pixel;
+        width: root.pixel;
+        height: root.pixel;
+        background: self.d < 4.8 ? #E9E4DC : #CFC8BD;
+    }
+}
+
+/// Cadeau de Noël en pixels (boîte, ruban, nœud).
+component Cadeau inherits Rectangle {
+    in property <length> pixel: 5px;
+    in property <color> boite: #E5484D;
+    in property <color> ombre: #B3262B;
+    in property <color> ruban: #F6C27A;
+    width: 12 * root.pixel;
+    height: 12 * root.pixel;
+    // nœud
+    Rectangle { x: 3 * root.pixel; y: 0; width: 2 * root.pixel; height: 2 * root.pixel; background: root.ruban; }
+    Rectangle { x: 7 * root.pixel; y: 0; width: 2 * root.pixel; height: 2 * root.pixel; background: root.ruban; }
+    Rectangle { x: 5 * root.pixel; y: 1 * root.pixel; width: 2 * root.pixel; height: 2 * root.pixel; background: root.ruban; }
+    // couvercle et boîte
+    Rectangle { x: 0; y: 3 * root.pixel; width: 12 * root.pixel; height: 2 * root.pixel; background: root.boite; }
+    Rectangle { x: 0; y: 5 * root.pixel; width: 12 * root.pixel; height: 1 * root.pixel; background: root.ruban; }
+    Rectangle { x: 1 * root.pixel; y: 6 * root.pixel; width: 10 * root.pixel; height: 6 * root.pixel; background: root.boite; }
+    Rectangle { x: 1 * root.pixel; y: 11 * root.pixel; width: 10 * root.pixel; height: 1 * root.pixel; background: root.ombre; }
+    Rectangle { x: 5 * root.pixel; y: 3 * root.pixel; width: 2 * root.pixel; height: 9 * root.pixel; background: root.ruban; }
+}
+
+/// Citrouille d'Halloween en pixels (yeux et sourire allumés).
+component Citrouille inherits Rectangle {
+    in property <length> pixel: 5px;
+    in property <color> peau: #F07A2A;
+    in property <color> lumiere: #FFC14A;
+    width: 12 * root.pixel;
+    height: 12 * root.pixel;
+    Rectangle { x: 5 * root.pixel; y: 0; width: 2 * root.pixel; height: 2 * root.pixel; background: #4E9A3E; }
+    Rectangle { x: 2 * root.pixel; y: 2 * root.pixel; width: 8 * root.pixel; height: 1 * root.pixel; background: root.peau; }
+    Rectangle { x: 1 * root.pixel; y: 3 * root.pixel; width: 10 * root.pixel; height: 1 * root.pixel; background: root.peau; }
+    Rectangle { x: 0; y: 4 * root.pixel; width: 12 * root.pixel; height: 6 * root.pixel; background: root.peau; }
+    Rectangle { x: 1 * root.pixel; y: 10 * root.pixel; width: 10 * root.pixel; height: 1 * root.pixel; background: root.peau; }
+    Rectangle { x: 2 * root.pixel; y: 11 * root.pixel; width: 8 * root.pixel; height: 1 * root.pixel; background: #C2571A; }
+    Rectangle { x: 2 * root.pixel; y: 4 * root.pixel; width: 2 * root.pixel; height: 2 * root.pixel; background: root.lumiere; }
+    Rectangle { x: 8 * root.pixel; y: 4 * root.pixel; width: 2 * root.pixel; height: 2 * root.pixel; background: root.lumiere; }
+    Rectangle { x: 5 * root.pixel; y: 6 * root.pixel; width: 2 * root.pixel; height: 1 * root.pixel; background: root.lumiere; }
+    Rectangle { x: 2 * root.pixel; y: 8 * root.pixel; width: 8 * root.pixel; height: 1 * root.pixel; background: root.lumiere; }
+    Rectangle { x: 3 * root.pixel; y: 9 * root.pixel; width: 6 * root.pixel; height: 1 * root.pixel; background: root.lumiere; }
+}
+
+/// Décoration de saison posée sur une carte (Noël : cadeau ; Halloween : citrouille).
+component Saison inherits Rectangle {
+    in property <length> pixel: 4px;
+    in property <int> variante: 0;
+    width: 12 * root.pixel;
+    height: 12 * root.pixel;
+    if Theme.noel: Cadeau {
+        pixel: root.pixel;
+        boite: root.variante == 1 ? #3E8E5A : root.variante == 2 ? #4F74A6 : #E5484D;
+        ombre: root.variante == 1 ? #2C6B42 : root.variante == 2 ? #3A5788 : #B3262B;
+        ruban: root.variante == 1 ? #F1F2F4 : #F6C27A;
+    }
+    if Theme.halloween: Citrouille {
+        pixel: root.pixel;
+        peau: root.variante == 1 ? #E0A055 : #F07A2A;
+        lumiere: root.variante == 1 ? #FFE08A : #FFC14A;
+    }
+}
+
+// ───────────────────────── Morceaux de l'accueil ─────────────────────────
+
+/// Ce que lance JOUER (version, profil ou build) : une pilule qui ouvre la fenêtre de choix.
+/// Pendant un lancement, la deuxième ligne devient le statut.
+component ChoixJeu inherits Rectangle {
+    property <bool> actif: HomeState.selectors-enabled;
+    property <bool> occupe: HomeState.status != "" && HomeState.status != Tr.t("Home_Pret");
+    height: 68px;
+    width: min(300px, max(200px, contenu.preferred-width));
+    border-radius: 34px;
+    background: zone.has-hover && root.actif ? Theme.glass-hover : Theme.control;
+    border-width: 1.5px;
+    border-color: zone.has-hover && root.actif ? Theme.ink-3 : Theme.border-strong;
+    transform-scale: zone.pressed && root.actif ? 0.97 : 1;
+    animate background, border-color { duration: Theme.fast; }
+    animate transform-scale { duration: 160ms; easing: ease-out; }
     contenu := HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 8px;
+        padding-left: 10px;
+        padding-right: 20px;
         spacing: 12px;
         VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: 4px;
-                background: Theme.accent;
+                width: 46px;
+                height: 46px;
+                border-radius: 23px;
+                clip: true;
+                background: Theme.surface-2;
+                if HomeState.has-card-icon && !HomeState.quick: Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: HomeState.card-icon;
+                    image-fit: cover;
+                }
+                if !(HomeState.has-card-icon && !HomeState.quick): IconeNuit {
+                    nom: "instances";
+                    taille: 20px;
+                }
             }
         }
         VerticalLayout {
             alignment: center;
-            spacing: 1px;
-            PixelLabel {
-                text: Tr.t("Home_News") + (HomeState.news-items[root.n].date != "" ? "  ·  " + HomeState.news-items[root.n].date : "");
-                font-size: 11px;
-                color: Theme.accent;
+            spacing: 2px;
+            Text {
+                text: HomeState.horizon-selected ? "Horizon " + HomeState.horizon-build
+                    : HomeState.misty-selected && HomeState.quick ? "Mistly Client " + HomeState.misty-mc
+                    : HomeState.quick ? "Minecraft " + HomeState.card-version
+                    : (HomeState.profile-index >= 0 && HomeState.profile-index < HomeState.profiles.length ? HomeState.profiles[HomeState.profile-index] : HomeState.card-version);
+                font-size: 14.5px;
+                font-weight: 500;
+                color: Theme.ink-strong;
+                overflow: elide;
+                max-width: 220px;
             }
             Text {
-                text: HomeState.news-items[root.n].title;
-                font-size: 14px;
-                font-weight: 700;
-                color: Theme.navy;
-                max-width: 320px;
+                text: root.occupe ? HomeState.status + (HomeState.percent-text != "" ? "  ·  " + HomeState.percent-text : "")
+                    : HomeState.horizon-selected ? Tr.t("Hz_Moteur")
+                    : HomeState.quick ? HomeState.card-loader
+                    : HomeState.card-version + " · " + HomeState.card-loader;
+                font-size: 12.5px;
+                color: root.occupe ? Theme.ink : Theme.ink-3;
                 overflow: elide;
+                max-width: 220px;
             }
         }
-        // précédente / suivante
-        if HomeState.news-items.length > 1: HorizontalLayout {
-            spacing: 2px;
-            for sens[k] in [-1, 1]: Rectangle {
-                width: 30px;
-                height: 30px;
-                y: 9px;
-                border-radius: 6px;
-                background: zf.has-hover ? Theme.glass-hover : transparent;
-                Icon {
-                    text: sens < 0 ? "\u{E76B}" : "\u{E76C}";
-                    font-size: 10px;
-                    color: Theme.text-muted;
+        VerticalLayout {
+            alignment: center;
+            IconeNuit {
+                nom: "chevron";
+                taille: 16px;
+                couleur: Theme.ink-3;
+                opacity: root.actif ? 1 : 0.4;
+            }
+        }
+    }
+    zone := TouchArea {
+        enabled: root.actif;
+        mouse-cursor: pointer;
+        clicked => {
+            if (HomeState.picker-open) {
+                HomeState.picker-open = false;
+                return;
+            }
+            HomeState.picker-tab = HomeState.quick || HomeState.horizon-selected ? 0 : 1;
+            HomeState.picker-horizon = HomeState.horizon-selected;
+            HomeState.picker-misty = HomeState.misty-selected && HomeState.quick && !HomeState.horizon-selected;
+            HomeState.picker-open = true;
+            if (HomeState.horizon-selected) {
+                HomeState.horizon-refresh();
+            }
+        }
+    }
+}
+
+/// Les amis en ligne (les trois premiers), avec leur tête.
+component CarteAmis inherits CarteNuit {
+    VerticalLayout {
+        padding: 22px;
+        padding-left: 24px;
+        padding-right: 24px;
+        spacing: 14px;
+        HorizontalLayout {
+            Text {
+                text: Tr.t("Home_AmisEnLigne");
+                font-size: 15px;
+                font-weight: 500;
+                color: Theme.ink;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            HorizontalLayout {
+                spacing: 8px;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 7px;
+                        height: 7px;
+                        border-radius: 3.5px;
+                        background: Theme.online;
+                    }
                 }
-                zf := TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => {
-                        HomeState.news-index = Math.mod(root.n + sens + HomeState.news-items.length, HomeState.news-items.length);
+                Text {
+                    text: FriendsState.online-count;
+                    font-family: Theme.mono-font;
+                    font-size: 13px;
+                    color: Theme.online-text;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        for i in min(3, FriendsState.online-count): HorizontalLayout {
+            spacing: 12px;
+            height: 38px;
+            Thumb {
+                width: 36px;
+                height: 36px;
+                radius: 18px;
+                logo-margin: 8px;
+                source: FriendsState.list[i].head;
+                has-image: FriendsState.list[i].has-head;
+                pixel-art: true;
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                Text {
+                    text: FriendsState.list[i].name;
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: Theme.ink;
+                    overflow: elide;
+                }
+                Text {
+                    text: Tr.t("Amis_JoueMisty");
+                    font-size: 12.5px;
+                    color: Theme.ink-2;
+                    overflow: elide;
+                }
+            }
+        }
+        if FriendsState.online-count == 0: Text {
+            text: Tr.t("Amis_PersonneEnLigne_Texte");
+            font-size: 13px;
+            color: Theme.ink-2;
+            wrap: word-wrap;
+        }
+        Text {
+            text: Tr.t("Home_VoirAmis");
+            font-size: 13.5px;
+            color: zone-amis.has-hover ? Theme.ink-strong : Theme.icon;
+            animate color { duration: Theme.fast; }
+            zone-amis := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { AppState.nav-clicked(8); }
+            }
+        }
+    }
+}
+
+/// La news affichée (un clic l'ouvre) et le lien du serveur Discord.
+component CarteNews inherits CarteNuit {
+    property <int> n: clamp(HomeState.news-index, 0, max(0, HomeState.news-items.length - 1));
+    VerticalLayout {
+        padding: 22px;
+        padding-left: 24px;
+        padding-right: 24px;
+        spacing: 10px;
+        HorizontalLayout {
+            PixelLabel {
+                text: Tr.t("Home_News") + (HomeState.news-items.length > 0 && HomeState.news-items[root.n].date != "" ? "  ·  " + HomeState.news-items[root.n].date : "");
+            }
+            Rectangle { horizontal-stretch: 1; }
+            if HomeState.news-items.length > 1: HorizontalLayout {
+                spacing: 2px;
+                for sens[k] in [-1, 1]: Rectangle {
+                    width: 24px;
+                    height: 20px;
+                    border-radius: 10px;
+                    background: zf.has-hover ? Theme.glass-hover : transparent;
+                    IconeNuit {
+                        nom: sens < 0 ? "retour" : "suivant";
+                        taille: 13px;
+                        couleur: Theme.ink-3;
+                    }
+                    zf := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            HomeState.news-index = Math.mod(root.n + sens + HomeState.news-items.length, HomeState.news-items.length);
+                        }
                     }
                 }
             }
         }
+        if HomeState.news-items.length > 0: Text {
+            text: HomeState.news-items[root.n].title;
+            font-size: 17px;
+            font-weight: 600;
+            color: Theme.ink-strong;
+            overflow: elide;
+        }
+        if HomeState.news-items.length > 0: Text {
+            text: HomeState.news-items[root.n].text;
+            font-size: 13.5px;
+            color: Theme.ink-2;
+            wrap: word-wrap;
+            max-height: 40px;
+            overflow: elide;
+        }
+        HorizontalLayout {
+            spacing: 18px;
+            Text {
+                text: Tr.t("Home_LireNotes");
+                font-size: 13.5px;
+                color: zone-news.has-hover ? Theme.ink-strong : Theme.icon;
+                animate color { duration: Theme.fast; }
+                zone-news := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { HomeState.news-open(root.n); }
+                }
+            }
+            Text {
+                text: "Discord";
+                font-size: 13.5px;
+                color: zone-discord.has-hover ? #5865F2 : Theme.icon;
+                animate color { duration: Theme.fast; }
+                zone-discord := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { AppState.open-discord(); }
+                }
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
     }
 }
 
-/// Joueurs Mistly en ligne : un point vert qui pulse, « En ligne », le nombre et ceux en jeu.
-component PastilleEnLigne inherits Rectangle {
-    height: 48px;
-    width: contenu.preferred-width;
-    border-radius: 8px;
-    background: Theme.dark ? #0A0F1DCC : #FFFFFFD9;
-    border-width: 1px;
-    border-color: Theme.glass-border;
-    contenu := HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 18px;
-        spacing: 12px;
+/// Une carte de la rangée du bas (partie récente, info…).
+component CarteBas inherits Rectangle {
+    in property <string> titre;
+    in property <string> detail;
+    in property <bool> choisi;
+    in property <bool> cliquable: true;
+    in property <bool> pointille;
+    callback clicked;
+    height: 84px;
+    border-radius: 22px;
+    background: Theme.surface;
+    border-width: 1.5px;
+    border-color: root.choisi ? Theme.active : zone.has-hover && root.cliquable ? Theme.ink-3 : Theme.border;
+    transform-scale: zone.pressed && root.cliquable ? 0.98 : 1;
+    animate border-color { duration: Theme.normal; }
+    animate transform-scale { duration: 160ms; easing: ease-out; }
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        spacing: 14px;
         VerticalLayout {
             alignment: center;
-            Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: 4px;
-                background: #1DE062;
-                // halo qui pulse doucement
-                Rectangle {
-                    property <float> t: Math.mod(AppState.temps / 2000ms, 1);
-                    width: 8px + 10px * self.t;
-                    height: self.width;
-                    border-radius: self.width / 2;
-                    background: #1DE062;
-                    opacity: 0.45 * (1 - self.t);
-                }
-            }
+            @children
         }
         VerticalLayout {
             alignment: center;
-            spacing: 1px;
-            PixelLabel {
-                text: Tr.t("Home_EnLigne");
-                font-size: 11px;
-                color: Theme.green-dark;
+            spacing: 3px;
+            Text {
+                text: root.titre;
+                font-size: 14.5px;
+                font-weight: 500;
+                color: Theme.ink;
+                overflow: elide;
             }
             Text {
-                text: HomeState.online-count + " " + (HomeState.online-count == 1 ? Tr.t("Home_Joueur") : Tr.t("Home_Joueurs"))
-                    + (HomeState.online-playing > 0 ? "  ·  " + HomeState.online-playing + " " + Tr.t("Home_EnJeu") : "");
-                font-size: 14px;
-                font-weight: 700;
-                color: Theme.navy;
+                text: root.detail;
+                font-size: 12.5px;
+                color: Theme.ink-2;
+                overflow: elide;
             }
         }
+    }
+    zone := TouchArea {
+        enabled: root.cliquable;
+        mouse-cursor: root.cliquable ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+/// Pastille ronde de 44 px (lettre, nuage ou couleur) en tête d'une carte du bas.
+component RondCarte inherits Rectangle {
+    in property <string> lettre;
+    in property <bool> blanc;
+    in property <bool> nuage;
+    /// icône (IconeNuit) à la place de la lettre
+    in property <string> icone;
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
+    background: root.blanc ? Theme.active : Theme.control;
+    border-width: root.blanc ? 0px : 1.5px;
+    border-color: Theme.border-strong;
+    if root.nuage: IconeNuit {
+        nom: "nuage";
+        taille: 20px;
+        couleur: root.blanc ? Theme.on-active : Theme.icon;
+    }
+    if !root.nuage && root.icone != "": IconeNuit {
+        nom: root.icone;
+        taille: 18px;
+        couleur: root.blanc ? Theme.on-active : Theme.icon;
+    }
+    if !root.nuage && root.icone == "": Text {
+        text: root.lettre;
+        font-family: Theme.pixel-font;
+        font-weight: 700;
+        font-size: 15px;
+        color: root.blanc ? Theme.on-active : Theme.icon;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+/// Étoiles carrées du fond (comme la maquette).
+component Etoiles inherits Rectangle {
+    for e in [
+        { x: 0.44, y: 0.05, s: 6 }, { x: 0.15, y: 0.21, s: 5 }, { x: 0.54, y: 0.23, s: 6 },
+        { x: 0.64, y: 0.42, s: 5 }, { x: 0.40, y: 0.35, s: 4 }, { x: 0.08, y: 0.60, s: 5 },
+        { x: 0.59, y: 0.65, s: 6 }, { x: 0.95, y: 0.17, s: 5 }, { x: 0.30, y: 0.48, s: 4 },
+    ]: Rectangle {
+        x: root.width * e.x;
+        y: root.height * e.y;
+        width: e.s * 1px;
+        height: e.s * 1px;
+        background: Theme.star;
+        // scintille doucement, chacune à son rythme
+        opacity: 0.55 + 0.45 * (0.5 + 0.5 * sin((AppState.temps / ((5000 + e.x * 9000) * 1ms)) * 360deg));
     }
 }
 
 export component HomePage inherits Rectangle {
-    // ═══════════ Jouer : le paysage dans un cadre, le logo au milieu ═══════════
+    // ═══════════ Jouer : l'accueil de l'édition choisie ═══════════
     if SkinState.tab == 0: Rectangle {
-        border-radius: 8px;
-        border-width: 2px;
-        border-color: Theme.glass-border;
-        // voile léger en bas : la pastille et le logo restent lisibles sur le paysage
-        Rectangle {
-            border-radius: 8px;
-            background: @linear-gradient(180deg, #00000000 0%, #00000000 55%, (Theme.dark ? #05080F80 : #14203A40) 100%);
+        property <int> ed: HomeState.edition;
+        property <image> scene: self.ed == 1 ? Assets.scene-java : self.ed == 2 ? Assets.scene-bedrock : self.ed == 3 ? Assets.scene-horizon : Assets.scene-mistly;
+        // paysage en bas, sur toute la largeur, fondu dans le fond vers le haut
+        property <length> hauteur-scene: self.width * 256 / 1180;
+        Image {
+            x: 0;
+            y: parent.height - parent.hauteur-scene;
+            width: parent.width;
+            height: parent.hauteur-scene;
+            source: parent.scene;
+            image-fit: fill;
+            image-rendering: pixelated;
+            opacity: 1;
         }
-        // brume à peine visible qui passe lentement dans le cadre. Découpée à part : dans la même
-        // découpe que le logo et la pastille, elle les faisait trembler (la découpe se décalait
-        // d'une fraction de pixel avec elle)
         Rectangle {
-            border-radius: 8px;
-            clip: true;
-            for n in [
-                { y: 0.18, s: 560, p: 140000, o: 0.10 },
-                { y: 0.52, s: 720, p: 180000, o: 0.60 },
-                { y: 0.78, s: 620, p: 160000, o: 0.35 },
-            ]: Rectangle {
-                property <float> t: Math.mod(AppState.temps / (n.p * 1ms) + n.o, 1);
-                x: -n.s * 1px + (parent.width + n.s * 2px) * self.t;
-                // carrée, le dégradé s'éteint avant les bords, puis aplatie
-                y: parent.height * n.y - n.s * 0.5px;
-                width: n.s * 1px;
-                height: n.s * 1px;
-                transform-scale-y: 0.4;
-                background: @radial-gradient(circle, #FFFFFF14 0%, #FFFFFF00 65%);
-            }
+            x: 0;
+            y: parent.height - parent.hauteur-scene;
+            width: parent.width;
+            height: parent.hauteur-scene;
+            background: @linear-gradient(180deg, Theme.bg 0%, Theme.bg.with-alpha(0.96) 12%, Theme.bg.with-alpha(0.78) 30%, Theme.bg.with-alpha(0.45) 50%, Theme.bg.with-alpha(0.18) 70%, Theme.bg.with-alpha(0.04) 88%, Theme.bg.with-alpha(0) 100%);
         }
-        // le logo, comme celui de Minecraft sur la maquette
+        Etoiles { }
+
         VerticalLayout {
-            alignment: center;
-            spacing: 10px;
+            padding-left: 40px;
+            padding-right: 40px;
+            padding-bottom: 28px;
+            spacing: 20px;
+
             HorizontalLayout {
-                alignment: center;
-                OutlinedText {
-                    text: "MISTLY";
-                    font-size: min(140px, root.width / 6.5);
-                    thickness: 6px;
-                    depth: 9px;
+                vertical-stretch: 1;
+                spacing: 24px;
+                // ── Héros : titre, sous-titre, puces, JOUER ──
+                heros := Rectangle {
+                    horizontal-stretch: 1;
+                    // le visuel en pixel art, en haut à droite du héros
+                    if root.width > 1000px: Rectangle {
+                        x: heros.width - self.width - 24px;
+                        y: 20px;
+                        width: 168px;
+                        height: 168px;
+                        // flotte doucement
+                        property <length> flotte: 4px * sin((AppState.temps / 6000ms) * 360deg);
+                        if HomeState.edition == 0 || HomeState.edition == 1: Lune {
+                            y: parent.flotte;
+                            pixel: 12px;
+                        }
+                        if HomeState.edition == 2: BlocHerbe {
+                            x: 6px;
+                            y: 6px + parent.flotte;
+                            pixel: 13px;
+                        }
+                        if HomeState.edition == 3: Engrenage {
+                            y: parent.flotte;
+                            pixel: 12px;
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 22px;
+                        padding-left: 8px;
+                        // badge : la dernière version / ce qu'est l'édition
+                        HorizontalLayout {
+                            alignment: start;
+                            Rectangle {
+                                height: 36px;
+                                width: badge.preferred-width;
+                                border-radius: 18px;
+                                background: Theme.surface-2;
+                                border-width: 1.5px;
+                                border-color: Theme.border-field;
+                                badge := HorizontalLayout {
+                                    padding-left: 12px;
+                                    padding-right: 16px;
+                                    spacing: 10px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 8px;
+                                            height: 8px;
+                                            background: Theme.active;
+                                        }
+                                    }
+                                    Text {
+                                        text: HomeState.edition == 0 ? Tr.t("Home_Badge_Client")
+                                            : HomeState.edition == 1 ? Tr.t("Home_Badge_Java")
+                                            : HomeState.edition == 2 ? Tr.t("Home_Badge_Bedrock")
+                                            : Tr.t("Home_Badge_Horizon");
+                                        font-size: 13.5px;
+                                        color: Theme.icon;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 10px;
+                            Text {
+                                text: HomeState.edition == 0 ? "Mistly Client"
+                                    : HomeState.edition == 1 ? "Minecraft " + HomeState.card-version
+                                    : HomeState.edition == 2 ? "Bedrock Edition"
+                                    : "Horizon";
+                                font-size: min(64px, max(42px, (root.width - 480px) / 10));
+                                font-weight: 600;
+                                letter-spacing: -2px;
+                                color: Theme.ink-strong;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: HomeState.edition == 0 ? "Minecraft " + HomeState.misty-mc + " · Fabric"
+                                    : HomeState.edition == 1 ? Tr.t("Home_Sous_Java")
+                                    : HomeState.edition == 2 ? (HomeState.bedrock-supported ? Tr.t("Home_Sous_Bedrock") : Tr.t("Home_Bedrock_Windows"))
+                                    : Tr.t("Hz_Titre");
+                                font-size: 16px;
+                                color: Theme.ink-2;
+                                wrap: word-wrap;
+                            }
+                            if HomeState.edition == 0: HorizontalLayout {
+                                alignment: start;
+                                spacing: 8px;
+                                padding-top: 4px;
+                                Puce { text: Tr.t("Home_Puce_Menu"); }
+                                Puce { text: Tr.t("Home_Puce_Hud"); }
+                                Puce { text: Tr.t("Home_Puce_Cosmetiques"); }
+                                Puce { text: Tr.t("Home_Puce_Badge"); }
+                            }
+                        }
+                        // JOUER et ses boutons
+                        HorizontalLayout {
+                            alignment: start;
+                            spacing: 14px;
+                            if HomeState.edition != 2: PlayButton {
+                                width: 232px;
+                                height: 68px;
+                                text: HomeState.play-text;
+                                enabled: HomeState.play-enabled;
+                                clicked => { HomeState.play(); }
+                            }
+                            if HomeState.edition == 2: PlayButton {
+                                width: 232px;
+                                height: 68px;
+                                text: Tr.t("Home_Bouton_Jouer");
+                                enabled: HomeState.bedrock-available;
+                                clicked => { HomeState.bedrock-play(); }
+                            }
+                            if HomeState.edition != 2: ChoixJeu { }
+                            if HomeState.edition != 2 && HomeState.can-cancel: BoutonRond {
+                                taille: 68px;
+                                icone: "fermer";
+                                tooltip: Tr.t("Commun_Annuler");
+                                clicked => { HomeState.cancel-install(); }
+                            }
+                            if HomeState.edition != 2 && !HomeState.can-cancel && AppState.nav-dossier: BoutonRond {
+                                taille: 68px;
+                                icone: "dossier";
+                                tooltip: Tr.t("Nav_Dossier");
+                                clicked => { AppState.open-data-folder(); }
+                            }
+                            if HomeState.edition != 2: BoutonRond {
+                                taille: 68px;
+                                icone: "console";
+                                tooltip: Tr.t("Home_Console");
+                                clicked => {
+                                    ConsoleState.focused = -1;
+                                    ConsoleState.open = !ConsoleState.open;
+                                }
+                            }
+                        }
+                        // progression d'un téléchargement : des blocs pixel qui se remplissent
+                        if HomeState.progress > 0 && HomeState.progress < 1: HorizontalLayout {
+                            alignment: start;
+                            spacing: 4px;
+                            for b in 24: Rectangle {
+                                width: 14px;
+                                height: 14px;
+                                background: b < HomeState.progress * 24 ? Theme.active : Theme.control;
+                                animate background { duration: 200ms; }
+                            }
+                        }
+                    }
+                }
+                // ── Colonne de droite : amis en ligne et news ──
+                VerticalLayout {
+                    width: 340px;
+                    alignment: center;
+                    spacing: 16px;
+                    Rectangle {
+                        height: amis.preferred-height;
+                        amis := CarteAmis {
+                            width: parent.width;
+                        }
+                        if Theme.noel || Theme.halloween: Saison {
+                            x: parent.width - self.width - 26px;
+                            y: -self.height + 3px;
+                            pixel: 5px;
+                        }
+                    }
+                    if HomeState.news-items.length > 0: Rectangle {
+                        height: news.preferred-height;
+                        news := CarteNews {
+                            width: parent.width;
+                        }
+                        if Theme.noel || Theme.halloween: Saison {
+                            x: 22px;
+                            y: -self.height + 2px;
+                            pixel: 3px;
+                            variante: 1;
+                        }
+                    }
                 }
             }
+
+            // ── En bas : les parties récentes (Mistly Client, Java), l'essentiel d'Horizon ou de Bedrock ──
             HorizontalLayout {
-                alignment: center;
-                PixelLabel {
-                    text: Tr.t("Home_Badge");
-                    font-size: 13px;
-                    letter-spacing: 3px;
-                    color: Theme.dark ? #DCE6FFCC : #1C2335B3;
+                height: 84px;
+                spacing: 16px;
+                if HomeState.edition <= 1: Rectangle {
+                    horizontal-stretch: 1;
+                    HorizontalLayout {
+                        spacing: 16px;
+                        for i in min(3, HomeState.profile-items.length): CarteBas {
+                            property <ProfileItem> p: HomeState.profile-items[i];
+                            horizontal-stretch: 1;
+                            titre: i == 0 ? (HomeState.edition == 0 ? "Mistly Client" : Tr.t("Home_JeuRapide")) : self.p.name;
+                            detail: i == 0 ? (HomeState.edition == 0 ? HomeState.misty-mc + " · Fabric" : Tr.t("Home_JeuRapide_Detail")) : self.p.detail;
+                            choisi: i == HomeState.profile-index && !HomeState.horizon-selected;
+                            clicked => {
+                                if (i == 0 && HomeState.edition == 0) {
+                                    HomeState.edition-selected(0);
+                                } else {
+                                    HomeState.profile-index = i;
+                                    HomeState.profile-selected(i);
+                                }
+                            }
+                            if i == 0: RondCarte {
+                                nuage: true;
+                                blanc: i == HomeState.profile-index && !HomeState.horizon-selected;
+                            }
+                            if i > 0 && HomeState.profile-items[i].has-icon: Rectangle {
+                                width: 44px;
+                                height: 44px;
+                                border-radius: 22px;
+                                clip: true;
+                                Image {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    source: HomeState.profile-items[i].icon;
+                                    image-fit: cover;
+                                }
+                            }
+                            if i > 0 && !HomeState.profile-items[i].has-icon: RondCarte {
+                                icone: "instances";
+                            }
+                        }
+                    }
+                    if (Theme.noel || Theme.halloween) && HomeState.profile-items.length > 2: Saison {
+                        x: parent.width - self.width - 22px;
+                        y: -self.height + 2px;
+                        pixel: 4px;
+                        variante: 2;
+                    }
+                }
+                if HomeState.edition == 3: Rectangle {
+                    horizontal-stretch: 1;
+                    HorizontalLayout {
+                        spacing: 16px;
+                        CarteBas {
+                            horizontal-stretch: 1;
+                            cliquable: false;
+                            titre: "Minecraft 26.3";
+                            detail: Tr.t("Hz_Base");
+                            RondCarte { lettre: "H"; }
+                        }
+                        CarteBas {
+                            horizontal-stretch: 1;
+                            cliquable: false;
+                            titre: Tr.t("Hz_Compte");
+                            detail: Tr.t("Hz_CompteDetail");
+                            RondCarte { lettre: "M"; }
+                        }
+                        CarteBas {
+                            horizontal-stretch: 1;
+                            titre: HomeState.horizon-build != "" ? HomeState.horizon-build : Tr.t("Hz_ChoisisBuild");
+                            detail: HomeState.horizon-build-installed ? Tr.t("Hz_Installe") : Tr.t("Hz_PasInstalle");
+                            choisi: HomeState.horizon-selected;
+                            clicked => {
+                                HomeState.picker-tab = 0;
+                                HomeState.picker-horizon = true;
+                                HomeState.picker-open = true;
+                                HomeState.horizon-refresh();
+                            }
+                            RondCarte {
+                                nuage: true;
+                                blanc: HomeState.horizon-selected;
+                            }
+                        }
+                    }
+                }
+                if HomeState.edition == 2: CarteBas {
+                    horizontal-stretch: 1;
+                    cliquable: false;
+                    titre: Tr.t("Home_Bedrock_Info_Titre");
+                    detail: Tr.t("Home_Bedrock_Info");
+                    RondCarte { lettre: "B"; }
                 }
             }
-        }
-        // en bas à gauche : la dernière news, puis les joueurs en ligne
-        HorizontalLayout {
-            x: 20px;
-            y: parent.height - self.height - 20px;
-            width: self.preferred-width;
-            height: 48px;
-            spacing: 10px;
-            if HomeState.news-items.length > 0: PastilleNews { }
-            if HomeState.online-count >= 0: PastilleEnLigne { }
         }
     }
 
     // ═══════════ Skin : le studio ═══════════
-    if SkinState.tab == 1: SkinPanel { }
+    if SkinState.tab == 1: Rectangle {
+        x: 24px;
+        width: parent.width - 48px;
+        height: parent.height - 24px;
+        SkinPanel { }
+    }
 }
