@@ -267,6 +267,19 @@ pub fn installer(app: &Rc<App>) {
     studio::installer(app);
     news::installer(app);
     console::installer(app);
+
+    // captures d'écran de développement : MISTY_CAPTURE_PAGE=<numéro de `page`> ouvre cette page
+    if cfg!(debug_assertions) {
+        if let Some(n) = std::env::var("MISTY_CAPTURE_PAGE")
+            .ok()
+            .and_then(|v| v.parse::<i32>().ok())
+        {
+            let a = app.clone();
+            slint::Timer::single_shot(std::time::Duration::from_secs(2), move || {
+                nav_clicked(&a, n)
+            });
+        }
+    }
 }
 
 fn afficher_paysage(app: &App, paysage: scene::Scene) {

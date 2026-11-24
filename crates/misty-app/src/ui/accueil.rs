@@ -111,6 +111,7 @@ pub fn afficher(app: &Rc<App>) {
             name: l.nom.clone().into(),
             english: super::settings::nom_anglais(&l.code).into(),
             flag: super::settings::drapeau(&l.pays),
+            code: l.code.to_uppercase().into(),
         })
         .collect();
     let index = langues

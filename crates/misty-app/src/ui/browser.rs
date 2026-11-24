@@ -278,6 +278,80 @@ async fn rechercher(app: &Rc<App>, nouvelle: bool) {
         b(app).set_scroll_reset(b(app).get_scroll_reset() + 1);
     }
 
+    // captures d'écran de développement (sans Internet) : quelques résultats d'exemple
+    if cfg!(debug_assertions) && std::env::var_os("MISTY_CAPTURE").is_some() {
+        let exemple = |t: &str, a: &str, d: &str, c: &str, n: &str, installe: bool| ResultItem {
+            title: t.into(),
+            author: loc::tf("Explorateur_Par", &[&a]).into(),
+            description: d.into(),
+            downloads: n.into(),
+            categories: c.into(),
+            icon: images::vide(),
+            has_icon: false,
+            installed: installe,
+            busy: false,
+            button_text: if installe {
+                loc::t("Explorateur_Installe")
+            } else {
+                loc::t("Explorateur_Installer")
+            }
+            .into(),
+            button_icon: "".into(),
+        };
+        b(app).set_results(modele(vec![
+            exemple(
+                "Sodium",
+                "CaffeineMC",
+                "A much faster rendering engine, for more frames per second.",
+                "Performance",
+                "120M",
+                true,
+            ),
+            exemple(
+                "Iris Shaders",
+                "IrisShaders",
+                "Shaders, compatible with Sodium.",
+                "Graphics",
+                "60M",
+                false,
+            ),
+            exemple(
+                "Lithium",
+                "CaffeineMC",
+                "Optimizes physics, mob AI and the world without changing gameplay.",
+                "Performance",
+                "45M",
+                true,
+            ),
+            exemple(
+                "Mod Menu",
+                "Prospector",
+                "A menu to see and configure every installed mod.",
+                "Utility",
+                "80M",
+                false,
+            ),
+            exemple(
+                "Fabric API",
+                "FabricMC",
+                "The library most Fabric mods need.",
+                "Library",
+                "150M",
+                true,
+            ),
+            exemple(
+                "Entity Culling",
+                "tr7zw",
+                "Skips entities hidden behind blocks.",
+                "Performance",
+                "30M",
+                false,
+            ),
+        ]));
+        b(app).set_bottom_text("".into());
+        return;
+    }
+
     // CurseForge sans clé : on explique comment la configurer au lieu de chercher
     let source = app.browser.borrow().source.clone();
     let sans_cle = source == CURSEFORGE && !curseforge::disponible();

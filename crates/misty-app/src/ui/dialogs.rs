@@ -74,6 +74,10 @@ pub async fn info(app: &App, titre: &str, message: &str) {
 
 pub async fn erreur(app: &App, titre: &str, message: &str) {
     misty_core::systeme::journal::erreur(&format!("{titre} : {message}"));
+    // captures d'écran de développement (souvent sans Internet) : l'erreur reste dans le journal
+    if cfg!(debug_assertions) && std::env::var_os("MISTY_CAPTURE").is_some() {
+        return;
+    }
     ouvrir(app, titre, message, "OK", None, true, &[]).await;
 }
 

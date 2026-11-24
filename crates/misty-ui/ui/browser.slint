@@ -1,37 +1,312 @@
-// Explorateur de contenu Modrinth / CurseForge : recherche, tri, défilement infini, bouton d'installation.
+// Explorateur de contenu Modrinth / CurseForge (maquette Figma « Discover ») : titre, recherche et
+// tri, onglets des types de contenu et des plateformes, puis une grille de cartes à 3 colonnes
+// (défilement infini, bouton d'installation).
 
 import { Theme, Tr } from "theme.slint";
-import { BrowserState } from "state.slint";
-import { Icon, PixelLabel, BodyText, SectionTitle, GlassCard, Thumb, MButton, TabPill, GlassInput, GlassCombo } from "widgets.slint";
-import { ListView } from "std-widgets.slint";
+import { BrowserState, ResultItem } from "state.slint";
+import { Icon, IconeNuit, IconeAuto, PixelLabel, BodyText, SectionTitle, GlassCard, Thumb, MButton, IconButton, BoutonRond, GlassCombo } from "widgets.slint";
+import { ScrollView } from "std-widgets.slint";
 
-export component ContentBrowser inherits Rectangle {
+/// Pastille d'onglet (Mods, Modpacks…) : blanche quand elle est choisie.
+component OngletPastille inherits Rectangle {
+    in property <string> text;
+    in property <bool> actif;
+    in property <bool> enabled: true;
+    in property <color> point: transparent;
+    callback clicked;
+    height: 40px;
+    width: contenu.preferred-width;
+    border-radius: 20px;
+    background: root.actif ? Theme.active : zone.has-hover && root.enabled ? Theme.glass-hover : Theme.control;
+    border-width: 1.5px;
+    border-color: root.actif ? Theme.active : Theme.border-strong;
+    opacity: root.enabled ? 1 : 0.45;
+    transform-scale: zone.pressed && root.enabled ? 0.96 : 1;
+    animate background, border-color { duration: Theme.normal; easing: ease-out; }
+    animate transform-scale { duration: 140ms; easing: ease-out; }
+    contenu := HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        spacing: 8px;
+        if root.point != transparent: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 7px;
+                height: 7px;
+                border-radius: 3.5px;
+                background: root.point;
+            }
+        }
+        Text {
+            text: root.text;
+            font-family: Theme.sans-font;
+            font-size: 14px;
+            font-weight: root.actif ? 500 : 400;
+            color: root.actif ? Theme.on-active : Theme.icon;
+            vertical-alignment: center;
+        }
+    }
+    zone := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+/// Petite étiquette grise d'une carte (catégorie, téléchargements).
+component Etiquette inherits Rectangle {
+    in property <string> text;
+    in property <string> icone;
+    height: 24px;
+    width: contenu.preferred-width;
+    border-radius: 12px;
+    background: Theme.control;
+    contenu := HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 5px;
+        if root.icone != "": VerticalLayout {
+            alignment: center;
+            IconeNuit { nom: root.icone; taille: 12px; couleur: Theme.ink-4; }
+        }
+        Text {
+            text: root.text;
+            font-family: Theme.sans-font;
+            font-size: 12px;
+            color: Theme.ink-4;
+            vertical-alignment: center;
+        }
+    }
+}
+
+/// Carte d'un résultat (maquette) : icône carrée, nom, auteur, bouton d'installation rond (ou
+/// « Installé » en vert), description sur deux lignes, étiquettes.
+component CarteResultat inherits Rectangle {
+    in property <ResultItem> r;
+    callback install();
+    border-radius: 24px;
+    background: Theme.surface;
+    border-width: 1.5px;
+    border-color: survol.has-hover ? Theme.border-strong : Theme.border;
+    animate border-color { duration: Theme.normal; }
+    survol := TouchArea { }
     VerticalLayout {
-        spacing: 12px;
-
-        // Types de contenu + choix de la plateforme
+        padding: 20px;
+        spacing: 14px;
+        HorizontalLayout {
+            spacing: 14px;
+            Thumb {
+                width: 52px;
+                height: 52px;
+                radius: 16px;
+                logo-margin: 12px;
+                source: root.r.icon;
+                has-image: root.r.has-icon;
+            }
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 3px;
+                Text {
+                    text: root.r.title;
+                    font-family: Theme.sans-font;
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: Theme.ink-strong;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.r.author;
+                    font-family: Theme.sans-font;
+                    font-size: 12.5px;
+                    color: Theme.ink-3;
+                    overflow: elide;
+                }
+            }
+            // installé : pastille verte ; sinon, bouton rond de téléchargement
+            if root.r.installed: VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 32px;
+                    width: deja.preferred-width;
+                    border-radius: 16px;
+                    background: Theme.online-bg;
+                    deja := HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        spacing: 6px;
+                        VerticalLayout {
+                            alignment: center;
+                            IconeNuit { nom: "check"; taille: 14px; couleur: Theme.online-text; }
+                        }
+                        Text {
+                            text: root.r.button-text;
+                            font-family: Theme.sans-font;
+                            font-size: 12.5px;
+                            color: Theme.online-text;
+                            vertical-alignment: center;
+                        }
+                    }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.install(); }
+                    }
+                }
+            }
+            if !root.r.installed: VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: root.r.busy ? "rafraichir" : "telecharger";
+                    tooltip: root.r.button-text;
+                    enabled: !root.r.busy;
+                    clicked => { root.install(); }
+                }
+            }
+        }
+        Text {
+            vertical-stretch: 1;
+            text: root.r.description;
+            font-family: Theme.sans-font;
+            font-size: 13.5px;
+            color: Theme.ink-2;
+            wrap: word-wrap;
+            overflow: elide;
+            vertical-alignment: top;
+        }
         HorizontalLayout {
             spacing: 8px;
-            if BrowserState.types.length > 1: HorizontalLayout {
-                spacing: 8px;
-                for t[i] in BrowserState.types: TabPill {
-                    text: t.text;
-                    enabled: t.enabled;
-                    checked: i == BrowserState.type-index;
-                    clicked => {
-                        if (i != BrowserState.type-index) {
-                            BrowserState.type-index = i;
-                            BrowserState.type-changed(i);
+            alignment: start;
+            if root.r.categories != "": Etiquette { text: root.r.categories; }
+            if root.r.downloads != "": Etiquette { text: root.r.downloads; icone: "telecharger"; }
+        }
+    }
+}
+
+export component ContentBrowser inherits Rectangle {
+    /// Titre de la page (« Découvrir ») ; vide : pas de titre (onglet d'un profil)
+    in property <string> titre;
+    /// Un bouton rond de retour devant le titre
+    in property <bool> retour;
+    callback back();
+
+    VerticalLayout {
+        spacing: 20px;
+
+        // Titre, recherche, tri
+        HorizontalLayout {
+            spacing: 14px;
+            if root.retour: VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 48px;
+                    icone: "retour";
+                    tooltip: Tr.t("Profil_Retour");
+                    clicked => { root.back(); }
+                }
+            }
+            if root.titre != "": VerticalLayout {
+                alignment: center;
+                Text {
+                    text: root.titre;
+                    font-family: Theme.sans-font;
+                    font-size: 32px;
+                    font-weight: 600;
+                    letter-spacing: -1px;
+                    color: Theme.ink-strong;
+                }
+            }
+            if root.titre != "": Rectangle { width: 2px; }
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 52px;
+                border-radius: 26px;
+                background: Theme.surface-2;
+                border-width: 1.5px;
+                border-color: champ.has-focus ? Theme.ink-3 : Theme.border-field;
+                animate border-color { duration: Theme.fast; }
+                HorizontalLayout {
+                    padding-left: 20px;
+                    padding-right: 16px;
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        IconeNuit { nom: "recherche"; taille: 18px; couleur: Theme.ink-2; }
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        champ := TextInput {
+                            width: parent.width;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text <=> BrowserState.query;
+                            font-family: Theme.sans-font;
+                            font-size: 15px;
+                            color: Theme.ink;
+                            single-line: true;
+                            edited => { BrowserState.query-changed(self.text); }
+                        }
+                        Text {
+                            visible: champ.text == "";
+                            width: parent.width;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text: Tr.t("Explorateur_Recherche_Exemple");
+                            font-family: Theme.sans-font;
+                            font-size: 15px;
+                            color: Theme.ink-3;
+                            overflow: elide;
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            height: 24px;
+                            width: 26px;
+                            border-radius: 8px;
+                            background: Theme.border;
+                            Text {
+                                text: "/";
+                                font-family: Theme.mono-font;
+                                font-size: 12px;
+                                color: Theme.ink-3;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
                         }
                     }
                 }
             }
+            VerticalLayout {
+                alignment: center;
+                GlassCombo {
+                    width: 180px;
+                    model: BrowserState.sorts;
+                    current-index <=> BrowserState.sort-index;
+                    selected(i) => { BrowserState.sort-changed(i); }
+                }
+            }
+        }
+
+        // Types de contenu, puis les plateformes
+        HorizontalLayout {
+            spacing: 10px;
+            for t[i] in BrowserState.types: OngletPastille {
+                text: t.text;
+                enabled: t.enabled;
+                actif: i == BrowserState.type-index;
+                clicked => {
+                    if (i != BrowserState.type-index) {
+                        BrowserState.type-index = i;
+                        BrowserState.type-changed(i);
+                    }
+                }
+            }
             Rectangle { horizontal-stretch: 1; }
-            TabPill {
+            OngletPastille {
                 text: "Modrinth";
-                has-dot: true;
-                dot: #1BD96A;
-                checked: BrowserState.source == 0;
+                point: #1BD96A;
+                actif: BrowserState.source == 0;
                 clicked => {
                     if (BrowserState.source != 0) {
                         BrowserState.source = 0;
@@ -39,11 +314,10 @@ export component ContentBrowser inherits Rectangle {
                     }
                 }
             }
-            TabPill {
+            OngletPastille {
                 text: "CurseForge";
-                has-dot: true;
-                dot: #F16436;
-                checked: BrowserState.source == 1;
+                point: #F16436;
+                actif: BrowserState.source == 1;
                 clicked => {
                     if (BrowserState.source != 1) {
                         BrowserState.source = 1;
@@ -53,141 +327,55 @@ export component ContentBrowser inherits Rectangle {
             }
         }
 
-        // Recherche + tri
-        HorizontalLayout {
-            spacing: 10px;
-            GlassInput {
-                horizontal-stretch: 1;
-                search: true;
-                placeholder: Tr.t("Commun_Rechercher");
-                text <=> BrowserState.query;
-                edited(t) => { BrowserState.query-changed(t); }
-            }
-            GlassCombo {
-                width: 170px;
-                model: BrowserState.sorts;
-                current-index <=> BrowserState.sort-index;
-                selected(i) => { BrowserState.sort-changed(i); }
-            }
-        }
-
-        if !BrowserState.no-key: VerticalLayout {
+        // La grille des résultats (3 colonnes), chargée au fil du défilement
+        if !BrowserState.no-key: Rectangle {
             vertical-stretch: 1;
-            spacing: 8px;
-            BodyText {
-                text: BrowserState.info;
-                x: 2px;
-            }
-            liste := ListView {
-                vertical-stretch: 1;
+            grille := ScrollView {
+                property <int> colonnes: max(1, min(3, floor((self.visible-width + 16px) / (300px + 16px))));
+                property <length> case: (self.visible-width - (self.colonnes - 1) * 16px) / self.colonnes;
+                property <length> haut: 198px;
+                property <int> nombre: BrowserState.results.length;
                 // Remonte en haut de la liste quand Rust le demande
                 property <int> reset: BrowserState.scroll-reset;
-                changed reset => {
-                    self.content-y = 0;
-                }
+                changed reset => { self.content-y = 0; }
                 changed content-y => {
                     if (-self.content-y + self.visible-height >= self.content-height - 300px) {
                         BrowserState.near-end();
                     }
                 }
-                for r[i] in BrowserState.results: Rectangle {
-                    height: 96px;
-                    Rectangle {
-                        y: 0;
-                        height: parent.height - 10px;
-                        width: parent.width - 10px;
-                        border-radius: 18px;
-                        background: Theme.glass;
-                        border-width: 1.5px;
-                        border-color: Theme.glass-border;
-                        HorizontalLayout {
-                            padding-left: 14px;
-                            padding-right: 14px;
-                            padding-top: 12px;
-                            padding-bottom: 12px;
-                            spacing: 14px;
-                            Thumb {
-                                width: 58px;
-                                height: 58px;
-                                source: r.icon;
-                                has-image: r.has-icon;
-                            }
-                            VerticalLayout {
-                                horizontal-stretch: 1;
-                                alignment: center;
-                                spacing: 3px;
-                                HorizontalLayout {
-                                    spacing: 8px;
-                                    Text {
-                                        text: r.title;
-                                        font-family: Theme.ui-font;
-                                        font-weight: 600;
-                                        font-size: 15px;
-                                        color: Theme.navy;
-                                        overflow: elide;
-                                        max-width: self.preferred-width;
-                                    }
-                                    Text {
-                                        horizontal-stretch: 1;
-                                        text: r.author;
-                                        font-family: Theme.ui-font;
-                                        font-size: 12px;
-                                        color: Theme.text-muted;
-                                        vertical-alignment: center;
-                                        overflow: elide;
-                                    }
-                                }
-                                Text {
-                                    text: r.description;
-                                    font-family: Theme.ui-font;
-                                    font-size: 13px;
-                                    color: Theme.navy2;
-                                    overflow: elide;
-                                }
-                                HorizontalLayout {
-                                    spacing: 5px;
-                                    Icon {
-                                        text: "\u{E896}";
-                                        font-size: 11px;
-                                        color: Theme.label;
-                                    }
-                                    Text {
-                                        text: r.downloads;
-                                        font-family: Theme.ui-font;
-                                        font-size: 12px;
-                                        color: Theme.label;
-                                    }
-                                    Rectangle { width: 9px; }
-                                    Text {
-                                        horizontal-stretch: 1;
-                                        text: r.categories;
-                                        font-family: Theme.ui-font;
-                                        font-size: 12px;
-                                        color: Theme.text-muted;
-                                        overflow: elide;
-                                    }
-                                }
-                            }
-                            VerticalLayout {
-                                alignment: center;
-                                MButton {
-                                    width: 170px;
-                                    kind: r.installed ? 3 : 1;
-                                    text: r.button-text;
-                                    icon: r.button-icon;
-                                    enabled: !r.busy;
-                                    clicked => { BrowserState.install(i); }
-                                }
-                            }
-                        }
-                    }
+                content-width: self.visible-width;
+                content-height: ceil(self.nombre / self.colonnes) * (self.haut + 16px) + (BrowserState.bottom-text == "" ? 0px : 40px);
+
+                for r[i] in BrowserState.results: CarteResultat {
+                    x: mod(i, grille.colonnes) * (grille.case + 16px);
+                    y: floor(i / grille.colonnes) * (grille.haut + 16px);
+                    width: grille.case;
+                    height: grille.haut;
+                    r: r;
+                    install => { BrowserState.install(i); }
+                }
+                Text {
+                    x: 0;
+                    y: ceil(grille.nombre / grille.colonnes) * (grille.haut + 16px);
+                    width: grille.visible-width;
+                    height: BrowserState.bottom-text == "" ? 0px : 30px;
+                    text: BrowserState.bottom-text;
+                    font-family: Theme.mono-font;
+                    font-size: 11.5px;
+                    color: Theme.ink-3;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    overflow: elide;
                 }
             }
-            PixelLabel {
-                text: BrowserState.bottom-text;
-                font-size: 11px;
+            // aucun résultat (ou chargement) : le texte d'information, au centre
+            if BrowserState.results.length == 0: Text {
+                text: BrowserState.info;
+                font-family: Theme.sans-font;
+                font-size: 14px;
+                color: Theme.ink-3;
                 horizontal-alignment: center;
-                height: BrowserState.bottom-text == "" ? 0px : 22px;
+                vertical-alignment: center;
             }
         }
 

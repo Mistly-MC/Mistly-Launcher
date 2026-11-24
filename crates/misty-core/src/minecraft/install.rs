@@ -68,11 +68,33 @@ pub struct VersionInstallee {
     pub logging: Option<(String, PathBuf)>,
 }
 
-/// Télécharge le JSON d'une version vanilla s'il n'est pas déjà là.
+/// Télécharge le JSON d'une version vanilla s'il n'est pas déjà là, ou s'il a changé chez Mojang.
+///
+/// Mojang corrige parfois une version déjà sortie en changeant ses bibliothèques dans son JSON
+/// (faille de sécurité dans une bibliothèque, par exemple) : le manifeste donne alors une autre
+/// empreinte SHA-1. Un JSON déjà téléchargé est donc comparé au manifeste à chaque lancement, et
+/// remplacé s'il ne correspond plus ; les nouvelles bibliothèques se téléchargent ensuite comme
+/// les autres. Sans Internet, ou pour une version absente du manifeste (mod loaders), le JSON
+/// local est gardé.
 pub async fn assurer_json(dirs: &McDirs, id: &str) -> anyhow::Result<()> {
     let chemin = dirs.version_json(id);
     if chemin.exists() {
-        return Ok(());
+        // le jeu est déjà là : une connexion lente ne doit pas retarder le lancement
+        let Ok(Ok(versions)) =
+            tokio::time::timeout(std::time::Duration::from_secs(10), manifeste()).await
+        else {
+            return Ok(());
+        };
+        let Some(v) = versions.into_iter().find(|v| v.id == id) else {
+            return Ok(());
+        };
+        if json_a_jour(&chemin, &v.sha1) {
+            return Ok(());
+        }
+        crate::systeme::journal::info(&format!(
+            "Le JSON de {id} a changé chez Mojang : nouveau téléchargement"
+        ));
+        return download::fichier(&v.url, &chemin, Some(&v.sha1)).await;
     }
     let Some(v) = manifeste().await?.into_iter().find(|v| v.id == id) else {
         anyhow::bail!(crate::minecraft::InstallErreur::VersionInconnue(
@@ -80,6 +102,12 @@ pub async fn assurer_json(dirs: &McDirs, id: &str) -> anyhow::Result<()> {
         ));
     };
     download::fichier(&v.url, &chemin, Some(&v.sha1)).await
+}
+
+/// Le JSON local correspond-il à l'empreinte du manifeste ? (Sans empreinte connue : oui.)
+fn json_a_jour(chemin: &Path, sha1_attendu: &str) -> bool {
+    sha1_attendu.is_empty()
+        || download::sha1_fichier(chemin).is_ok_and(|h| h.eq_ignore_ascii_case(sha1_attendu))
 }
 
 /// Installe tout ce qu'il faut pour lancer `id` (déjà présent : vérification rapide).
@@ -390,4 +418,35 @@ pub async fn telecharger_tout(
         r?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::json_a_jour;
+
+    #[test]
+    fn json_compare_a_l_empreinte_du_manifeste() {
+        let dossier =
+            std::env::temp_dir().join(format!("misty-json-a-jour-{}", std::process::id()));
+        std::fs::create_dir_all(&dossier).unwrap();
+        let chemin = dossier.join("1.21.json");
+        std::fs::write(&chemin, b"abc").unwrap();
+        // SHA-1 de « abc »
+        assert!(json_a_jour(
+            &chemin,
+            "a9993e364706816aba3e25717850c26c9cd0d89d"
+        ));
+        assert!(json_a_jour(
+            &chemin,
+            "A9993E364706816ABA3E25717850C26C9CD0D89D"
+        ));
+        // Mojang a changé le JSON : il faut le retélécharger
+        assert!(!json_a_jour(
+            &chemin,
+            "0000000000000000000000000000000000000000"
+        ));
+        // empreinte inconnue : on garde le fichier local
+        assert!(json_a_jour(&chemin, ""));
+        let _ = std::fs::remove_dir_all(&dossier);
+    }
 }
