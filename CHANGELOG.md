@@ -1,6 +1,13 @@
 # Changelog
-## 0.4.1
+## 0.4.1-beta.1
 ### Launcher
+- New look: the Night theme. Black window, round buttons, white Play button, pixel-art scenes and the Geist font. Mist (light), Christmas and Halloween keep their own colors, and buttons, pages and menus now move smoothly
+- New top bar: pick your edition next to the logo (Mistly Client, Java, Bedrock or Horizon), then Home, Discover, Wardrobe, Instances, Packs, Friends and Settings. Your account is behind your pixel avatar, and the window buttons sit at the right end
+- Each edition has its own home page: Mistly Client (the default), Java vanilla, Horizon (Minecraft in Rust) and Bedrock, which starts the Microsoft Store version on Windows
+- New Microsoft sign-in: the launcher shows a code, you type it on microsoft.com/link in your browser. Same on Windows and Linux, no more sign-in window or address to paste. Accounts you already added keep working
+- First launch: a short welcome where you choose your language (English by default), accept the license, privacy policy and terms of use, and choose whether to share Mistly Telemetry
+- Settings, redesigned: Game (game window size, start in fullscreen), Account (ask which account to use at launch), Appearance, Language, Downloads (what takes space in the game folder, pause downloads while playing), Privacy and About
+- New installs start in English with the Night theme. Your current language and theme stay as they are
 - New Discord tile at the top of the launcher: one click opens the Mistly Discord server
 - Settings → About now shows your Mistly Client version and whether it is up to date, with an Update button that downloads the latest version right away instead of waiting for your next game
 - Links now point to mistly.cc and to the renamed Mistly-MC organisation on GitHub
