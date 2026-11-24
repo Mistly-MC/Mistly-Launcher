@@ -1,6 +1,7 @@
 # Changelog
 ## 0.4.2-beta.1
 ### Launcher
+- Security: Minecraft versions you already installed now get the library fixes Mojang publishes. Before, the launcher kept the version file it downloaded the first time, so a library Mojang replaced after a security issue (like the one fixed on November 24) stayed on the old version. At each launch the version file is now compared with Mojang's, downloaded again if it changed, and the new libraries come with it
 - Discover, Wardrobe, Texture packs and Settings now match the new design: no more frame around the pages, bigger titles, sharp icons on Linux too, and wider margins
 - Discover: one big search bar, the content type and source as pills, and results in cards of three columns
 - Wardrobe: your character on the left, every cosmetic in one grid on the right, with All, Capes, Wings, Hats and Tags tabs
