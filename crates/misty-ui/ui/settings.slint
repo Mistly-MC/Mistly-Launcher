@@ -1428,6 +1428,12 @@ export component SettingsModal inherits Rectangle {
                                 checked <=> SettingsState.seasonal;
                                 toggled(v) => { SettingsState.seasonal-toggled(v); }
                             }
+                            LigneInterrupteur {
+                                titre: Tr.t("Param_Gpu");
+                                texte: Tr.t("Param_Gpu_Texte");
+                                checked <=> SettingsState.gpu;
+                                toggled(v) => { SettingsState.gpu-toggled(v); }
+                            }
                             Ligne {
                                 titre: Tr.t("Param_FondFlou");
                                 texte: Tr.t("Param_FondFlou_Texte");

@@ -997,5 +997,7 @@
   "Pack_Recap_Taille": "Descarga",
   "Pack_Recap_Date": "Publicada",
   "Pack_Recap_Note": "Mistly instala el juego, el loader y todos los mods. Los archivos que el autor reserva a CurseForge se buscan primero en Modrinth.",
-  "Pack_Installer": "Instalar"
+  "Pack_Installer": "Instalar",
+  "Param_Gpu": "Aceleración por hardware",
+  "Param_Gpu_Texte": "Dibuja el launcher con la tarjeta gráfica. Desactivada, Mistly usa unos 150 MB menos de memoria. Se aplica al volver a abrir Mistly."
 }

@@ -67,6 +67,21 @@ fn main() {
     loc::initialiser();
     discord::definir(discord::Statut::Launcher(discord::Page::Accueil));
 
+    // Dessin de l'interface : par le processeur (logiciel) sauf si le joueur a activé
+    // l'accélération matérielle. Le rendu OpenGL charge le pilote graphique dans le launcher
+    // (environ 150 Mo de plus pour la même image). SLINT_BACKEND garde la priorité.
+    if std::env::var_os("SLINT_BACKEND").is_none()
+        && !misty_core::systeme::reglages::lire().acceleration_gpu
+    {
+        if let Err(e) = slint::BackendSelector::new()
+            .backend_name("winit".into())
+            .renderer_name("software".into())
+            .select()
+        {
+            misty_core::systeme::journal::erreur(&format!("Rendu logiciel indisponible : {e}"));
+        }
+    }
+
     let fenetre = MainWindow::new().expect("création de la fenêtre");
     let app = ui::App::new(fenetre, contexte.clone());
     APP.with(|a| *a.borrow_mut() = Some(app.clone()));

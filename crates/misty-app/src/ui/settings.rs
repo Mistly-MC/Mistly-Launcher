@@ -425,6 +425,7 @@ pub fn installer(app: &Rc<App>) {
     });
 
     let a = app.clone();
+    st.on_gpu_toggled(|actif| reglages::modifier(|r| r.acceleration_gpu = actif));
     st.on_seasonal_toggled(move |actif| {
         reglages::modifier(|r| r.saison = actif);
         super::appliquer_saison(&a);
@@ -620,6 +621,7 @@ pub fn rafraichir(app: &Rc<App>) {
     st.set_rich(discord::active());
     st.set_downloads(reglages::lire().telechargements as f32);
     st.set_seasonal(reglages::lire().saison);
+    st.set_gpu(reglages::lire().acceleration_gpu);
     st.set_console_auto(reglages::lire().console);
     st.set_share_game_data(misty_core::contenu::partage::active());
     st.set_misty_client_available(client::disponible());

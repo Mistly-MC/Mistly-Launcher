@@ -117,6 +117,10 @@ pub struct Reglages {
     /// Fenêtre floutée (flou)
     #[serde(default = "vrai")]
     pub flou: bool,
+    /// Dessin de l'interface par la carte graphique (OpenGL). Désactivé par défaut : le dessin par
+    /// le processeur utilise environ 150 Mo de mémoire de moins, pour la même image.
+    #[serde(default)]
+    pub acceleration_gpu: bool,
     /// Thèmes de saison automatiques : Halloween, Noël (saison)
     #[serde(default = "vrai")]
     pub saison: bool,

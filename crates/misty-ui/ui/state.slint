@@ -595,6 +595,9 @@ export global SettingsState {
     in-out property <float> bg-blur: 0;
     callback bg-blur-changed(float);
     in-out property <bool> seasonal: true;
+    /// Accélération matérielle (prise en compte au prochain démarrage)
+    in-out property <bool> gpu;
+    callback gpu-toggled(bool);
     callback downloads-changed(float);
     callback clear-cache();
     callback open-logs();

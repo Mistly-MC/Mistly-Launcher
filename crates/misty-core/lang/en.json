@@ -997,5 +997,7 @@
   "Pack_Recap_Taille": "Download",
   "Pack_Recap_Date": "Published",
   "Pack_Recap_Note": "Mistly installs the game, the loader and every mod. Files the author keeps off launchers are looked for on Modrinth first.",
-  "Pack_Installer": "Install"
+  "Pack_Installer": "Install",
+  "Param_Gpu": "Hardware acceleration",
+  "Param_Gpu_Texte": "Draws the launcher with the graphics card. Off, Mistly uses about 150 MB less memory. Applies the next time you open Mistly."
 }

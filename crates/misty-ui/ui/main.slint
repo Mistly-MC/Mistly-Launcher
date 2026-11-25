@@ -214,12 +214,13 @@ export component MainWindow inherits Window {
     min-width: 1040px;
     min-height: 660px;
     no-frame: true;
-    // horloge du décor : un pas toutes les 33 ms (30 images par seconde), arrêtée pendant les
-    // pauses ; elle repart d'où elle était
+    // horloge du décor : un pas toutes les 50 ms (20 images par seconde : le décor dérive
+    // lentement, et l'interface est dessinée par le processeur), arrêtée pendant les pauses ;
+    // elle repart d'où elle était
     Timer {
-        interval: 33ms;
+        interval: 50ms;
         running: AppState.anime;
-        triggered => { AppState.temps += 33ms; }
+        triggered => { AppState.temps += 50ms; }
     }
     resize-border-width: AppState.maximized ? 0px : 6px;
     // transparent : les coins arrondis du fond laissent voir le bureau
