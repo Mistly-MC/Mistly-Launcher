@@ -34,6 +34,8 @@ pub enum ContenuErreur {
     ModpackFormat,
     #[error("{}", loc::t("Erreur_PasUnModpack"))]
     PasUnModpack,
+    #[error("{}", loc::t("Erreur_PasUnMonde"))]
+    PasUnMonde,
     #[error("{}", loc::t("Erreur_ModpackSansVersion"))]
     ModpackSansVersion,
     #[error("{}", loc::t("Erreur_ModpackCFInterdit"))]
@@ -93,6 +95,7 @@ impl ContenuErreur {
             ModpackIllisible => "Erreur_ModpackIllisible",
             ModpackFormat => "Erreur_ModpackFormat",
             PasUnModpack => "Erreur_PasUnModpack",
+            PasUnMonde => "Erreur_PasUnMonde",
             ModpackSansVersion => "Erreur_ModpackSansVersion",
             ModpackInterdit => "Erreur_ModpackCFInterdit",
             SansMrpack => "Erreur_SansMrpack",

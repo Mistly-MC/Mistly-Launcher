@@ -74,6 +74,12 @@ pub fn installer(app: &Rc<App>) {
     s.on_type_changed(move |i| {
         let t = a.browser.borrow().types.get(i as usize).cloned();
         if let Some(t) = t {
+            // les maps ne sont que sur CurseForge
+            if t == content::MONDE && a.browser.borrow().source != CURSEFORGE {
+                a.browser.borrow_mut().source = CURSEFORGE.into();
+                b(&a).set_source(1);
+                remplir_tris(&a);
+            }
             a.browser.borrow_mut().type_ = t;
             rechercher_plus_tard(&a, true);
         }
@@ -85,6 +91,11 @@ pub fn installer(app: &Rc<App>) {
         } else {
             MODRINTH.into()
         };
+        // Modrinth n'a pas de maps : on revient aux modpacks
+        if i != 1 && a.browser.borrow().type_ == content::MONDE {
+            a.browser.borrow_mut().type_ = content::MODPACK.into();
+            b(&a).set_type_index(0);
+        }
         remplir_tris(&a);
         rechercher_plus_tard(&a, true);
     });
@@ -195,6 +206,7 @@ fn types_du_contexte(contexte: &Contexte) -> Vec<(String, String)> {
         Contexte::Modpacks => {
             let mut t = vec![(content::MODPACK.to_string(), loc::t("Type_Modpacks"))];
             t.extend(content::types());
+            t.push((content::MONDE.to_string(), loc::t("Type_Mondes")));
             t
         }
         Contexte::Packs => vec![(content::PACK_RESSOURCES.into(), loc::t("Type_Packs"))],

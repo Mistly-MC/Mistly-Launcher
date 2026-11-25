@@ -19,6 +19,8 @@ pub const PACK_RESSOURCES: &str = "resourcepack";
 pub const DATAPACK: &str = "datapack";
 pub const SHADER: &str = "shader";
 pub const MODPACK: &str = "modpack";
+/// Map (monde à télécharger), CurseForge seulement : extraite dans `saves`
+pub const MONDE: &str = "world";
 
 /// Un fichier désactivé est renommé "xxx.jar.disabled" (même convention que Modrinth App / Prism).
 pub const SUFFIXE_DESACTIVE: &str = ".disabled";
@@ -194,8 +196,71 @@ pub fn types() -> Vec<(String, String)> {
     ]
 }
 
+/// Extrait une map téléchargée (.zip) dans `saves` : son dossier est celui qui contient
+/// `level.dat` (à la racine de l'archive ou dans un dossier), sous un nom libre (« Nom (2) »…).
+/// L'archive est supprimée ensuite. Renvoie le dossier du monde.
+pub fn extraire_monde(archive: &Path, saves: &Path) -> anyhow::Result<PathBuf> {
+    let fichier = fs::File::open(archive)?;
+    let mut zip = zip::ZipArchive::new(fichier)?;
+    // préfixe du monde : le dossier qui contient level.dat (le moins profond)
+    let mut prefixe: Option<String> = None;
+    for i in 0..zip.len() {
+        let nom = zip.by_index(i)?.name()?.replace('\\', "/");
+        if let Some(p) = nom.strip_suffix("level.dat") {
+            if (p.is_empty() || p.ends_with('/'))
+                && prefixe.as_ref().is_none_or(|actuel| p.len() < actuel.len())
+            {
+                prefixe = Some(p.to_string());
+            }
+        }
+    }
+    let prefixe = prefixe.ok_or_else(|| anyhow::anyhow!(ContenuErreur::PasUnMonde))?;
+    let base = prefixe
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .filter(|n| !n.is_empty())
+        .map(str::to_string)
+        .or_else(|| archive.file_stem().map(|n| n.to_string_lossy().to_string()))
+        .unwrap_or_else(|| "World".into());
+    let base = download::nom_fichier_sur(&base);
+    let mut cible = saves.join(&base);
+    let mut n = 2;
+    while cible.exists() {
+        cible = saves.join(format!("{base} ({n})"));
+        n += 1;
+    }
+    fs::create_dir_all(&cible)?;
+    for i in 0..zip.len() {
+        let mut entree = zip.by_index(i)?;
+        let Some(chemin) = entree.enclosed_name() else {
+            continue; // chemin dangereux (« .. »)
+        };
+        let chemin = chemin.to_string_lossy().replace('\\', "/");
+        let Some(relatif) = chemin.strip_prefix(prefixe.as_str()) else {
+            continue;
+        };
+        if relatif.is_empty() {
+            continue;
+        }
+        let sortie = cible.join(relatif);
+        if entree.is_dir() {
+            fs::create_dir_all(&sortie)?;
+        } else {
+            if let Some(parent) = sortie.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let mut f = fs::File::create(&sortie)?;
+            std::io::copy(&mut entree, &mut f)?;
+        }
+    }
+    let _ = fs::remove_file(archive);
+    Ok(cible)
+}
+
 pub fn libelle_type(type_: &str) -> String {
     match type_ {
+        MONDE => loc::t("Type_Monde"),
         MOD => loc::t("Type_Mod"),
         PACK_RESSOURCES => loc::t("Type_Pack"),
         DATAPACK => loc::t("Type_Datapack"),
@@ -265,6 +330,7 @@ pub fn dossier(instance: &Instance, type_: &str, monde: Option<&str>) -> anyhow:
         MOD => base.join("mods"),
         PACK_RESSOURCES => base.join("resourcepacks"),
         SHADER => base.join("shaderpacks"),
+        MONDE => base.join("saves"),
         DATAPACK => base
             .join("saves")
             .join(monde.ok_or(ContenuErreur::MondeRequis)?)
@@ -900,6 +966,17 @@ fn installer_projet<'a>(
         let destination = dossier.join(download::nom_fichier_sur(&version.nom_fichier));
         source.telecharger(&version, &destination).await?;
 
+        // une map : l'archive devient un monde de `saves`
+        if type_ == MONDE {
+            let archive = destination.clone();
+            let dossier_saves = dossier.clone();
+            tokio::task::spawn_blocking(move || extraire_monde(&archive, &dossier_saves))
+                .await
+                .map_err(anyhow::Error::from)??;
+            etat.installes.push(titre);
+            return Ok(());
+        }
+
         let rel = relatif(instance, &destination);
         etat.metas.retain(|m| !m.chemin.eq_ignore_ascii_case(&rel));
         etat.metas.push(ContenuMeta {
@@ -1176,5 +1253,46 @@ mod tests_reseau {
         assert!(mettre_a_jour(&i, &contenu, &maj, None).await.is_err());
         assert!(i.dossier().join(&jei.chemin).exists());
         instances::supprimer(&i).unwrap();
+    }
+
+    #[test]
+    fn extraire_une_map() {
+        use std::io::Write;
+        let base = std::env::temp_dir().join(format!("misty-map-{}", std::process::id()));
+        let saves = base.join("saves");
+        fs::create_dir_all(&saves).unwrap();
+        let ecrire = |nom: &str, fichiers: &[&str]| {
+            let chemin = base.join(nom);
+            let mut zip = zip::ZipWriter::new(fs::File::create(&chemin).unwrap());
+            for f in fichiers {
+                zip.start_file(*f, zip::write::SimpleFileOptions::default())
+                    .unwrap();
+                zip.write_all(b"x").unwrap();
+            }
+            zip.finish().unwrap();
+            chemin
+        };
+        // le monde dans un dossier de l'archive
+        let a = ecrire(
+            "a.zip",
+            &["Skyblock/level.dat", "Skyblock/region/r.0.0.mca"],
+        );
+        let monde = extraire_monde(&a, &saves).unwrap();
+        assert_eq!(monde, saves.join("Skyblock"));
+        assert!(monde.join("region/r.0.0.mca").is_file());
+        assert!(!a.exists());
+        // le même nom une seconde fois : « (2) »
+        let b = ecrire("b.zip", &["Skyblock/level.dat"]);
+        assert_eq!(
+            extraire_monde(&b, &saves).unwrap(),
+            saves.join("Skyblock (2)")
+        );
+        // level.dat à la racine : le nom de l'archive
+        let c = ecrire("Parkour.zip", &["level.dat", "data/x.dat"]);
+        assert_eq!(extraire_monde(&c, &saves).unwrap(), saves.join("Parkour"));
+        // pas de monde
+        let d = ecrire("d.zip", &["readme.txt"]);
+        assert!(extraire_monde(&d, &saves).is_err());
+        let _ = fs::remove_dir_all(&base);
     }
 }

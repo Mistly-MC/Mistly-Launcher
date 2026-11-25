@@ -999,5 +999,8 @@
   "Pack_Recap_Note": "Mistly instala el juego, el loader y todos los mods. Los archivos que el autor reserva a CurseForge se buscan primero en Modrinth.",
   "Pack_Installer": "Instalar",
   "Param_Gpu": "Aceleración por hardware",
-  "Param_Gpu_Texte": "Dibuja el launcher con la tarjeta gráfica. Desactivada, Mistly usa unos 150 MB menos de memoria. Se aplica al volver a abrir Mistly."
+  "Param_Gpu_Texte": "Dibuja el launcher con la tarjeta gráfica. Desactivada, Mistly usa unos 150 MB menos de memoria. Se aplica al volver a abrir Mistly.",
+  "Type_Mondes": "Mapas",
+  "Type_Monde": "Mapa",
+  "Erreur_PasUnMonde": "Este archivo no contiene ningún mundo (no hay level.dat)."
 }

@@ -5,7 +5,7 @@
 //! curseforge.key (ignoré par git, intégré à l'exe à la compilation par build.rs).
 
 use crate::contenu::catalogue::{ProjetDistant, CURSEFORGE};
-use crate::contenu::content::{DATAPACK, MOD, MODPACK, PACK_RESSOURCES, SHADER};
+use crate::contenu::content::{DATAPACK, MOD, MODPACK, MONDE, PACK_RESSOURCES, SHADER};
 use crate::contenu::source::{
     Dependance, DetailsContenu, FutureSource, Recherche, SourceContenu, VersionContenu,
 };
@@ -26,6 +26,8 @@ pub const CLASSE_PACKS_RESSOURCES: i64 = 12;
 pub const CLASSE_SHADERS: i64 = 6552;
 pub const CLASSE_DATAPACKS: i64 = 6945;
 pub const CLASSE_MODPACKS: i64 = 4471;
+/// Maps (« Worlds » sur CurseForge)
+pub const CLASSE_MONDES: i64 = 17;
 
 pub const TRIS: &[(&str, &str)] = &[
     ("2", "Tri_Popularite"),
@@ -286,6 +288,7 @@ pub fn classe(type_: &str) -> i64 {
         SHADER => CLASSE_SHADERS,
         DATAPACK => CLASSE_DATAPACKS,
         MODPACK => CLASSE_MODPACKS,
+        MONDE => CLASSE_MONDES,
         _ => CLASSE_MODS,
     }
 }
@@ -563,7 +566,10 @@ pub fn fichiers_compatibles(
     let noms = noms_loader(&instance.loader);
     fichiers
         .into_iter()
-        .filter(|f| f.is_available && f.game_versions.contains(&instance.version_mc))
+        // une map s'ouvre souvent dans une version plus récente que la sienne : toutes passent
+        .filter(|f| {
+            f.is_available && (type_ == MONDE || f.game_versions.contains(&instance.version_mc))
+        })
         .filter(|f| {
             type_ != MOD
                 || f.game_versions
@@ -649,7 +655,8 @@ impl SourceContenu for CurseForge {
     ) -> FutureSource<'a, Vec<VersionContenu>> {
         Box::pin(async move {
             let mod_id = id_numerique(id)?;
-            let liste = fichiers(mod_id, Some(&instance.version_mc)).await?;
+            let version = (type_ != MONDE).then_some(instance.version_mc.as_str());
+            let liste = fichiers(mod_id, version).await?;
             Ok(fichiers_compatibles(liste, instance, type_)
                 .iter()
                 .map(|f| f.vers_contenu(mod_id))
