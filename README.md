@@ -67,7 +67,7 @@ crates/
 │   └── src/
 │       ├── auth/      Microsoft accounts, token vault (Windows Credential Manager, Linux keyring)
 │       ├── minecraft/ game install and launch (versions, Java, loaders), profiles, Mistly Client
-│       ├── contenu/   Modrinth, CurseForge, mods, modpacks, texture packs, export, sharing
+│       ├── contenu/   Modrinth, CurseForge, mods, modpacks, export, sharing
 │       ├── social/    friends, presence, Discord, offline names, Horizon
 │       ├── systeme/   paths, settings, storage, updates, logs, translations, HTTP, downloads
 │       └── media/     skins, in-game music, texture categories

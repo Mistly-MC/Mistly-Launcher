@@ -12,12 +12,10 @@ pub mod browser;
 pub mod changelog;
 pub mod console;
 pub mod dialogs;
-pub mod editor;
 pub mod home;
 pub mod images;
 pub mod instance;
 pub mod news;
-pub mod packs;
 pub mod picker;
 pub mod profiles;
 pub mod scene;
@@ -42,9 +40,7 @@ pub mod page {
     pub const PROFILS: i32 = 1;
     pub const OPTIONS: i32 = 2;
     pub const NOTES: i32 = 3;
-    pub const PACKS: i32 = 4;
     pub const INSTANCE: i32 = 5;
-    pub const EDITEUR: i32 = 6;
     /// Onglet de la barre latérale (pas une page) : l'accueil, sur le studio du skin
     pub const SKIN: i32 = 7;
     /// Amis : la liste et qui joue avec Misty Client
@@ -67,9 +63,7 @@ pub struct App {
     pub instance: RefCell<instance::Etat>,
     pub browser: RefCell<browser::Etat>,
     pub settings: RefCell<settings::Etat>,
-    pub packs: RefCell<packs::Etat>,
     pub amis: RefCell<amis::Etat>,
-    pub editor: RefCell<editor::Etat>,
     pub skin: RefCell<skin::Etat>,
     /// Liens des news du carrousel de l'accueil (vide = notes de version du launcher)
     pub news_urls: RefCell<Vec<String>>,
@@ -95,9 +89,7 @@ impl App {
             instance: RefCell::default(),
             browser: RefCell::default(),
             settings: RefCell::default(),
-            packs: RefCell::default(),
             amis: RefCell::default(),
-            editor: RefCell::default(),
             news_urls: RefCell::default(),
             skin: RefCell::default(),
         })
@@ -277,9 +269,7 @@ pub fn installer(app: &Rc<App>) {
     browser::installer(app);
     settings::installer(app);
     changelog::installer(app);
-    packs::installer(app);
     amis::installer(app);
-    editor::installer(app);
     skin::installer(app);
     studio::installer(app);
     news::installer(app);
@@ -447,8 +437,6 @@ pub fn maj_discord(app: &App, force: bool) {
             page::ACCUEIL => discord::Page::Accueil,
             page::PROFILS | page::INSTANCE => discord::Page::Profils,
             page::NOTES => discord::Page::Notes,
-            page::PACKS => discord::Page::Packs,
-            page::EDITEUR => discord::Page::Editeur,
             page::AMIS => discord::Page::Amis,
             _ => discord::Page::Accueil,
         }
@@ -777,17 +765,11 @@ fn nav_clicked(app: &Rc<App>, i: i32) {
     let etat = app.ui.global::<AppState>();
     let page = etat.get_page();
 
-    // Re-cliquer sur l'onglet actif depuis une sous-page (profil, éditeur) ramène à sa page principale
+    // Re-cliquer sur l'onglet actif depuis une sous-page (profil) ramène à sa page principale
     if i == etat.get_nav() {
         if i == page::PROFILS && page == page::INSTANCE {
             profiles::rafraichir(app);
             naviguer(app, page::PROFILS);
-        } else if i == page::PACKS && page == page::EDITEUR {
-            naviguer(app, page::PACKS);
-            packs::rafraichir(app);
-        } else if i == page::PACKS && app.ui.global::<crate::PacksState>().get_view() != 0 {
-            // depuis l'explorateur : retour à la galerie
-            app.ui.global::<crate::PacksState>().invoke_back();
         }
         return;
     }
@@ -811,10 +793,6 @@ fn nav_clicked(app: &Rc<App>, i: i32) {
     if i == page::AMIS {
         amis::ouvrir(app);
     }
-
-    if i == page::PACKS {
-        packs::rafraichir(app); // après naviguer : l'éditeur a pu enregistrer une texture
-    }
     maj_discord(app, false);
 }
 
@@ -824,13 +802,8 @@ pub fn naviguer(app: &Rc<App>, p: i32) {
     if etat.get_page() == p {
         return;
     }
-    // On quitte l'éditeur : la texture en cours ne doit pas être perdue
-    if etat.get_page() == page::EDITEUR {
-        editor::quitter(app);
-    }
     etat.set_nav(match p {
         page::INSTANCE => page::PROFILS,
-        page::EDITEUR => page::PACKS,
         autre => autre,
     });
     etat.set_page(p);
@@ -846,6 +819,5 @@ pub fn langue_changee(app: &Rc<App>) {
     instance::langue_changee(app);
     browser::langue_changee(app);
     settings::maj_textes(app);
-    editor::langue_changee(app);
     skin::langue_changee(app);
 }

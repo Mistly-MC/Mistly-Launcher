@@ -51,19 +51,6 @@ pub enum ContenuErreur {
     /// Fichier d'un modpack impossible à télécharger (chemin, puis la dernière erreur)
     #[error("{}{}", loc::tf("Erreur_Telechargement", &[.chemin]), .detail)]
     Telechargement { chemin: String, detail: String },
-    // ── Packs de textures ──
-    #[error("{}", loc::tf("Pack_VersionInconnue", &[.0]))]
-    PackVersionInconnue(String),
-    #[error("{}", loc::tf("Pack_VersionTropAncienne", &[.0]))]
-    PackVersionTropAncienne(String),
-    #[error("{}", loc::t("Pack_NomInvalide"))]
-    PackNomInvalide,
-    #[error("{}", loc::t("Pack_ExisteDeja"))]
-    PackExisteDeja,
-    #[error("{}", loc::t("Pack_ImportPasUnPack"))]
-    PackPasUnPack,
-    #[error("{}", loc::t("Pack_DistantAucunFichier"))]
-    PackAucunFichier,
     // ── Techniques ──
     #[error("Monde requis pour un datapack")]
     MondeRequis,
@@ -103,12 +90,6 @@ impl ContenuErreur {
             LoaderNonPris(_) => "Erreur_LoaderNonPris",
             Manquant(_) => "Erreur_Manquant",
             Telechargement { .. } => "Erreur_Telechargement",
-            PackVersionInconnue(_) => "Pack_VersionInconnue",
-            PackVersionTropAncienne(_) => "Pack_VersionTropAncienne",
-            PackNomInvalide => "Pack_NomInvalide",
-            PackExisteDeja => "Pack_ExisteDeja",
-            PackPasUnPack => "Pack_ImportPasUnPack",
-            PackAucunFichier => "Pack_DistantAucunFichier",
             Autre(e) => e
                 .downcast_ref::<ContenuErreur>()
                 .map(ContenuErreur::cle)

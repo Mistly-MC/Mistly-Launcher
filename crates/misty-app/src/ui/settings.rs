@@ -972,7 +972,7 @@ async fn tout_supprimer(app: &Rc<App>) {
 // ───────────────────────── Barre latérale ─────────────────────────
 
 /// Onglets de la barre latérale qu'on peut masquer (Accueil et Options restent toujours).
-const ONGLETS: &[&str] = &["skin", "profils", "notes", "packs", "amis", "dossier"];
+const ONGLETS: &[&str] = &["skin", "profils", "notes", "amis", "dossier"];
 
 /// Onglets masqués (réglage barre_masquee), sans les noms inconnus.
 fn onglets_masques() -> Vec<String> {
@@ -991,7 +991,6 @@ pub fn appliquer_barre(app: &App) {
     etat.set_nav_skin(visible("skin"));
     etat.set_nav_profils(visible("profils"));
     etat.set_nav_notes(visible("notes"));
-    etat.set_nav_packs(visible("packs"));
     etat.set_nav_amis(visible("amis"));
     etat.set_nav_dossier(visible("dossier"));
 }

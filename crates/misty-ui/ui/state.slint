@@ -30,7 +30,7 @@ export global AppState {
     /// dérive lentement, 30 images par seconde suffisent, et la fenêtre n'est pas redessinée 60 à
     /// 144 fois par seconde pour lui.
     in-out property <duration> temps;
-    /// 0 accueil, 1 profils, 2 options, 3 notes, 4 packs, 5 détail d'un profil, 6 éditeur de pack, 8 amis
+    /// 0 accueil, 1 profils, 2 options, 3 notes, 5 détail d'un profil, 8 amis
     in-out property <int> page: 0;
     /// Onglet de la barre latérale allumé
     in-out property <int> nav: 0;
@@ -38,7 +38,6 @@ export global AppState {
     in property <bool> nav-skin: true;
     in property <bool> nav-profils: true;
     in property <bool> nav-notes: true;
-    in property <bool> nav-packs: true;
     in property <bool> nav-amis: true;
     in property <bool> nav-dossier: true;
     /// Premier lancement : écran partagé en deux, Premium (compte Microsoft) ou Hors ligne (pseudo)
@@ -580,7 +579,7 @@ export global SettingsState {
     /// Serveurs et barres d'objets partagés entre les versions et les profils
     in-out property <bool> share-game-data: true;
     callback share-game-data-toggled(bool);
-    /// Barre latérale : affiche ou masque un onglet ("skin", "profils", "notes", "packs", "amis", "dossier")
+    /// Barre latérale : affiche ou masque un onglet ("skin", "profils", "notes", "amis", "dossier")
     callback sidebar-toggled(string, bool);
     /// Misty Client (le mod en jeu) : dans cet exe ou non, sa version de Minecraft, et le réglage
     in property <bool> misty-client-available;
@@ -667,123 +666,6 @@ export global ChangelogState {
     /// La version du launcher qui tourne (« 0.4.6-beta.1 »)
     in property <string> current;
     callback open-url(string);
-}
-
-// ───────────────────────── Packs de textures ─────────────────────────
-
-export struct PackCard {
-    name: string,
-    description: string,
-    version: string,
-    count: string,
-    icon: image,
-    has-icon: bool,
-    /// Quelques textures modifiées (aperçu de la carte)
-    previews: [image],
-}
-
-export global PacksState {
-    in property <[PackCard]> list;
-    in-out property <bool> creating;
-    in-out property <string> create-name;
-    in-out property <string> create-desc;
-    in property <[string]> versions;
-    in-out property <int> version-index: -1;
-    in property <string> create-info;
-    in property <bool> create-enabled: true;
-    /// 0 la galerie, 1 l'explorateur Modrinth / CurseForge
-    in-out property <int> view: 0;
-
-    callback new-pack();
-    /// Ouvrir l'explorateur des packs à importer
-    callback browse();
-    callback back();
-    /// Importer un pack de ressources (.zip)
-    callback import();
-    callback validate();
-    callback cancel-create();
-    callback edit(int);
-    callback folder(int);
-    callback export(int);
-    callback delete(int);
-}
-
-// ───────────────────────── Éditeur de pack ─────────────────────────
-
-export struct CategoryItem {
-    name: string,
-    count: string,
-}
-
-export struct TextureItem {
-    path: string,
-    thumb: image,
-    has-thumb: bool,
-    modified: bool,
-}
-
-export global EditorState {
-    in property <string> pack-name;
-    in property <image> pack-icon;
-    in property <bool> has-pack-icon;
-    in property <string> info;
-    /// 0 toutes les textures, 1 mes textures
-    in-out property <int> mode;
-    in property <string> perso-text;
-    in property <[CategoryItem]> categories;
-    in-out property <int> category-index;
-    in-out property <string> search;
-    in property <[TextureItem]> textures;
-    in property <int> selected: -1;
-    in property <string> message;
-    in property <int> scroll-reset;
-
-    in property <bool> editor-visible;
-    in property <string> texture-title;
-    in property <string> size-text;
-    in property <image> pixels;
-    in property <image> checker;
-    in property <image> grid;
-    in-out property <bool> show-grid: true;
-    in-out property <float> zoom: 10;
-    in property <length> canvas-width;
-    in property <length> canvas-height;
-    /// 0 crayon, 1 gomme, 2 pot de peinture, 3 pipette
-    in-out property <int> tool;
-    in property <color> color;
-    in-out property <string> hex-text;
-    in-out property <float> red;
-    in-out property <float> green;
-    in-out property <float> blue;
-    in property <[color]> recents;
-    in property <[color]> palette;
-    in property <bool> reset-enabled;
-    in property <bool> export-enabled: true;
-
-    callback back();
-    callback change-icon();
-    callback search-changed(string);
-    callback folder();
-    callback export();
-    callback mode-changed(int);
-    callback category-changed(int);
-    callback select(int);
-    callback zoom-changed(float);
-    callback grid-toggled(bool);
-    callback tool-changed(int);
-    callback pointer-down(length, length, bool);
-    callback pointer-move(length, length);
-    callback pointer-up();
-    callback rgb-changed();
-    callback hex-changed(string);
-    callback pick-color(color);
-    callback undo();
-    callback redo();
-    callback save();
-    callback external();
-    callback reset();
-    /// Raccourcis clavier ; renvoie true si la touche est utilisée
-    callback key(string, bool) -> bool;
 }
 
 // ───────────────────────── Amis ─────────────────────────

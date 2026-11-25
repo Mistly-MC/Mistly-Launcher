@@ -41,12 +41,12 @@ misty-core/         la logique, sans interface ni Slint
       java.rs       Java fourni par Mojang
       launch.rs     ligne de commande Java
       loaders/      Forge, NeoForge, Fabric/Quilt, OptiFine, LiteLoader
-    contenu/        Modrinth, CurseForge, catalogue, contenu des profils, modpacks, packs de
-                    textures, export, partage des serveurs entre profils
+    contenu/        Modrinth, CurseForge, catalogue, contenu des profils, modpacks, export,
+                    partage des serveurs entre profils
     social/         amis, présence, Discord, pseudos hors ligne, Horizon
     systeme/        chemins, réglages, stockage, mises à jour, lanceur fixe, raccourcis,
                     télémétrie, infos système, journal, traductions, HTTP, téléchargements
-    media/          skins (skins/ : fichiers, rendu, studio), musique en jeu, catégories de textures
+    media/          skins (skins/ : fichiers, rendu, studio), musique en jeu
 misty-ui/           l'interface Slint : à part, pour qu'une modification du code Rust ne
                     recompile pas les ~20 Mo de Rust générés par Slint (4 s au lieu de 20)
   ui/
@@ -54,7 +54,7 @@ misty-ui/           l'interface Slint : à part, pour qu'une modification du cod
     widgets.slint   boutons, listes déroulantes, interrupteurs, curseurs…
     state.slint     état de chaque page, partagé avec Rust (les « globals »)
     main.slint      fenêtre, barre latérale, boîte de dialogue
-    home / profiles / instance / browser / settings / changelog / packs / editor .slint
+    home / profiles / instance / browser / settings / changelog / friends / console .slint
 misty-app/          l'application : produit Misty.exe
   build.rs          icône et infos de l'exe
   assets/           polices, drapeaux, icône, curseurs

@@ -12,6 +12,7 @@
 - Profiles show their content (number of mods), and the second New profile button under the list is gone
 - The window can no longer be made smaller than the size the interface is designed for
 - Fixed: the green dot of Friends online showed even when nobody was online
+- The Texture packs page and its pack editor are removed; resource packs can still be installed in a profile from Discover
 - Fixed: the languages in Settings were too close together
 ## 0.4.5-beta.1
 ### Launcher

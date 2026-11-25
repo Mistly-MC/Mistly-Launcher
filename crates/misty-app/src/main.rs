@@ -288,7 +288,7 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
             let _ = slint::quit_event_loop();
             return;
         }
-        // MISTY_CAPTURE_AMIS : profils, packs de textures et amis, en clair, en sombre et en fenêtre minimale
+        // MISTY_CAPTURE_AMIS : profils et amis, en clair, en sombre et en fenêtre minimale
         if std::env::var("MISTY_CAPTURE_AMIS").is_ok() {
             if app.ui.global::<DialogState>().get_visible() {
                 app.ui.global::<DialogState>().invoke_cancel();
@@ -305,37 +305,6 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
                 app.ui.global::<AppState>().invoke_nav_clicked(1);
                 attendre(1500).await;
                 photo(&app, &format!("profils-{suffixe}"), &dossier);
-                app.ui.global::<AppState>().invoke_nav_clicked(4);
-                attendre(1500).await;
-                photo(&app, &format!("packs-{suffixe}"), &dossier);
-                app.ui.global::<PacksState>().invoke_browse();
-                attendre(4000).await;
-                photo(&app, &format!("packs-parcourir-{suffixe}"), &dossier);
-                // une fois : le premier pack est vraiment importé (dans le dossier de test)
-                if mode == 0 && taille.is_none() {
-                    app.ui.global::<BrowserState>().invoke_install(0);
-                    attendre(15000).await;
-                    photo(&app, "packs-parcourir-importe", &dossier);
-                }
-                app.ui.global::<PacksState>().invoke_back();
-                attendre(1200).await;
-                if mode == 0 && taille.is_none() {
-                    photo(&app, "packs-apres-import", &dossier);
-                    // le pack importé (le dernier de la liste) est supprimé : l'explorateur ne doit
-                    // plus le dire « Importé »
-                    let n = slint::Model::row_count(&app.ui.global::<PacksState>().get_list());
-                    if n > 0 {
-                        app.ui.global::<PacksState>().invoke_delete(n as i32 - 1);
-                        attendre(800).await;
-                        app.ui.global::<DialogState>().invoke_ok();
-                        attendre(800).await;
-                        app.ui.global::<PacksState>().invoke_browse();
-                        attendre(2000).await;
-                        photo(&app, "packs-parcourir-apres-suppression", &dossier);
-                        app.ui.global::<PacksState>().invoke_back();
-                        attendre(1200).await;
-                    }
-                }
                 app.ui.global::<AppState>().invoke_nav_clicked(8);
                 attendre(6000).await;
                 photo(&app, &format!("amis-{suffixe}"), &dossier);
@@ -464,16 +433,9 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
         } else {
             mode_avant
         });
-        for (page, nom) in [
-            (1, "1-profils"),
-            (3, "3-notes"),
-            (4, "4-packs"),
-            (8, "7-amis"),
-        ] {
-            match page {
-                1 => ui::profiles::rafraichir(&app),
-                4 => ui::packs::rafraichir(&app),
-                _ => {}
+        for (page, nom) in [(1, "1-profils"), (3, "3-notes"), (8, "7-amis")] {
+            if page == 1 {
+                ui::profiles::rafraichir(&app);
             }
             etat.set_nav(page);
             etat.set_page(page);
@@ -491,18 +453,6 @@ fn capture(app: &Rc<ui::App>, dossier: std::path::PathBuf) {
             app.ui.global::<InstanceState>().invoke_tab_changed(1);
             attendre(5000).await;
             photo(&app, "6-decouvrir", &dossier);
-        }
-        // Données de démonstration (MISTY_DATA_DIR) : pas d'éditeur, il téléchargerait le jeu pour ses textures
-        let demo = std::env::var_os("MISTY_DATA_DIR").is_some();
-        if let Some(p) = misty_core::contenu::packs::lister()
-            .into_iter()
-            .find(|p| !demo && !p.version_mc.is_empty())
-        {
-            ui::editor::ouvrir(&app, p);
-            attendre(5000).await;
-            app.ui.global::<EditorState>().invoke_select(0);
-            attendre(1500).await;
-            photo(&app, "7-editeur", &dossier);
         }
         // Fenêtre agrandie : la mise en page doit suivre
         app.ui.global::<AppState>().set_page(0);

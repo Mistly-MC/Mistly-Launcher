@@ -2,7 +2,7 @@
 // dialogue et les boutons de la fenêtre.
 
 import { Theme, Tr, Assets, Bulle } from "theme.slint";
-import { AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, PacksState, EditorState, FriendsState } from "state.slint";
+import { AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, FriendsState } from "state.slint";
 import { Icon, PixelLabel, BodyText, SectionTitle, IconButton, ChromeButton, MButton, SlimProgress, Spinner, OutlinedText, IconeNuit, IconeAuto } from "widgets.slint";
 import { BarreHaut } from "dock.slint";
 import { ChoixCompte } from "bienvenue.slint";
@@ -14,15 +14,13 @@ import { SettingsModal } from "settings.slint";
 import { ChangelogPage } from "changelog.slint";
 import { FriendsPage } from "friends.slint";
 import { SkinState } from "skin.slint";
-import { PacksPage, PackCreateOverlay } from "packs.slint";
-import { EditorPage } from "editor.slint";
 import { ScrollView, Palette } from "std-widgets.slint";
 import { VersionPicker } from "versions.slint";
 import { ConsoleOverlay, ConsoleState, LogLine, LogPane } from "console.slint";
 
 export { ConsoleState, LogLine, LogPane }
 export { BienvenueState, ConnexionState }
-export { Theme, Tr, Assets, Bulle, AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, PacksState, EditorState, SkinState, FriendsState }
+export { Theme, Tr, Assets, Bulle, AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, SkinState, FriendsState }
 
 /// Bouton rond de la fenêtre (réduire, agrandir, fermer) : 30 px, rouge au survol pour fermer.
 component BoutonFenetre inherits Rectangle {
@@ -327,11 +325,9 @@ export component MainWindow inherits Window {
                         height: parent.height - root.marge;
                         Onglet { actif: AppState.page == 1; ProfilesPage { } }
                         Onglet { actif: AppState.page == 3; ChangelogPage { } }
-                        Onglet { actif: AppState.page == 4; PacksPage { } }
                         Onglet { actif: AppState.page == 8; FriendsPage { } }
                         // Le détail d'un profil et l'éditeur sont recréés à chaque ouverture.
                         if AppState.page == 5: Apparition { InstancePage { } }
-                        if AppState.page == 6: Apparition { EditorPage { } }
                     }
                 }
                 Rectangle {
@@ -384,7 +380,6 @@ export component MainWindow inherits Window {
         if ProfilesState.creating: ProfileCreateOverlay { }
         if ProfilesState.waiting: ProfileWaitOverlay { }
         if ProfilesState.pack-open: ModpackInstallOverlay { }
-        if PacksState.creating: PackCreateOverlay { }
 
         // ═══ Console du jeu ═══
         // sous la rangée du haut, qui reste utilisable (onglets, tuile Logs, boutons de la fenêtre)

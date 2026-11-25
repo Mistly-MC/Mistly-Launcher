@@ -1466,7 +1466,6 @@ export component SettingsModal inherits Rectangle {
                             LigneOnglet { icone: "accueil"; titre: Tr.t("Onglet_Jouer"); texte: Tr.t("Param_Barre_Toujours"); verrouille: true; checked: true; }
                             LigneOnglet { icone: "garde-robe"; titre: Tr.t("Onglet_Skin"); checked: AppState.nav-skin; toggled(v) => { SettingsState.sidebar-toggled("skin", v); } }
                             LigneOnglet { icone: "instances"; titre: Tr.t("Onglet_Profils"); checked: AppState.nav-profils; toggled(v) => { SettingsState.sidebar-toggled("profils", v); } }
-                            LigneOnglet { icone: "couches"; titre: Tr.t("Onglet_Packs"); checked: AppState.nav-packs; toggled(v) => { SettingsState.sidebar-toggled("packs", v); } }
                             LigneOnglet { icone: "amis"; titre: Tr.t("Onglet_Amis"); checked: AppState.nav-amis; toggled(v) => { SettingsState.sidebar-toggled("amis", v); } }
                             LigneOnglet { icone: "info"; titre: Tr.t("Onglet_Notes"); checked: AppState.nav-notes; toggled(v) => { SettingsState.sidebar-toggled("notes", v); } }
                             LigneOnglet { icone: "dossier"; titre: Tr.t("Nav_Dossier"); checked: AppState.nav-dossier; toggled(v) => { SettingsState.sidebar-toggled("dossier", v); } }
