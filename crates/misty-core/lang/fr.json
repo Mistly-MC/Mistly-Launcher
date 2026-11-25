@@ -953,5 +953,7 @@
   "Amis_Demande_Recue": "Veut être ton ami",
   "Amis_Demande_Envoyee": "Demande envoyée",
   "Amis_Refuser": "Refuser",
-  "Amis_Annuler_Demande": "Annuler la demande"
+  "Amis_Annuler_Demande": "Annuler la demande",
+  "Console_Sautees": "{0} lignes passées dans la console (trop par seconde) ; elles sont dans le fichier du journal",
+  "Console_Attendre": "Les logs viennent d'être envoyés : attends {0} s avant de recommencer"
 }

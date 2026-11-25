@@ -1,10 +1,22 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 // Fenêtre de choix de la version : une affiche par mise à jour (1.21 Tricky Trials…) illustrée en
 // pixel art, et à droite le détail de celle choisie (bannière, versions, mod loader, un bouton qui
 // confirme). En haut, filtres par type, puis Misty Client et Horizon, et recherche.
 
 import { Theme, Tr, Assets } from "theme.slint";
 import { HomeState, VersionItem, ProfileItem, VersionGroup, HorizonBuild } from "state.slint";
-import { Icon, PixelLabel, BodyText, GlassInput, MButton, OutlinedText, IconButton, BoutonRond } from "widgets.slint";
+import { Icon, PixelLabel, BodyText, GlassInput, MButton, OutlinedText, IconButton, BoutonRond, IconeNuit } from "widgets.slint";
 import { ScrollView } from "std-widgets.slint";
 
 /// Pastille de filtre (type, loader, onglet).
@@ -205,28 +217,38 @@ component PuceMisty inherits Rectangle {
     in property <string> version;
     in property <bool> checked;
     callback clicked;
-    height: 42px;
-    border-radius: 18px;
-    background: root.checked ? Theme.accent : zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
+    height: 56px;
+    border-radius: 20px;
+    background: root.checked ? Theme.active : zone.has-hover ? Theme.surface-2 : Theme.surface;
     border-width: 1.5px;
-    border-color: root.checked ? Theme.accent : Theme.glass-border;
-    animate background { duration: Theme.normal; }
+    border-color: root.checked ? Theme.active : zone.has-hover ? Theme.border-strong : Theme.border;
+    animate background, border-color { duration: Theme.normal; }
     HorizontalLayout {
-        padding-left: 16px;
-        alignment: start;
-        spacing: 10px;
-        Icon {
-            text: "\u{E753}";
-            font-size: 14px;
-            color: root.checked ? white : Theme.accent;
-            vertical-alignment: center;
+        padding-left: 20px;
+        padding-right: 20px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Image {
+                width: 18px;
+                height: 18px;
+                source: Assets.logo;
+                colorize: root.checked ? Theme.on-active : Theme.ink-3;
+                image-fit: contain;
+            }
         }
         Text {
-            text: "MISTLY " + root.version;
-            font-family: Theme.ui-font;
-            font-size: 12px;
-            color: root.checked ? white : Theme.navy;
+            horizontal-stretch: 1;
+            text: "Mistly " + root.version;
+            font-family: Theme.sans-font;
+            font-size: 14.5px;
+            font-weight: 500;
+            color: root.checked ? Theme.on-active : Theme.ink;
             vertical-alignment: center;
+        }
+        if root.checked: VerticalLayout {
+            alignment: center;
+            IconeNuit { nom: "check"; taille: 14px; couleur: Theme.on-active; }
         }
     }
     zone := TouchArea {
@@ -250,10 +272,10 @@ component PanneauMisty inherits HorizontalLayout {
         grille-misty := ScrollView {
             vertical-stretch: 1;
             content-width: self.visible-width;
-            content-height: HomeState.misty-versions.length * 50px + 8px;
+            content-height: HomeState.misty-versions.length * 64px + 8px;
             for v[i] in HomeState.misty-versions: PuceMisty {
                 x: 4px;
-                y: 4px + i * 50px;
+                y: 4px + i * 64px;
                 width: grille-misty.visible-width - 8px;
                 version: v;
                 checked: HomeState.misty-selected && v == HomeState.misty-mc;
@@ -352,17 +374,14 @@ component PuceBuild inherits Rectangle {
     in property <HorizonBuild> b;
     in property <bool> checked;
     property <bool> charge: HomeState.horizon-busy && HomeState.horizon-busy-tag == root.b.tag;
-    height: 42px;
-    border-radius: 18px;
+    height: 56px;
+    border-radius: 20px;
     clip: true;
-    background: root.checked ? #F0795A : zone.has-hover ? Theme.glass-hover : Theme.glass-strong;
+    background: root.checked ? Theme.active : zone.has-hover ? Theme.surface-2 : Theme.surface;
     border-width: 1.5px;
-    border-color: root.checked ? #F0795A : zone.has-hover ? #F0795A88 : Theme.glass-border;
-    opacity: root.b.installed || root.charge || zone.has-hover ? 1 : 0.7;
-    drop-shadow-blur: root.checked ? 16px : 0px;
-    drop-shadow-color: #F0795A66;
-    transform-scale: zone.pressed ? 0.95 : zone.has-hover ? 1.04 : 1;
-    animate background, border-color, drop-shadow-blur, opacity { duration: Theme.normal; }
+    border-color: root.checked ? Theme.active : zone.has-hover ? Theme.border-strong : Theme.border;
+    transform-scale: zone.pressed ? 0.99 : 1;
+    animate background, border-color { duration: Theme.normal; }
     animate transform-scale { duration: 160ms; easing: ease-out; }
     // téléchargement : la puce se remplit
     if root.charge: Rectangle {
@@ -371,31 +390,34 @@ component PuceBuild inherits Rectangle {
         background: #F0795A40;
     }
     HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 7px;
-        alignment: center;
+        padding-left: 20px;
+        padding-right: 20px;
+        spacing: 12px;
         VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 6px;
-                height: 6px;
+                width: 8px;
+                height: 8px;
                 border-radius: 2px;
-                background: root.checked ? white : root.b.nightly ? #FFBE5A : #4ADE80;
+                background: root.b.nightly ? #FFBE5A : #4ADE80;
             }
         }
         Text {
-            text: root.b.nightly && root.b.date != "" ? root.b.date : root.b.tag;
-            font-family: Theme.ui-font;
-            font-size: 12px;
-            color: root.checked ? white : Theme.navy;
+            horizontal-stretch: 1;
+            text: root.b.nightly && root.b.date != "" ? "Nightly · " + root.b.date : root.b.tag;
+            font-family: Theme.sans-font;
+            font-size: 14.5px;
+            font-weight: 500;
+            color: root.checked ? Theme.on-active : Theme.ink;
             vertical-alignment: center;
             overflow: elide;
         }
-        Icon {
-            text: root.b.installed ? "\u{E73E}" : "\u{E896}";
-            font-size: 10px;
-            color: root.checked ? white : root.b.installed ? #4ADE80 : Theme.text-muted;
+        Text {
+            text: root.b.installed ? Tr.t("Hz_Installe") : Tr.t("Hz_PasInstalle");
+            font-family: Theme.sans-font;
+            font-size: 12.5px;
+            color: root.checked ? Theme.on-active.with-alpha(0.7) : root.b.installed ? Theme.online-text : Theme.ink-3;
+            vertical-alignment: center;
         }
     }
     zone := TouchArea {
@@ -432,13 +454,13 @@ component PanneauHorizon inherits HorizontalLayout {
             property <int> colonnes: 1;
             property <length> largeur: (self.visible-width - 8px - (self.colonnes - 1) * 8px) / self.colonnes;
             content-width: self.visible-width;
-            content-height: ceil(HomeState.horizon-visibles / self.colonnes) * 50px + 10px;
+            content-height: ceil(HomeState.horizon-visibles / self.colonnes) * 64px + 10px;
             // les builds filtrés (Tous, Nightly, Stables) sont rangés à la suite
             for b[i] in HomeState.horizon-builds: PuceBuild {
                 property <int> rang: HomeState.horizon-ranks[i];
                 visible: self.rang >= 0;
                 x: 4px + Math.mod(max(0, self.rang), grille-builds.colonnes) * (grille-builds.largeur + 8px);
-                y: 4px + floor(max(0, self.rang) / grille-builds.colonnes) * 50px;
+                y: 4px + floor(max(0, self.rang) / grille-builds.colonnes) * 64px;
                 width: grille-builds.largeur;
                 b: b;
                 checked: HomeState.horizon-selected && b.tag == HomeState.horizon-build;

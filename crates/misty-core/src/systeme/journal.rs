@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 //! Journaux : celui du launcher (`logs/misty/launcher.log`) et la console des parties.
 //!
 //! Plusieurs parties peuvent tourner en même temps : chacune a sa console (ses dernières lignes
@@ -77,7 +89,16 @@ struct Partie {
     /// Des lignes attendent dans le tampon
     en_attente: bool,
     pid: Option<u32>,
+    /// Limite des lignes affichées : début de la seconde en cours, lignes reçues pendant elle, et
+    /// lignes passées (gardées dans le fichier, pas dans la console)
+    seconde: Instant,
+    dans_la_seconde: u32,
+    sautees: u64,
 }
+
+/// Une partie qui écrit plus que ça par seconde (une boucle d'erreurs…) ne noie pas la console :
+/// le reste de la seconde va seulement dans le fichier, et une ligne dit combien ont été passées.
+const MAX_PAR_SECONDE: u32 = 300;
 
 /// Le fichier d'une partie est à jour sur le disque à ce délai près.
 const VIDAGE: Duration = Duration::from_millis(500);
@@ -200,6 +221,9 @@ pub fn nouvelle_partie(titre: &str) -> u64 {
             vide: Instant::now(),
             en_attente: false,
             pid: None,
+            seconde: Instant::now(),
+            dans_la_seconde: 0,
+            sautees: 0,
         });
         id
     };
@@ -238,6 +262,13 @@ fn menage(d: &std::path::Path) {
     }
 }
 
+fn pousser(p: &mut Partie, texte: String, niveau: i32) {
+    if p.lignes.len() >= MAX_LIGNES {
+        p.lignes.pop_front();
+    }
+    p.lignes.push_back(Ligne { texte, niveau });
+}
+
 /// Ajoute une ligne à la console d'une partie (et à son fichier).
 pub fn ajouter(id: u64, texte: &str, niveau: i32) {
     avec(id, |p| {
@@ -258,13 +289,22 @@ pub fn ajouter(id: u64, texte: &str, niveau: i32) {
             ERREUR => p.etat.erreurs += 1,
             _ => {}
         }
-        if p.lignes.len() >= MAX_LIGNES {
-            p.lignes.pop_front();
+        // trop de lignes cette seconde : seulement dans le fichier (les erreurs passent quand même)
+        if p.seconde.elapsed() >= Duration::from_secs(1) {
+            if p.sautees > 0 {
+                let resume = crate::systeme::loc::tf("Console_Sautees", &[&p.sautees]);
+                pousser(p, format!("[{}] [Mistly] {resume}", heure()), MISTY);
+                p.sautees = 0;
+            }
+            p.seconde = Instant::now();
+            p.dans_la_seconde = 0;
         }
-        p.lignes.push_back(Ligne {
-            texte: texte.to_string(),
-            niveau,
-        });
+        p.dans_la_seconde += 1;
+        if p.dans_la_seconde > MAX_PAR_SECONDE && niveau != ERREUR {
+            p.sautees += 1;
+            return;
+        }
+        pousser(p, texte.to_string(), niveau);
     });
 }
 
@@ -639,6 +679,9 @@ mod tests {
                 vide: Instant::now(),
                 en_attente: false,
                 pid: None,
+                seconde: Instant::now(),
+                dans_la_seconde: 0,
+                sautees: 0,
             });
             id
         };

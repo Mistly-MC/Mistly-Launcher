@@ -953,5 +953,7 @@
   "Amis_Demande_Recue": "Quiere ser tu amigo",
   "Amis_Demande_Envoyee": "Solicitud enviada",
   "Amis_Refuser": "Rechazar",
-  "Amis_Annuler_Demande": "Cancelar la solicitud"
+  "Amis_Annuler_Demande": "Cancelar la solicitud",
+  "Console_Sautees": "{0} líneas omitidas en la consola (demasiadas por segundo); están en el archivo de registro",
+  "Console_Attendre": "Los registros se acaban de enviar: espera {0} s antes de enviarlos de nuevo"
 }

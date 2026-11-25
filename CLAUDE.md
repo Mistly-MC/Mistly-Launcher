@@ -12,6 +12,7 @@ Workspace Cargo à la racine du repo (détail dans `crates/README.md`) :
 - Dossier de données, client HTTP et runtime : `misty_core::systeme::contexte` (créé et installé dans `main`, lu par `paths::data_dir()` et `http::client()`). Un test qui touche au dossier de données prend `let _garde = contexte::pour_test(&dossier_temporaire);` : jamais les vraies données du joueur, sans variable d'environnement.
 - Erreurs de `misty-core` : une enum `thiserror` par domaine (`AuthErreur`, `InstallErreur`, `ContenuErreur`, `MajErreur`) avec `cle()` (clé de traduction) ; `misty-app` garde `anyhow`.
 - `crates/misty-app` : `main.rs`, `ui/*.rs` (le code des pages), `assets/` ; produit `Misty.exe`.
+- `crates/misty-setup` : la fenêtre de l'installateur Windows (`Mistly-Setup.exe`, publiée sous le nom `Misty-Setup-<version>.exe`). Elle contient l'installateur Inno Setup (`installer/Misty.iss`, compilé par `installer/build.ps1`) et le lance sans fenêtre (`/VERYSILENT /DIR=…`) : AppId, désinstallation et raccourcis restent ceux d'Inno Setup.
 
 ## Cloner et compiler
 
@@ -32,6 +33,7 @@ cargo run                   # lancer le launcher
 ## Conventions du code
 
 - **Identifiants et commentaires en français** (`executer`, `fenetre`, `dossier`…), comme le reste du code. Garder ce style.
+- Chaque fichier source (`.rs`, `.slint`, scripts de `installer/`) commence par l'en-tête ASCII Mistly (logo et liens) : le garder, et le copier dans un nouveau fichier.
 - Textes de l'interface : jamais en dur. Ajouter la clé dans **les 6 fichiers** `crates/misty-core/lang/*.json` (en, fr, es, it, pt, ru), puis l'utiliser avec `loc::t("Cle")`.
 - Nouveau réglage : ajouter un champ à `Reglages` (`crates/misty-core/src/systeme/reglages.rs`) avec `#[serde(default)]` (ou `#[serde(default = "…")]`), puis `reglages::lire().champ` / `reglages::modifier(|r| r.champ = …)`. Pas de version à incrémenter : un ancien `reglages.json` reçoit la valeur par défaut. Ne jamais renommer ni changer le type d'un champ existant sans migration (sinon le joueur perd ce réglage).
 - Ne pas modifier `GITHUB_REPO` (`app_info.rs`, `Mistly-MC/Mistly-Launcher`) ni l'`AppId` de `installer/Misty.iss` : les mises à jour automatiques et l'installateur en dépendent.

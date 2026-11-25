@@ -4,13 +4,13 @@
 #   crates/misty-app   l'application : main.rs, fenêtres, code des pages ; produit Misty.exe
 [workspace]
 resolver = "2"
-members = ["crates/misty-core", "crates/misty-ui", "crates/misty-app"]
+members = ["crates/misty-core", "crates/misty-ui", "crates/misty-app", "crates/misty-setup"]
 default-members = ["crates/misty-app", "crates/misty-core"]
 
 [workspace.package]
 # Seule source de la version du launcher (app_info::VERSION, installer/build.ps1, release.yml).
 # Le tag de la release GitHub (sans « v ») doit être identique.
-version = "0.4.6-beta.1"
+version = "0.4.7-beta.1"
 edition = "2021"
 authors = ["xTheoxreborn"]
 license-file = "LICENSE.txt"

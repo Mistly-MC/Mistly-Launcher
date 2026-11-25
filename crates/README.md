@@ -55,6 +55,8 @@ misty-ui/           l'interface Slint : à part, pour qu'une modification du cod
     state.slint     état de chaque page, partagé avec Rust (les « globals »)
     main.slint      fenêtre, barre latérale, boîte de dialogue
     home / profiles / instance / browser / settings / changelog / friends / console .slint
+misty-setup/        la fenêtre de l'installateur (Mistly-Setup.exe), qui contient l'installateur
+                    Inno Setup (installer/Misty.iss) et le lance sans fenêtre
 misty-app/          l'application : produit Misty.exe
   build.rs          icône et infos de l'exe
   assets/           polices, drapeaux, icône, curseurs

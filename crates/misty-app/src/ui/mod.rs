@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 //! Interface : relie les pages Slint (ui/*.slint) aux services.
 //!
 //! Principe :
@@ -161,6 +173,7 @@ pub fn installer(app: &Rc<App>) {
     // Traductions
     ui.global::<Tr>().on_lookup(|cle| loc::t(&cle).into());
     ui.global::<Assets>().set_logo(images::logo_nuage());
+    ui.global::<AppState>().set_coins_carres(cfg!(not(windows)));
     // version sous la barre latérale : « v0.3.8 » puis « beta.3 » sur sa propre ligne (la barre est étroite)
     ui.global::<AppState>().set_version_text(
         format!("v{}", misty_core::systeme::app_info::VERSION)

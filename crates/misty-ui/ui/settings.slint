@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 // Page des options (à la place de la page ouverte, sous la barre du haut), comme sur le Figma :
 // les sections à gauche (Game, Account, Appearance, Language, Downloads, Privacy, About), les
 // réglages à droite dans des cartes. Les réglages simples sont empilés dans une même carte,
@@ -1467,7 +1479,7 @@ export component SettingsModal inherits Rectangle {
                             LigneOnglet { icone: "garde-robe"; titre: Tr.t("Onglet_Skin"); checked: AppState.nav-skin; toggled(v) => { SettingsState.sidebar-toggled("skin", v); } }
                             LigneOnglet { icone: "instances"; titre: Tr.t("Onglet_Profils"); checked: AppState.nav-profils; toggled(v) => { SettingsState.sidebar-toggled("profils", v); } }
                             LigneOnglet { icone: "amis"; titre: Tr.t("Onglet_Amis"); checked: AppState.nav-amis; toggled(v) => { SettingsState.sidebar-toggled("amis", v); } }
-                            LigneOnglet { icone: "info"; titre: Tr.t("Onglet_Notes"); checked: AppState.nav-notes; toggled(v) => { SettingsState.sidebar-toggled("notes", v); } }
+                            LigneOnglet { icone: "notes"; titre: Tr.t("Onglet_Notes"); checked: AppState.nav-notes; toggled(v) => { SettingsState.sidebar-toggled("notes", v); } }
                             LigneOnglet { icone: "dossier"; titre: Tr.t("Nav_Dossier"); checked: AppState.nav-dossier; toggled(v) => { SettingsState.sidebar-toggled("dossier", v); } }
                             LigneOnglet { icone: "reglages"; titre: Tr.t("Nav_Options"); texte: Tr.t("Param_Barre_Toujours"); verrouille: true; checked: true; }
                         }

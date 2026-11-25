@@ -953,5 +953,7 @@
   "Amis_Demande_Recue": "Wants to be your friend",
   "Amis_Demande_Envoyee": "Request sent",
   "Amis_Refuser": "Decline",
-  "Amis_Annuler_Demande": "Cancel the request"
+  "Amis_Annuler_Demande": "Cancel the request",
+  "Console_Sautees": "{0} lines skipped in the console (too many per second); they are in the log file",
+  "Console_Attendre": "Logs were just sent: wait {0} s before sending again"
 }

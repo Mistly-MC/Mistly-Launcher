@@ -1,0 +1,26 @@
+[package]
+name = "misty-setup"
+description = "Installateur de Mistly Launcher"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+build = "build.rs"
+
+# Mistly-Setup.exe : la fenêtre d'installation, qui contient l'installateur Inno Setup
+# (installer/Misty.iss) et le lance sans fenêtre. Voir installer/build.ps1.
+[[bin]]
+name = "Mistly-Setup"
+path = "src/main.rs"
+
+[dependencies]
+slint.workspace = true
+rfd.workspace = true
+dirs.workspace = true
+open.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true
+winresource.workspace = true

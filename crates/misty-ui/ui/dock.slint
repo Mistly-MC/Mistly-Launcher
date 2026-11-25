@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 // Barre du haut du thème Nuit (0.4.1), comme la maquette Figma : le logo, le choix de l'édition
 // (Mistly Client · Java · Bedrock · Horizon), les boutons ronds des pages, l'avatar du compte, puis
 // la place des boutons de la fenêtre (dessinés par main.slint, au-dessus de tout).
@@ -438,6 +450,16 @@ export component BarreHaut inherits Rectangle {
                     tooltip: Tr.t("Onglet_Amis");
                     actif: AppState.nav == 8 && !SettingsState.open;
                     clicked => { AppState.nav-clicked(8); }
+                }
+            }
+            if AppState.nav-notes: VerticalLayout {
+                alignment: center;
+                BoutonRond {
+                    taille: 44px;
+                    icone: "notes";
+                    tooltip: Tr.t("Home_Notes");
+                    actif: AppState.nav == 3 && !SettingsState.open;
+                    clicked => { AppState.nav-clicked(3); }
                 }
             }
             VerticalLayout {

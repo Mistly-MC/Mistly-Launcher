@@ -1,13 +1,26 @@
-﻿<#
+﻿#  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+#  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+#  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+#  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+#  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+#  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+#
+#  Mistly Launcher · https://mistly.cc
+#  Code : https://github.com/Mistly-MC/Mistly-Launcher
+#  Discord : https://discord.gg/rdQJUgvUh3
+#  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+#
+<#
 .SYNOPSIS
-    Prépare une release de Misty (version Rust) : exe, zip (portable + mise à jour automatique), installateur.
+    Prépare une release de Mistly Launcher : exe, zip (portable + mise à jour automatique), installateur.
 
 .DESCRIPTION
     Produit dans publish\ :
       - Misty-<version>\            l'application (un seul fichier : Misty.exe)
       - Misty-<version>.zip         version portable, à joindre aussi à la release GitHub
                                     (c'est ce zip que télécharge la mise à jour automatique)
-      - Misty-Setup-<version>.exe   l'installateur (nécessite Inno Setup 6.3+)
+      - Misty-Setup-<version>.exe   l'installateur : la fenêtre Mistly (crates\misty-setup), qui
+                                    contient l'installateur Inno Setup (nécessite Inno Setup 6.3+)
 
     La version est lue dans Cargo.toml à la racine ([workspace.package], seule source de la version).
 
@@ -31,7 +44,7 @@ $projet = $racine
 $cargo = Get-Content (Join-Path $projet "Cargo.toml") -Raw
 if ($cargo -notmatch '(?m)^version = "([^"]+)"') { throw "Version introuvable dans Cargo.toml" }
 $version = $Matches[1]
-Write-Host "Misty $version" -ForegroundColor Cyan
+Write-Host "Mistly Launcher $version" -ForegroundColor Cyan
 
 $publish = Join-Path $racine "publish"
 $dossier = Join-Path $publish "Misty-$version"
@@ -96,6 +109,22 @@ if (-not $Iscc) {
 
 & $Iscc "/DVersion=$version" "/DNumVersion=$($version -replace '-.*$', '')" "/DSource=$dossier" "/DSortie=$publish" (Join-Path $PSScriptRoot "Misty.iss")
 if ($LASTEXITCODE -ne 0) { throw "ISCC a échoué" }
+
+# ── Fenêtre d'installation (crates\misty-setup) : elle contient l'installateur Inno Setup et le
+#    lance sans fenêtre, avec le dossier choisi ──
+$interne = Join-Path $publish "Mistly-Setup-Inno-$version.exe"
+Signer $interne
+$env:MISTY_SETUP_INTERIEUR = $interne
+Push-Location $projet
+try {
+    cargo build --release -p misty-setup
+    if ($LASTEXITCODE -ne 0) { throw "cargo build (misty-setup) a échoué" }
+} finally {
+    Pop-Location
+    Remove-Item Env:\MISTY_SETUP_INTERIEUR
+}
+Copy-Item (Join-Path $projet "target\release\Mistly-Setup.exe") (Join-Path $publish "Misty-Setup-$version.exe") -Force
+Remove-Item $interne
 
 Signer (Join-Path $publish "Misty-Setup-$version.exe")
 Write-Host "Installateur : $(Join-Path $publish "Misty-Setup-$version.exe")" -ForegroundColor Green

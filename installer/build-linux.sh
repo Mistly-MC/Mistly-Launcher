@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
+#  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+#  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+#  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+#  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+#  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+#  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+#
+#  Mistly Launcher · https://mistly.cc
+#  Code : https://github.com/Mistly-MC/Mistly-Launcher
+#  Discord : https://discord.gg/rdQJUgvUh3
+#  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+#
 # Prépare la version Linux de Mistly : publish/Misty-<version>/ et
 # publish/Misty-<version>-linux-x86_64.tar.gz (portable + mise à jour automatique).
 #
