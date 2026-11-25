@@ -62,7 +62,7 @@ uuid = { version = "1", features = ["v4"] }
 # Connexion Microsoft (auth/account.rs) : OAuth 2 par code d'appareil et renouvellement (oauth2),
 # puis Xbox Live → Minecraft (minecraft-msa-auth). Les deux utilisent le reqwest 0.12 du launcher.
 oauth2 = { version = "5", default-features = false, features = ["reqwest"] }
-minecraft-msa-auth = "0.4"
+minecraft-msa-auth = "0.5"
 # Lecture du xuid dans le jeton Minecraft (JWT)
 base64 = "0.22"
 # Windows
