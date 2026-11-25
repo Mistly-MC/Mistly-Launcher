@@ -1002,5 +1002,7 @@
   "Param_Gpu_Texte": "Dessine le launcher avec la carte graphique. Désactivée, Mistly utilise environ 150 Mo de mémoire en moins. Prise en compte au prochain démarrage.",
   "Type_Mondes": "Maps",
   "Type_Monde": "Map",
-  "Erreur_PasUnMonde": "Cette archive ne contient pas de monde (pas de level.dat)."
+  "Erreur_PasUnMonde": "Cette archive ne contient pas de monde (pas de level.dat).",
+  "Cos_Oreilles": "Oreilles de lapin",
+  "Cos_AilesBrume": "Ailes de brume"
 }

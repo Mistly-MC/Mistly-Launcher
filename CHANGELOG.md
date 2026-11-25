@@ -1,4 +1,11 @@
 # Changelog
+## 0.4.4-beta.2
+### Launcher
+- The 3D cosmetics of the Mistly website are in the Wardrobe: Cloudly and the bunny ears on the head, and the Mist Wings on the back, worn on top of your cape. They are free for everyone for now
+- Discover now has Maps from CurseForge: pick a profile and the world appears in its saves
+- Fixed: the versions column of the modpack window was too narrow
+- Fixed: your head went past its round frame at the top right, and so did your friends' heads
+- Fixed: the edition selector (Mistly Client, Java, Bedrock, Horizon) showed in the Wardrobe
 ## 0.4.4-beta.1
 ### Launcher
 - Mistly uses much less memory: the interface is now drawn by the processor (about 90 MB instead of 250 MB). Settings → Appearance → Hardware acceleration brings back drawing by the graphics card

@@ -1002,5 +1002,7 @@
   "Param_Gpu_Texte": "Desenha o launcher com a placa de vídeo. Desativada, o Mistly usa cerca de 150 MB a menos de memória. Vale na próxima vez que abrir o Mistly.",
   "Type_Mondes": "Mapas",
   "Type_Monde": "Mapa",
-  "Erreur_PasUnMonde": "Este arquivo não contém um mundo (sem level.dat)."
+  "Erreur_PasUnMonde": "Este arquivo não contém um mundo (sem level.dat).",
+  "Cos_Oreilles": "Orelhas de coelho",
+  "Cos_AilesBrume": "Asas de névoa"
 }

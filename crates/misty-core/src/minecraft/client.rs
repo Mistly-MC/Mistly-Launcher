@@ -49,7 +49,9 @@ pub const CLOUDLY: &str = "cloudly";
 pub const TAGS: &[&str] = &["nuage"];
 
 const DOS: &[&str] = &[CAPE, ELYTRES, CAPE_EARLY];
-const CHAPEAUX: &[&str] = &[CLOUDLY];
+/// Oreilles de lapin (modèle du site ; Mistly Client ne les montre pas encore en jeu)
+pub const OREILLES: &str = "bunny";
+const CHAPEAUX: &[&str] = &[CLOUDLY, OREILLES];
 
 // ───────────────────────── Les jars : liste, téléchargement ─────────────────────────
 

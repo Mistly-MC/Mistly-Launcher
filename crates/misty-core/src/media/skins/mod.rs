@@ -6,9 +6,11 @@ use serde::{Deserialize, Serialize};
 
 // Sous-modules : fichiers (historique, cache), rendu (vues fixes), studio (aperçu en temps réel)
 mod fichiers;
+mod modele;
 mod rendu;
 mod studio;
 pub use fichiers::*;
+pub use modele::{apercu as apercu_modele, modele, Attache, Modele3d};
 pub use rendu::*;
 pub use studio::*;
 

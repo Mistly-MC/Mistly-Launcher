@@ -44,6 +44,12 @@ export global SkinState {
     in property <bool> misty-cape-ok: true;
     in property <bool> misty-elytra-ok: true;
     in property <bool> misty-cloudly-ok: true;
+    /// Cosmétiques 3D du site, gratuits pour tous pour l'instant : oreilles de lapin (chapeau) et
+    /// ailes de brume (portées en plus de la cape)
+    in-out property <bool> misty-bunny: false;
+    in-out property <bool> misty-wings: false;
+    in property <image> misty-bunny-img;
+    in property <image> misty-wings-img;
     in property <image> misty-early-cape;
     in property <image> misty-cloudly;
     /// Misty Client (le mod en jeu) est dans ce launcher : l'article équipé se voit en jeu
@@ -842,13 +848,19 @@ export component SkinPanel inherits Rectangle {
     // élytres, Cloudly, les deux étiquettes)
     property <int> n-mojang: root.voir-capes ? SkinState.capes.length : 0;
     property <int> i-ailes: root.voir-capes ? root.n-mojang + 2 : 0;
-    property <int> i-chapeau: root.i-ailes + (root.voir-ailes ? 1 : 0);
-    property <int> i-tags: root.i-chapeau + (root.voir-chapeaux ? 1 : 0);
+    property <int> i-chapeau: root.i-ailes + (root.voir-ailes ? 2 : 0);
+    property <int> i-tags: root.i-chapeau + (root.voir-chapeaux ? 2 : 0);
     property <int> total: root.i-tags + (root.voir-tags ? 2 : 0);
     property <bool> cape-misty: SkinState.misty-equip == 1 || SkinState.misty-equip == 3;
     function essayer(genre: int) {
         if (genre == 4) {
             SkinState.misty-hat = !SkinState.misty-hat;
+            SkinState.misty-bunny = false;
+        } else if (genre == 5) {
+            SkinState.misty-bunny = !SkinState.misty-bunny;
+            SkinState.misty-hat = false;
+        } else if (genre == 6) {
+            SkinState.misty-wings = !SkinState.misty-wings;
         } else {
             SkinState.misty-equip = SkinState.misty-equip == genre ? 0 : genre;
             if (genre == 1 || genre == 3) {
@@ -1034,6 +1046,18 @@ export component SkinPanel inherits Rectangle {
                     verrou: !SkinState.misty-elytra-ok;
                     clicked => { root.essayer(2); }
                 }
+                if root.voir-ailes: TuileCos {
+                    x: Math.mod(root.i-ailes + 1, 3) * (grille.case + 14px);
+                    y: floor((root.i-ailes + 1) / 3) * (grille.haut + 14px);
+                    width: grille.case;
+                    height: grille.haut;
+                    nom: Tr.t("Cos_AilesBrume");
+                    image: SkinState.misty-wings-img;
+                    a-image: true;
+                    forme: 1;
+                    equipe: SkinState.misty-wings;
+                    clicked => { root.essayer(6); }
+                }
                 if root.voir-chapeaux: TuileCos {
                     x: Math.mod(root.i-chapeau, 3) * (grille.case + 14px);
                     y: floor(root.i-chapeau / 3) * (grille.haut + 14px);
@@ -1046,6 +1070,18 @@ export component SkinPanel inherits Rectangle {
                     equipe: SkinState.misty-hat;
                     verrou: !SkinState.misty-cloudly-ok;
                     clicked => { root.essayer(4); }
+                }
+                if root.voir-chapeaux: TuileCos {
+                    x: Math.mod(root.i-chapeau + 1, 3) * (grille.case + 14px);
+                    y: floor((root.i-chapeau + 1) / 3) * (grille.haut + 14px);
+                    width: grille.case;
+                    height: grille.haut;
+                    nom: Tr.t("Cos_Oreilles");
+                    image: SkinState.misty-bunny-img;
+                    a-image: true;
+                    forme: 1;
+                    equipe: SkinState.misty-bunny;
+                    clicked => { root.essayer(5); }
                 }
                 if root.voir-tags: Rectangle {
                     for t[k] in ["", "nuage"]: TuileCos {

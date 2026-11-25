@@ -154,6 +154,9 @@ pub struct Reglages {
     /// Chapeau porté : "" aucun, "cloudly" (voir minecraft::client) (chapeau)
     #[serde(default)]
     pub chapeau: String,
+    /// Ailes de brume (modèle du site), portées en plus de la cape
+    #[serde(default)]
+    pub ailes_brume: bool,
     /// JOUER lance la version Mistly (Fabric + Mistly Client). None : pas encore choisi (mistychoisi)
     #[serde(default)]
     pub misty_choisi: Option<bool>,

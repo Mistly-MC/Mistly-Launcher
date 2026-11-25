@@ -1002,5 +1002,7 @@
   "Param_Gpu_Texte": "Draws the launcher with the graphics card. Off, Mistly uses about 150 MB less memory. Applies the next time you open Mistly.",
   "Type_Mondes": "Maps",
   "Type_Monde": "Map",
-  "Erreur_PasUnMonde": "This archive has no world in it (no level.dat)."
+  "Erreur_PasUnMonde": "This archive has no world in it (no level.dat).",
+  "Cos_Oreilles": "Bunny ears",
+  "Cos_AilesBrume": "Mist Wings"
 }
