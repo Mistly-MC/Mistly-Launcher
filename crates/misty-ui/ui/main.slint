@@ -10,7 +10,7 @@ import { Bienvenue, BienvenueState, ConnexionCode, ConnexionState } from "accuei
 import { HomePage } from "home.slint";
 import { ProfilesPage, ProfileCreateOverlay, ProfileWaitOverlay } from "profiles.slint";
 import { InstancePage } from "instance.slint";
-import { SettingsModal, StorageOverlay } from "settings.slint";
+import { SettingsModal } from "settings.slint";
 import { ChangelogPage } from "changelog.slint";
 import { FriendsPage } from "friends.slint";
 import { SkinState } from "skin.slint";
@@ -360,7 +360,6 @@ export component MainWindow inherits Window {
         if ProfilesState.creating: ProfileCreateOverlay { }
         if ProfilesState.waiting: ProfileWaitOverlay { }
         if PacksState.creating: PackCreateOverlay { }
-        if SettingsState.storage-open: StorageOverlay { }
 
         // ═══ Console du jeu ═══
         // sous la rangée du haut, qui reste utilisable (onglets, tuile Logs, boutons de la fenêtre)

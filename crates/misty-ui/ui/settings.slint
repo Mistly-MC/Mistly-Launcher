@@ -731,6 +731,226 @@ component Resultat inherits Rectangle {
     }
 }
 
+// ───────────────────────── Gestion du stockage ─────────────────────────
+
+/// Nuances de la barre du stockage : de la plus claire à la plus sombre, une par catégorie.
+global Nuances {
+    out property <[color]> liste: [#F1F2F4, #C9CCD3, #A2A6AF, #858A94, #6A6F79, #545861, #43464E, #34373D, #2A2C31];
+    public pure function de(i: int) -> color {
+        return self.liste[Math.mod(i, self.liste.length)];
+    }
+}
+
+/// Une ligne de la page du stockage : la pastille de sa couleur (catégories), le nom, l'info, la
+/// taille et la corbeille. Les lignes d'une catégorie ouverte sont en retrait.
+component LigneStockage inherits Rectangle {
+    in property <StorageRow> r;
+    in property <color> nuance;
+    in property <bool> trait: true;
+    min-height: rangee.preferred-height;
+    if root.trait: Trait { }
+    Rectangle {
+        y: 1.5px;
+        height: parent.height - 1.5px;
+        border-radius: 14px;
+        background: zone.has-hover && root.r.expandable ? Theme.surface-2 : transparent;
+        animate background { duration: Theme.fast; }
+    }
+    zone := TouchArea {
+        enabled: root.r.expandable;
+        mouse-cursor: root.r.expandable ? pointer : default;
+        clicked => { SettingsState.storage-toggle(root.r.cle); }
+    }
+    rangee := HorizontalLayout {
+        padding-left: root.r.niveau == 0 ? 20px : 52px;
+        padding-right: 16px;
+        padding-top: root.r.niveau == 0 ? 14px : 10px;
+        padding-bottom: root.r.niveau == 0 ? 14px : 10px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            width: 16px;
+            if root.r.niveau == 0: Rectangle {
+                width: 12px;
+                height: 12px;
+                border-radius: 3px;
+                background: root.nuance;
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+            Text {
+                text: root.r.nom;
+                font-family: Theme.sans-font;
+                font-size: root.r.niveau == 0 ? 14px : 13px;
+                font-weight: root.r.niveau == 0 ? 500 : 400;
+                color: Theme.ink;
+                overflow: elide;
+            }
+            if root.r.info != "": Text {
+                text: root.r.info;
+                font-family: Theme.sans-font;
+                font-size: 12px;
+                color: root.r.reste ? Theme.danger : Theme.ink-3;
+                overflow: elide;
+            }
+        }
+        Text {
+            text: root.r.size-text;
+            font-family: Theme.mono-font;
+            font-size: 13px;
+            color: Theme.ink;
+            vertical-alignment: center;
+        }
+        VerticalLayout {
+            alignment: center;
+            width: 36px;
+            if root.r.expandable: Rectangle {
+                width: 16px;
+                height: 16px;
+                transform-rotation: root.r.expanded ? 180deg : 0deg;
+                animate transform-rotation { duration: Theme.normal; }
+                IconeNuit {
+                    nom: "chevron";
+                    taille: 14px;
+                    couleur: Theme.ink-3;
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            width: 40px;
+            if root.r.locked: IconeNuit {
+                nom: "cadenas";
+                taille: 15px;
+                couleur: Theme.ink-4;
+            }
+            if !root.r.locked: Rond {
+                icone: "poubelle";
+                clicked => { SettingsState.storage-delete(root.r.cle); }
+            }
+        }
+    }
+}
+
+/// La page du stockage, à la place des réglages (bouton « Manage storage » des
+/// téléchargements) : le total, une barre fragmentée (une part par catégorie), puis les
+/// catégories, à ouvrir pour voir et supprimer leur contenu.
+component PageStockage inherits VerticalLayout {
+    padding-top: 12px;
+    spacing: 14px;
+    // en-tête : retour, titre, total
+    HorizontalLayout {
+        spacing: 14px;
+        height: 44px;
+        Rectangle {
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
+            background: retour.has-hover ? Theme.border-strong : Theme.control;
+            border-width: 1.5px;
+            border-color: Theme.border-strong;
+            animate background { duration: Theme.fast; }
+            IconeNuit {
+                nom: "retour";
+                taille: 16px;
+                couleur: Theme.icon;
+            }
+            retour := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { SettingsState.storage-close(); }
+            }
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: Tr.t("Stock_Titre");
+            font-family: Theme.sans-font;
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            color: Theme.ink-strong;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            text: SettingsState.storage-busy ? "…" : SettingsState.storage-total;
+            font-family: Theme.mono-font;
+            font-size: 22px;
+            font-weight: 500;
+            color: Theme.ink-strong;
+            vertical-alignment: center;
+        }
+    }
+    // la barre fragmentée
+    Carte {
+        vertical-stretch: 0;
+        spacing: 14px;
+        Text {
+            text: Tr.t("Stock_Intro");
+            font-family: Theme.sans-font;
+            font-size: 12.5px;
+            color: Theme.ink-3;
+            wrap: word-wrap;
+        }
+        HorizontalLayout {
+            height: 34px;
+            spacing: 0px;
+            for r[i] in SettingsState.storage-rows: Rectangle {
+                // seules les catégories (niveau 0) ont une part ; les autres ne prennent pas de place
+                horizontal-stretch: r.niveau == 0 ? max(0.004, r.fraction) : 0;
+                min-width: 0px;
+                preferred-width: 0px;
+                max-width: r.niveau == 0 ? 100000px : 0px;
+                Rectangle {
+                    x: 0;
+                    width: max(0px, parent.width - 4px);
+                    border-radius: 6px;
+                    background: Nuances.de(i);
+                    animate width { duration: 420ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+                }
+            }
+        }
+    }
+    // les catégories
+    if SettingsState.storage-busy: Carte {
+        vertical-stretch: 1;
+        Text {
+            text: Tr.t("Options_Calcul");
+            font-family: Theme.sans-font;
+            font-size: 13px;
+            color: Theme.ink-3;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+    if !SettingsState.storage-busy: Rectangle {
+        vertical-stretch: 1;
+        border-radius: 24px;
+        background: Theme.surface;
+        border-width: 1.5px;
+        border-color: Theme.border;
+        clip: true;
+        ScrollView {
+            x: 10px;
+            y: 10px;
+            width: parent.width - 20px;
+            height: parent.height - 20px;
+            content-width: self.visible-width;
+            content-height: liste.preferred-height;
+            liste := VerticalLayout {
+                width: parent.visible-width;
+                for r[i] in SettingsState.storage-rows: LigneStockage {
+                    r: r;
+                    nuance: Nuances.de(i);
+                    trait: i > 0 && r.niveau == 0;
+                }
+            }
+        }
+    }
+}
+
 // ───────────────────────── La page des options ─────────────────────────
 
 /// Section de la colonne de gauche : une pastille de 48 px, pleine quand elle est ouverte.
@@ -831,9 +1051,15 @@ export component SettingsModal inherits Rectangle {
                 }
             }
 
-            // ═══ Les réglages ═══
+            // ═══ Les réglages (ou la page du stockage, à la place) ═══
+            Rectangle {
+            horizontal-stretch: 1;
+            if SettingsState.storage-open: PageStockage {
+                width: parent.width;
+                height: parent.height;
+            }
             ScrollView {
-                horizontal-stretch: 1;
+                visible: !SettingsState.storage-open;
                 content-width: self.visible-width;
                 content-height: contenu.preferred-height;
 
@@ -1357,6 +1583,14 @@ export component SettingsModal inherits Rectangle {
                                         clicked => { SettingsState.clear-cache(); }
                                     }
                                 }
+                                VerticalLayout {
+                                    alignment: center;
+                                    MButton {
+                                        kind: 1;
+                                        text: Tr.t("Stock_Gerer");
+                                        clicked => { SettingsState.storage-show(); }
+                                    }
+                                }
                             }
                             // une part par catégorie, de la plus grosse (blanc) à la plus petite
                             barre := Rectangle {
@@ -1443,13 +1677,7 @@ export component SettingsModal inherits Rectangle {
                                     alignment: center;
                                     Valeur { text: SettingsState.size-text; }
                                 }
-                                VerticalLayout {
-                                    alignment: center;
-                                    MButton {
-                                        text: Tr.t("Stock_Gerer");
-                                        clicked => { SettingsState.storage-show(); }
-                                    }
-                                }
+
                             }
                             Ligne {
                                 titre: Tr.t("Options_ToutSupprimer");
@@ -1621,150 +1849,6 @@ export component SettingsModal inherits Rectangle {
                     }
                 }
             }
-        }
-    }
-}
-
-// ───────────────────────── Gestion du stockage ─────────────────────────
-
-component LigneStockage inherits Rectangle {
-    in property <StorageRow> r;
-    height: r.niveau == 0 ? 62px : 46px;
-    border-radius: 12px;
-    background: r.niveau == 0 ? Theme.glass-strong : Theme.glass;
-    border-width: 1px;
-    border-color: r.reste ? #FF5A6E88 : Theme.glass-border;
-
-    // barre de proportion (poids relatif dans le dossier de données)
-    if r.niveau == 0 && !r.locked: Rectangle {
-        x: 14px;
-        y: parent.height - 9px;
-        height: 3px;
-        width: max(4px, (parent.width - 28px) * r.fraction);
-        border-radius: 2px;
-        background: Theme.steel;
-    }
-
-    TouchArea {
-        enabled: r.expandable;
-        clicked => { SettingsState.storage-toggle(r.cle); }
-    }
-    HorizontalLayout {
-        padding-left: r.niveau == 0 ? 14px : 40px;
-        padding-right: 10px;
-        padding-top: 6px;
-        padding-bottom: r.niveau == 0 ? 12px : 6px;
-        spacing: 10px;
-        Icon {
-            width: 16px;
-            text: r.locked ? "\u{E72E}" : r.expandable ? (r.expanded ? "\u{E70D}" : "\u{E76C}") : "";
-            font-size: 12px;
-            color: Theme.text-muted;
-        }
-        VerticalLayout {
-            horizontal-stretch: 1;
-            alignment: center;
-            spacing: 1px;
-            Text {
-                text: r.nom;
-                font-family: Theme.ui-font;
-                font-size: r.niveau == 0 ? 14px : 13px;
-                font-weight: r.niveau == 0 ? 700 : 500;
-                color: Theme.text;
-                overflow: elide;
-            }
-            if r.info != "": Text {
-                text: r.info;
-                font-family: Theme.ui-font;
-                font-size: 11px;
-                color: r.reste ? Theme.danger : Theme.text-muted;
-                overflow: elide;
-            }
-        }
-        Text {
-            text: r.size-text;
-            font-family: Theme.ui-font;
-            font-size: 13px;
-            font-weight: 600;
-            color: Theme.navy;
-            vertical-alignment: center;
-        }
-        if !r.locked: IconButton {
-            icon: "\u{E74D}";
-            tooltip: Tr.t("Stock_Supprimer");
-            width: 34px;
-            height: 34px;
-            y: (parent.height - self.height) / 2;
-            clicked => { SettingsState.storage-delete(r.cle); }
-        }
-        if r.locked: Rectangle { width: 34px; }
-    }
-}
-
-/// Fenêtre modale : couvre toute la fenêtre de l'application (posée par main.slint).
-export component StorageOverlay inherits Rectangle {
-    background: Theme.scrim;
-    opacity: 0;
-    animate opacity { duration: 200ms; }
-    init => { self.opacity = 1; }
-    TouchArea {
-        clicked => { SettingsState.storage-close(); }
-    }
-    Rectangle {
-        width: min(640px, parent.width - 40px);
-        height: min(620px, parent.height - 40px);
-        border-radius: 24px;
-        background: Theme.surface;
-        border-width: 1px;
-        border-color: Theme.glass-border;
-        drop-shadow-blur: 40px;
-        drop-shadow-color: Theme.shadow;
-        transform-scale: 0.95;
-        animate transform-scale { duration: 320ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
-        init => { self.transform-scale = 1; }
-        TouchArea { }
-        VerticalLayout {
-            padding: 24px;
-            spacing: 10px;
-            HorizontalLayout {
-                spacing: 10px;
-                SectionTitle {
-                    text: Tr.t("Stock_Titre");
-                    horizontal-stretch: 1;
-                    vertical-alignment: center;
-                }
-                PixelLabel {
-                    text: SettingsState.storage-total;
-                    font-size: 13px;
-                    color: Theme.navy;
-                    vertical-alignment: center;
-                }
-            }
-            BodyText { text: Tr.t("Stock_Intro"); wrap: word-wrap; }
-            if SettingsState.storage-busy: Rectangle {
-                vertical-stretch: 1;
-                Text {
-                    text: Tr.t("Options_Calcul");
-                    font-family: Theme.ui-font;
-                    font-size: 13px;
-                    color: Theme.text-muted;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                }
-            }
-            if !SettingsState.storage-busy: ScrollView {
-                vertical-stretch: 1;
-                VerticalLayout {
-                    spacing: 6px;
-                    for r in SettingsState.storage-rows: LigneStockage { r: r; }
-                }
-            }
-            HorizontalLayout {
-                alignment: end;
-                MButton {
-                    text: Tr.t("Commun_Fermer");
-                    clicked => { SettingsState.storage-close(); }
-                }
             }
         }
     }
