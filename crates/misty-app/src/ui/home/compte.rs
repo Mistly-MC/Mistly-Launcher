@@ -159,7 +159,9 @@ pub(super) fn maj_avatar(app: &Rc<App>) {
             }
             if let Some(tete) = tete {
                 h(&a).set_has_avatar(true);
-                h(&a).set_avatar(slint::Image::from_rgba8(images::tampon(&tete)));
+                h(&a).set_avatar(images::rond(&slint::Image::from_rgba8(images::tampon(
+                    &tete,
+                ))));
             }
             return;
         }
@@ -172,7 +174,7 @@ pub(super) fn maj_avatar(app: &Rc<App>) {
             return; // le compte a changé entre-temps
         }
         h(&a).set_has_avatar(image.is_some());
-        h(&a).set_avatar(image.unwrap_or_default());
+        h(&a).set_avatar(image.map(|i| images::rond(&i)).unwrap_or_default());
     });
 }
 

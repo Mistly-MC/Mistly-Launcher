@@ -409,9 +409,11 @@ export component ModpackInstallOverlay inherits Rectangle {
             HorizontalLayout {
                 vertical-stretch: 1;
                 spacing: 16px;
-                // versions
+                // versions (la moitié de la largeur : leurs noms sont longs)
                 VerticalLayout {
-                    horizontal-stretch: 3;
+                    horizontal-stretch: 1;
+                    min-width: 300px;
+                    preferred-width: 0px;
                     spacing: 10px;
                     Rubrique { text: Tr.t("Pack_Versions"); }
                     Rectangle {
@@ -454,7 +456,9 @@ export component ModpackInstallOverlay inherits Rectangle {
                 }
                 // récapitulatif
                 VerticalLayout {
-                    horizontal-stretch: 2;
+                    horizontal-stretch: 1;
+                    min-width: 260px;
+                    preferred-width: 0px;
                     spacing: 10px;
                     Rubrique { text: Tr.t("Pack_Recap"); }
                     Rectangle {
