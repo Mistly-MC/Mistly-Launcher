@@ -4,7 +4,16 @@ use crate::{systeme::http, systeme::loc};
 use futures::StreamExt;
 use sha1::{Digest, Sha1};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::io::AsyncWriteExt;
+
+/// Octets reçus par `fichier` depuis le démarrage (vitesse affichée pendant une installation).
+static OCTETS: AtomicU64 = AtomicU64::new(0);
+
+/// Total des octets téléchargés par `fichier` depuis le démarrage du launcher.
+pub fn octets_recus() -> u64 {
+    OCTETS.load(Ordering::Relaxed)
+}
 
 /// Télécharge un fichier (via un .part) et vérifie son SHA-1 s'il est connu.
 pub async fn fichier(url: &str, destination: &Path, sha1: Option<&str>) -> anyhow::Result<()> {
@@ -23,6 +32,7 @@ pub async fn fichier(url: &str, destination: &Path, sha1: Option<&str>) -> anyho
         while let Some(morceau) = flux.next().await {
             let morceau = morceau?;
             hasher.update(&morceau);
+            OCTETS.fetch_add(morceau.len() as u64, Ordering::Relaxed);
             sortie.write_all(&morceau).await?;
         }
         sortie.flush().await?;

@@ -457,7 +457,7 @@ component LigneLangue inherits Rectangle {
     in property <bool> checked;
     in property <bool> trait: true;
     callback clicked;
-    height: 50px;
+    height: 68px;
     if root.trait: Trait { }
     Rectangle {
         y: 1.5px;
@@ -466,9 +466,9 @@ component LigneLangue inherits Rectangle {
         animate background { duration: Theme.fast; }
     }
     HorizontalLayout {
-        padding-left: 24px;
-        padding-right: 24px;
-        spacing: 12px;
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 16px;
         VerticalLayout {
             alignment: center;
             Rectangle {

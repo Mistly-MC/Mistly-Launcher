@@ -1,165 +1,87 @@
-// Notes de version : les releases GitHub du launcher (voir src/ui/changelog.rs), en deux tuiles.
-// À gauche la liste des versions (vignette, numéro, date, étiquettes) ; à droite la version choisie :
-// son bandeau (image, numéro, date, GitHub), des filtres, puis ses notes (intertitres et lignes).
+// Notes de version : les releases GitHub du launcher (voir src/ui/changelog.rs), comme le Figma
+// « Patch notes » : la liste des versions à gauche, la version choisie et ses notes à droite.
 
 import { Theme, Tr } from "theme.slint";
 import { ChangelogState, ChangelogSection } from "state.slint";
-import { Icon, PixelLabel, MButton, Puces, TuilePage, EnTetePage } from "widgets.slint";
+import { MButton, IconeNuit } from "widgets.slint";
 import { ScrollView } from "std-widgets.slint";
 
-/// Petite étiquette (DERNIÈRE, BÊTA, NOUVEAU, CORRIGÉ).
-component Etiquette inherits Rectangle {
-    in property <string> text;
-    in property <color> couleur;
-    /// true : fond plein ; false : fond léger et texte coloré
-    in property <bool> plein: false;
-    height: 20px;
-    width: t.preferred-width + 14px;
-    border-radius: 10px;
-    background: root.plein ? root.couleur : root.couleur.with-alpha(Theme.dark ? 0.2 : 0.14);
-    border-width: root.plein ? 0px : 1px;
-    border-color: root.couleur.with-alpha(0.45);
-    t := Text {
-        text: root.text;
-        font-family: Theme.ui-font;
-        font-size: 11px;
-        font-weight: 600;
-        color: root.plein ? white : root.couleur;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-}
-
-/// Intertitre des notes (« Launcher », « Misty Client (in game) »).
+/// Intertitre des notes (« ■ Launcher », « ■ Mistly Client (in game) »).
 component Intertitre inherits HorizontalLayout {
     in property <string> text;
     spacing: 10px;
     VerticalLayout {
         alignment: center;
         Rectangle {
-            width: 4px;
-            height: 18px;
-            border-radius: 2px;
-            background: Theme.accent;
+            width: 7px;
+            height: 7px;
+            background: Theme.ink;
         }
     }
-    PixelLabel {
+    Text {
         text: root.text;
-        font-size: 13px;
-        color: Theme.accent;
+        font-family: Theme.sans-font;
+        font-size: 14px;
+        color: Theme.ink;
         wrap: word-wrap;
     }
 }
 
-/// Une ligne des notes : étiquette (nouveau, corrigé) ou puce, puis le texte.
-component LigneNote inherits Rectangle {
+/// Une ligne des notes : un tiret, puis le texte.
+component LigneNote inherits HorizontalLayout {
     in property <string> text;
     in property <int> genre;
-    min-height: contenu.preferred-height;
-    border-radius: 18px;
-    background: survol.has-hover ? Theme.glass : transparent;
-    animate background { duration: Theme.fast; }
-    survol := TouchArea { }
-    contenu := HorizontalLayout {
-        padding: 8px;
-        padding-left: 10px;
-        padding-right: 12px;
-        spacing: 12px;
-        // colonne des étiquettes, de la même largeur partout pour aligner les textes
-        Rectangle {
-            // assez large pour la plus longue des deux étiquettes, dans la langue choisie
-            width: max(mesure-n.preferred-width, mesure-c.preferred-width) + 18px;
-            mesure-n := Text { visible: false; text: Tr.t("Notes_Nouveau"); font-size: 11px; font-weight: 600; }
-            mesure-c := Text { visible: false; text: Tr.t("Notes_Corrige"); font-size: 11px; font-weight: 600; }
-            if root.genre == 1: Etiquette { x: 0; y: 0; text: Tr.t("Notes_Nouveau"); couleur: Theme.green-dark; }
-            if root.genre == 2: Etiquette { x: 0; y: 0; text: Tr.t("Notes_Corrige"); couleur: #E8932F; }
-            if root.genre == 0: Rectangle {
-                x: (parent.width - self.width) / 2 - 6px;
-                y: 7px;
-                width: 6px;
-                height: 6px;
-                border-radius: 3px;
-                background: Theme.text-dim;
-            }
-        }
-        Text {
-            horizontal-stretch: 1;
-            text: root.text;
-            font-family: Theme.ui-font;
-            font-size: 13.5px;
-            color: Theme.navy2;
-            wrap: word-wrap;
-        }
+    padding-top: 9px;
+    padding-bottom: 9px;
+    spacing: 16px;
+    Text {
+        text: "—";
+        font-family: Theme.sans-font;
+        font-size: 14px;
+        color: root.genre == 2 ? Theme.ink-3 : Theme.ink-4;
+        vertical-alignment: top;
+    }
+    Text {
+        horizontal-stretch: 1;
+        text: root.text;
+        font-family: Theme.sans-font;
+        font-size: 14.5px;
+        color: Theme.ink;
+        wrap: word-wrap;
     }
 }
 
-/// Une ligne est-elle gardée par le filtre ? (genre : -1 intertitre, 0 simple, 1 nouveau, 2 corrigé ;
-/// partie : 0 launcher, 1 Misty Client)
-global Filtre {
-    pure public function garde(filtre: int, genre: int, partie: int) -> bool {
-        if (filtre == 0) { return true; }
-        if (filtre == 1) { return genre == 1; }
-        if (filtre == 2) { return genre == 2; }
-        if (filtre == 3) { return partie == 0; }
-        return partie == 1;
-    }
-}
-
-/// Une version dans la liste de gauche : sa vignette, son numéro, sa date et ses étiquettes.
+/// Une version dans la liste de gauche : son numéro et sa date ; la version ouverte est blanche.
 component LigneVersion inherits Rectangle {
     in property <ChangelogSection> s;
     in property <bool> choisie;
     callback clicked;
-    height: 60px;
-    border-radius: 14px;
-    background: root.choisie ? Theme.accent-soft : zone.has-hover ? Theme.glass-hover : transparent;
+    height: 52px;
+    border-radius: 18px;
+    background: root.choisie ? Theme.active : zone.has-hover ? Theme.surface-2 : Theme.surface;
     border-width: 1.5px;
-    border-color: root.choisie ? Theme.accent.with-alpha(0.5) : transparent;
+    border-color: root.choisie ? Theme.active : Theme.border;
     animate background, border-color { duration: Theme.fast; }
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 10px;
-        spacing: 12px;
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 44px;
-                height: 44px;
-                border-radius: 10px;
-                clip: true;
-                background: Theme.control;
-                Image {
-                    width: parent.width;
-                    height: parent.height;
-                    source: root.s.art;
-                    image-fit: cover;
-                    image-rendering: pixelated;
-                }
-            }
-        }
-        VerticalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        spacing: 10px;
+        Text {
             horizontal-stretch: 1;
-            alignment: center;
-            spacing: 3px;
-            Text {
-                text: root.s.title;
-                font-size: 14px;
-                font-weight: 600;
-                color: root.choisie ? Theme.accent : Theme.navy;
-                overflow: elide;
-            }
-            HorizontalLayout {
-                spacing: 6px;
-                alignment: start;
-                Text {
-                    text: root.s.date;
-                    font-size: 12px;
-                    color: Theme.text-muted;
-                    vertical-alignment: center;
-                }
-                if root.s.recent: Etiquette { text: Tr.t("Notes_Derniere"); couleur: Theme.green-dark; plein: true; }
-                if root.s.prerelease: Etiquette { text: Tr.t("Notes_Beta"); couleur: #E8932F; }
-            }
+            text: root.s.title;
+            font-family: Theme.mono-font;
+            font-size: 15px;
+            font-weight: 500;
+            color: root.choisie ? Theme.on-active : Theme.ink;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            text: root.s.date;
+            font-family: Theme.mono-font;
+            font-size: 12px;
+            color: root.choisie ? Theme.on-active.with-alpha(0.6) : Theme.ink-3;
+            vertical-alignment: center;
         }
     }
     zone := TouchArea {
@@ -168,128 +90,121 @@ component LigneVersion inherits Rectangle {
     }
 }
 
+/// Notes de version (Figma « Patch notes ») : « What's new » et les versions à gauche ; à droite la
+/// version choisie en grand, si elle est à jour, ses notes, puis le lien vers le site.
 export component ChangelogPage inherits Rectangle {
     property <int> n: clamp(ChangelogState.selected, 0, max(0, ChangelogState.sections.length - 1));
     property <ChangelogSection> s: ChangelogState.sections[root.n];
-    property <int> filtre: ChangelogState.filter;
+    property <bool> installee: root.s.title == ChangelogState.current;
 
     HorizontalLayout {
-        spacing: 12px;
+        padding-bottom: 0px;
+        spacing: 20px;
 
         // ═══ À gauche : les versions ═══
-        TuilePage {
-            width: 290px;
-            VerticalLayout {
-                EnTetePage {
-                    titre: Tr.t("Onglet_Notes");
-                    info: ChangelogState.sections.length;
-                }
-                Rectangle {
-                    height: 1px;
-                    background: Theme.line;
-                }
-                ScrollView {
-                    vertical-stretch: 1;
-                    content-width: self.visible-width;
-                    content-height: liste.preferred-height;
-                    liste := VerticalLayout {
-                        width: parent.visible-width;
-                        padding: 10px;
-                        spacing: 4px;
-                        alignment: start;
-                        for v[i] in ChangelogState.sections: LigneVersion {
-                            s: v;
-                            choisie: i == root.n;
-                            clicked => { ChangelogState.selected = i; }
-                        }
+        VerticalLayout {
+            width: 240px;
+            spacing: 18px;
+            Text {
+                text: Tr.t("Notes_Nouveautes");
+                font-family: Theme.sans-font;
+                font-size: 30px;
+                font-weight: 600;
+                letter-spacing: -1px;
+                color: Theme.ink-strong;
+                height: 44px;
+                vertical-alignment: center;
+            }
+            ScrollView {
+                vertical-stretch: 1;
+                content-width: self.visible-width;
+                content-height: liste.preferred-height;
+                liste := VerticalLayout {
+                    width: parent.visible-width;
+                    spacing: 8px;
+                    alignment: start;
+                    for v[i] in ChangelogState.sections: LigneVersion {
+                        s: v;
+                        choisie: i == root.n;
+                        clicked => { ChangelogState.selected = i; }
                     }
                 }
             }
         }
 
         // ═══ À droite : la version choisie ═══
-        TuilePage {
+        Rectangle {
             horizontal-stretch: 1;
+            border-radius: 28px;
+            background: Theme.surface;
+            border-width: 1.5px;
+            border-color: Theme.border;
             VerticalLayout {
-                // bandeau : l'image de la version, son numéro, sa date, ses étiquettes, GitHub
-                Rectangle {
-                    height: 150px;
-                    clip: true;
-                    background: Theme.control;
-                    Image {
-                        width: parent.width;
-                        height: parent.height;
-                        source: root.s.art;
-                        image-fit: cover;
-                        image-rendering: pixelated;
+                padding: 34px;
+                padding-bottom: 24px;
+                spacing: 0px;
+                Text {
+                    text: (root.installee ? Tr.t("Notes_VersionActuelle") : Tr.t("Commun_Version")).to-uppercase();
+                    font-family: Theme.mono-font;
+                    font-size: 11px;
+                    letter-spacing: 1px;
+                    color: Theme.ink-3;
+                }
+                Rectangle { height: 14px; }
+                HorizontalLayout {
+                    spacing: 16px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.s.title;
+                        font-family: Theme.pixel-font;
+                        font-weight: 700;
+                        font-size: 40px;
+                        letter-spacing: 3px;
+                        color: Theme.ink-strong;
+                        vertical-alignment: center;
+                        overflow: elide;
                     }
-                    Rectangle {
-                        background: @linear-gradient(180deg, #07090C00 0%, #07090C40 45%, #07090CD9 100%);
-                    }
-                    HorizontalLayout {
-                        padding-left: 24px;
-                        padding-right: 20px;
-                        padding-bottom: 18px;
-                        spacing: 14px;
-                        VerticalLayout {
-                            horizontal-stretch: 1;
-                            alignment: end;
-                            spacing: 6px;
-                            HorizontalLayout {
-                                spacing: 10px;
-                                alignment: start;
+                    if root.installee && root.n == 0: VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            height: 32px;
+                            width: a-jour.preferred-width + 24px;
+                            border-radius: 16px;
+                            background: Theme.online-bg;
+                            a-jour := HorizontalLayout {
+                                x: 12px;
+                                spacing: 7px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    IconeNuit { nom: "check"; taille: 12px; couleur: Theme.online-text; }
+                                }
                                 Text {
-                                    text: root.s.title;
-                                    font-size: 28px;
-                                    font-weight: 600;
-                                    color: white;
-                                    overflow: elide;
-                                }
-                                if root.s.recent: VerticalLayout {
-                                    alignment: center;
-                                    Etiquette { text: Tr.t("Notes_Derniere"); couleur: Theme.green-dark; plein: true; }
-                                }
-                                if root.s.prerelease: VerticalLayout {
-                                    alignment: center;
-                                    Etiquette { text: Tr.t("Notes_Beta"); couleur: #E8932F; plein: true; }
-                                }
-                            }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                alignment: start;
-                                if root.s.date != "": Text {
-                                    text: root.s.date;
-                                    font-size: 13px;
-                                    color: #FFFFFFCC;
+                                    text: Tr.t("Notes_AJour");
+                                    font-family: Theme.sans-font;
+                                    font-size: 12.5px;
+                                    color: Theme.online-text;
                                     vertical-alignment: center;
                                 }
-                                if root.s.news > 0: Etiquette { text: Tr.t("Notes_Nouveau") + " · " + root.s.news; couleur: Theme.green-dark; plein: true; }
-                                if root.s.fixes > 0: Etiquette { text: Tr.t("Notes_Corrige") + " · " + root.s.fixes; couleur: #E8932F; plein: true; }
                             }
                         }
-                        if root.s.url != "": VerticalLayout {
-                            alignment: end;
-                            MButton {
-                                icon: "\u{E8A7}";
-                                text: Tr.t("Notes_GitHub");
-                                clicked => { ChangelogState.open-url(root.s.url); }
+                    }
+                    if root.s.prerelease: VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            height: 32px;
+                            width: beta.preferred-width + 24px;
+                            border-radius: 16px;
+                            background: Theme.control;
+                            beta := Text {
+                                text: Tr.t("Notes_Beta");
+                                font-family: Theme.sans-font;
+                                font-size: 12.5px;
+                                color: Theme.ink-2;
                             }
                         }
                     }
                 }
-                // filtres
-                HorizontalLayout {
-                    padding-left: 20px;
-                    padding-right: 20px;
-                    padding-top: 14px;
-                    padding-bottom: 4px;
-                    Puces {
-                        model: [Tr.t("Notes_Filtre_Tout"), Tr.t("Notes_Filtre_Nouveau"), Tr.t("Notes_Filtre_Corrige"), Tr.t("Notes_Filtre_Launcher"), Tr.t("Notes_Filtre_Client")];
-                        current: ChangelogState.filter;
-                        selected(i) => { ChangelogState.filter = i; }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
+                Rectangle { height: 22px; }
                 // les notes
                 ScrollView {
                     vertical-stretch: 1;
@@ -297,30 +212,43 @@ export component ChangelogPage inherits Rectangle {
                     content-height: notes.preferred-height;
                     notes := VerticalLayout {
                         width: parent.visible-width;
-                        padding-left: 14px;
-                        padding-right: 22px;
-                        padding-top: 6px;
-                        padding-bottom: 20px;
-                        spacing: 2px;
+                        padding-right: 40px;
+                        padding-bottom: 12px;
+                        spacing: 0px;
                         alignment: start;
                         for ligne[i] in root.s.lines: VerticalLayout {
-                            if root.s.kinds[i] == -1 && (root.filtre == 0 || (root.filtre >= 3 && Filtre.garde(root.filtre, -1, root.s.parts[i]))): VerticalLayout {
-                                padding-left: 10px;
-                                padding-top: i > 0 ? 14px : 4px;
-                                padding-bottom: 4px;
+                            if root.s.kinds[i] == -1: VerticalLayout {
+                                padding-top: i > 0 ? 18px : 0px;
+                                padding-bottom: 6px;
                                 Intertitre { text: ligne; }
                             }
-                            if root.s.kinds[i] != -1 && Filtre.garde(root.filtre, root.s.kinds[i], root.s.parts[i]): LigneNote {
+                            if root.s.kinds[i] != -1: LigneNote {
                                 text: ligne;
                                 genre: root.s.kinds[i];
                             }
                         }
-                        if (root.filtre == 1 && root.s.news == 0) || (root.filtre == 2 && root.s.fixes == 0): Text {
-                            text: Tr.t("Notes_Rien");
-                            font-size: 13px;
-                            color: Theme.text-muted;
-                            horizontal-alignment: center;
-                        }
+                    }
+                }
+                Rectangle {
+                    height: 1.5px;
+                    background: Theme.border;
+                }
+                HorizontalLayout {
+                    padding-top: 20px;
+                    spacing: 16px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: Tr.t("Notes_SurLeSite");
+                        font-family: Theme.sans-font;
+                        font-size: 12.5px;
+                        color: Theme.ink-3;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    MButton {
+                        height: 44px;
+                        text: Tr.t("Notes_OuvrirSite");
+                        clicked => { ChangelogState.open-url("https://mistly.cc/patch-notes"); }
                     }
                 }
             }

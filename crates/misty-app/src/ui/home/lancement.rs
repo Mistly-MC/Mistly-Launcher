@@ -59,6 +59,9 @@ pub(super) async fn jouer(app: &Rc<App>) {
         mode.clone(),
         instance.as_ref().and_then(|i| i.loader_version.clone()),
     );
+    install::commencer();
+    h(app).set_install_step(install::ETAPE_VERSION as i32);
+    h(app).set_files_text("".into());
     let resultat = an
         .tache(app, async move {
             let dirs = McDirs::misty();
@@ -72,6 +75,7 @@ pub(super) async fn jouer(app: &Rc<App>) {
     match resultat {
         Ok(installee) => {
             afficher_progression(app, 100.0, &loc::t("Home_Lancement"));
+            h(app).set_install_step(install::ETAPE_LANCEMENT as i32);
             lancer_jeu(app, &version, &mode, installee, instance, joueur, misty).await;
         }
         Err(e) if est_annule(&e) => {
@@ -281,6 +285,12 @@ pub(super) async fn lancer_jeu(
 pub(super) fn progression_fichiers(app: &Rc<App>) -> FileProgress {
     let faible = app.ui.as_weak();
     let derniere = Arc::new(AtomicU64::new(0));
+    // vitesse : octets reçus et instant de la dernière mesure, et la dernière vitesse (Mo/s × 10)
+    let mesure = Arc::new(std::sync::Mutex::new((
+        misty_core::systeme::download::octets_recus(),
+        0u64,
+        0u64,
+    )));
     Arc::new(move |fait: usize, total: usize, nom: &str| {
         if total == 0 {
             return;
@@ -295,6 +305,35 @@ pub(super) fn progression_fichiers(app: &Rc<App>) -> FileProgress {
         derniere.store(maintenant, Ordering::Relaxed);
         let pourcentage = fait as f32 * 100.0 / total as f32;
         let texte = loc::tf("Home_Telechargement", &[&nom]);
+        let vitesse = {
+            let mut m = mesure.lock().unwrap_or_else(|e| e.into_inner());
+            let octets = misty_core::systeme::download::octets_recus();
+            if m.1 == 0 {
+                *m = (octets, maintenant, 0);
+            } else if maintenant.saturating_sub(m.1) >= 500 {
+                let mo_s = (octets.saturating_sub(m.0)) as f64
+                    / 1_048_576.0
+                    / ((maintenant - m.1) as f64 / 1000.0);
+                *m = (octets, maintenant, (mo_s * 10.0).round() as u64);
+            }
+            m.2
+        };
+        let fichiers = if vitesse > 0 {
+            loc::tf(
+                "Lancement_Fichiers_Vitesse",
+                &[
+                    &fait.to_string(),
+                    &total.to_string(),
+                    &format!("{:.1}", vitesse as f64 / 10.0),
+                ],
+            )
+        } else {
+            loc::tf(
+                "Lancement_Fichiers",
+                &[&fait.to_string(), &total.to_string()],
+            )
+        };
+        let etape = install::etape() as i32;
         let _ = faible.upgrade_in_event_loop(move |ui| {
             if let Some(a) = crate::APP.with(|a| a.borrow().clone()) {
                 if a.home
@@ -306,6 +345,11 @@ pub(super) fn progression_fichiers(app: &Rc<App>) -> FileProgress {
                     return;
                 }
                 afficher_progression(&a, pourcentage, &texte);
+                let s = h(&a);
+                s.set_files_text(fichiers.into());
+                if etape > 0 {
+                    s.set_install_step(etape);
+                }
             } else {
                 let _ = ui;
             }

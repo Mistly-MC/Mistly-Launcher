@@ -141,10 +141,49 @@ fn garde(filtre: i32, recherche: &str, l: &journal::Ligne) -> bool {
 
 fn vers_slint(l: journal::Ligne) -> LogLine {
     // une tabulation s'affiche comme un carré : des espaces à la place
+    let texte = l.texte.replace('\t', "    ");
+    let (heure, niveau, message) = decouper(&texte);
+    let niveau = niveau.unwrap_or(match l.niveau {
+        1 => "WARN",
+        2 => "ERROR",
+        3 => "MISTLY",
+        _ => "INFO",
+    });
     LogLine {
-        text: l.texte.replace('\t', "    ").into(),
+        time: heure.into(),
+        lvl: niveau.into(),
+        msg: message.into(),
+        text: texte.as_str().into(),
         level: l.niveau,
     }
+}
+
+/// « [08:41:02] [Render thread/INFO]: Message » → ("08:41:02", Some("INFO"), "Message").
+/// Une ligne d'un autre format garde tout son texte comme message.
+fn decouper(texte: &str) -> (&str, Option<&str>, &str) {
+    let b = texte.as_bytes();
+    let heure_ok = b.len() >= 10
+        && b[0] == b'['
+        && b[3] == b':'
+        && b[6] == b':'
+        && b[1..9].iter().all(|c| c.is_ascii_digit() || *c == b':');
+    if !heure_ok {
+        return ("", None, texte);
+    }
+    let heure = &texte[1..9];
+    // « [08:41:02] [thread/NIVEAU]: » ou « [08:41:02 NIVEAU]: »
+    let reste = texte[9..].trim_start_matches(']').trim_start();
+    let entete_fin = texte[9..].find("]: ").map(|i| i + 9);
+    let Some(fin) = entete_fin else {
+        return (heure, None, reste);
+    };
+    let entete = &texte[..fin];
+    let niveau = entete
+        .rsplit(['/', ' '])
+        .next()
+        .map(|n| n.trim_matches(['[', ']']))
+        .filter(|n| matches!(*n, "INFO" | "WARN" | "ERROR" | "DEBUG" | "FATAL" | "TRACE"));
+    (heure, niveau, &texte[fin + 3..])
 }
 
 fn duree_texte(d: std::time::Duration) -> String {
@@ -355,4 +394,25 @@ fn copier(texte: &str) {
         }
         let _ = enfant.wait();
     });
+}
+
+#[cfg(test)]
+mod tests_lignes {
+    use super::decouper;
+
+    #[test]
+    fn decoupe_une_ligne_de_minecraft() {
+        assert_eq!(
+            decouper("[08:41:02] [Render thread/INFO]: Setting user: Misty"),
+            ("08:41:02", Some("INFO"), "Setting user: Misty")
+        );
+        assert_eq!(
+            decouper("[08:41:02 WARN]: Missing sound"),
+            ("08:41:02", Some("WARN"), "Missing sound")
+        );
+        assert_eq!(
+            decouper("at java.lang.Thread"),
+            ("", None, "at java.lang.Thread")
+        );
+    }
 }

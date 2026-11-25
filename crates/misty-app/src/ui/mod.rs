@@ -185,6 +185,23 @@ pub fn installer(app: &Rc<App>) {
         etat.set_loading_stars(etat.get_scene_stars());
         etat.set_loading_twinkle(etat.get_scene_twinkle());
         etat.set_loading_logo(images::logo_chargement());
+        etat.set_loading_detail(
+            format!(
+                "Launcher {} · {}",
+                misty_core::systeme::app_info::VERSION,
+                if cfg!(windows) {
+                    "Windows x64"
+                } else {
+                    "Linux x64"
+                }
+            )
+            .into(),
+        );
+        let instant = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(0);
+        etat.set_loading_tip((instant % 4) as i32);
     }
     let flou = reglages::lire().fond_flou;
     ui.global::<crate::Theme>().set_bg_blur(flou as i32);
@@ -277,10 +294,73 @@ pub fn installer(app: &Rc<App>) {
             let a = app.clone();
             slint::Timer::single_shot(std::time::Duration::from_secs(2), move || {
                 // 99 : la console (pas un onglet)
-                if n == 99 {
+                if n == 97 {
+                    // l'écran « Launching », à 62 % des bibliothèques
+                    let h = a.ui.global::<crate::HomeState>();
+                    h.set_card_label("Minecraft 26.3".into());
+                    h.set_card_version("26.3".into());
+                    h.set_status("Downloading game files…".into());
+                    h.set_install_step(3);
+                    h.set_files_text("412 / 660 files · 18.0 MB/s".into());
+                    h.set_progress(0.62);
+                } else if n == 98 {
+                    // le choix de version (Java)
+                    let h = a.ui.global::<crate::HomeState>();
+                    h.set_edition(1);
+                    h.set_picker_misty(false);
+                    h.set_picker_horizon(false);
+                    let groupes: Vec<crate::VersionGroup> = [
+                        ("26.3", "Mist and Moonlight", "4 versions", "2026"),
+                        ("1.21", "Tricky Trials", "12 versions", "2024 – 2025"),
+                        ("1.20", "Trails & Tales", "7 versions", "2023"),
+                    ]
+                    .iter()
+                    .map(|(t, n, c, y)| crate::VersionGroup {
+                        key: (*t).into(),
+                        title: (*t).into(),
+                        name: (*n).into(),
+                        art: picker::illustration(&picker::cle_groupe(t, 0)),
+                        count: (*c).into(),
+                        years: (*y).into(),
+                    })
+                    .collect();
+                    h.set_picker_groups(modele(groupes));
+                    h.set_picker_open(true);
+                } else if n == 99 {
+                    // une partie de démonstration, pour voir les lignes
+                    use misty_core::systeme::journal;
+                    let id = journal::nouvelle_partie("Minecraft 26.3");
+                    for (t, n) in [
+                        ("[08:41:02] [main/INFO]: [Mistly] Launching Minecraft 26.3 (Java 25, 4 GB)", 3),
+                        ("[08:41:03] [main/INFO]: Loading Minecraft 26.3 with Fabric Loader", 0),
+                        ("[08:41:06] [Render thread/WARN]: Missing sound for event: minecraft:item.goat_horn.play", 1),
+                        ("[08:41:14] [Render thread/ERROR]: Failed to load texture: mistly:textures/hat/cloudly_glow.png", 2),
+                        ("[08:41:15] [Render thread/INFO]: [CHAT] Cloudy joined the game", 0),
+                    ] {
+                        journal::ajouter(id, t, n);
+                    }
                     a.ui.global::<crate::ConsoleState>().set_open(true);
                 } else {
-                    nav_clicked(&a, n)
+                    nav_clicked(&a, n);
+                    // une demande d'ami de démonstration
+                    if n == page::AMIS {
+                        let demandes: Vec<crate::FriendRequest> =
+                            [("Cloudy", true), ("Notch", false)]
+                                .iter()
+                                .map(|(nom, recue)| crate::FriendRequest {
+                                    uuid: (*nom).into(),
+                                    name: (*nom).into(),
+                                    head: Default::default(),
+                                    has_head: false,
+                                    incoming: *recue,
+                                })
+                                .collect();
+                        let b = a.clone();
+                        slint::Timer::single_shot(std::time::Duration::from_secs(3), move || {
+                            b.ui.global::<crate::FriendsState>()
+                                .set_requests(modele(demandes));
+                        });
+                    }
                 }
             });
         }

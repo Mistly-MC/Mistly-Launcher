@@ -97,6 +97,29 @@ impl Instance {
         content::supporte_mods(&self.loader)
     }
 
+    /// Colonne « Content » de la liste : « 42 mods », « 1 mod » ou « — » (vanilla, aucun mod).
+    pub fn contenu_texte(&self) -> String {
+        if !self.supporte_mods() {
+            return "—".into();
+        }
+        let n = std::fs::read_dir(self.dossier().join("mods"))
+            .map(|d| {
+                d.flatten()
+                    .filter(|e| {
+                        e.path()
+                            .extension()
+                            .is_some_and(|x| x.eq_ignore_ascii_case("jar"))
+                    })
+                    .count()
+            })
+            .unwrap_or(0);
+        match n {
+            0 => "—".into(),
+            1 => loc::t("Profil_UnMod"),
+            n => loc::tf("Profil_NMods", &[&n]),
+        }
+    }
+
     /// "Jamais joué", "Joué aujourd'hui", "Il y a 3 jours"…
     pub fn dernier_lancement_texte(&self) -> String {
         let Some(d) = self.dernier_lancement else {

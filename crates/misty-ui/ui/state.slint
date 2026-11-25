@@ -60,6 +60,10 @@ export global AppState {
     in property <image> loading-stars;
     in property <image> loading-twinkle;
     in property <image> loading-logo;
+    /// sous la barre de l'écran de chargement : « Launcher 0.4.6 · Windows x64 »
+    in property <string> loading-detail;
+    /// l'astuce de l'écran de chargement (0 à 3, tirée au lancement)
+    in property <int> loading-tip;
     in property <image> scene-moon;
     in property <float> moon-x;
     in property <float> moon-y;
@@ -254,6 +258,10 @@ export global HomeState {
 
     in property <string> status;
     in property <string> percent-text;
+    /// écran « Launching » : l'étape en cours (1 Java, 2 version du jeu, 3 bibliothèques, 4 sons et
+    /// textures, 5 lancement) et « 412 / 660 files · 18 MB/s »
+    in property <int> install-step: 2;
+    in property <string> files-text;
     in property <float> progress;
     in property <bool> play-enabled;
     /// Téléchargement d'une version en cours : il peut être annulé
@@ -283,6 +291,8 @@ export struct ProfileCard {
     name: string,
     summary: string,
     last: string,
+    /// colonne « Content » : « 42 mods » ou « — »
+    content: string,
     icon: image,
     has-icon: bool,
     version: string,
@@ -654,6 +664,8 @@ export global ChangelogState {
     in-out property <int> selected: 0;
     /// Filtre des notes : 0 tout, 1 nouveautés, 2 corrections, 3 launcher, 4 Misty Client
     in-out property <int> filter: 0;
+    /// La version du launcher qui tourne (« 0.4.6-beta.1 »)
+    in property <string> current;
     callback open-url(string);
 }
 
@@ -784,9 +796,22 @@ export struct FriendCard {
     online: bool,
 }
 
+/// Une demande d'ami en attente : reçue (accepter, refuser) ou envoyée (annuler).
+export struct FriendRequest {
+    uuid: string,
+    name: string,
+    head: image,
+    has-head: bool,
+    incoming: bool,
+}
+
 export global FriendsState {
     /// En ligne d'abord, puis par nom
     in property <[FriendCard]> list;
+    /// Demandes d'ami en attente (reçues d'abord)
+    in property <[FriendRequest]> requests;
+    callback accept(string);
+    callback decline(string);
     in property <int> online-count;
     /// false : pas de jeton Misty, on ne sait pas qui est en ligne
     in property <bool> status-known: true;

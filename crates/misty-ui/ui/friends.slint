@@ -3,8 +3,8 @@
 // Misty (voir misty-core, social/amis.rs).
 
 import { Theme, Tr } from "theme.slint";
-import { FriendsState, FriendCard } from "state.slint";
-import { MButton, IconeNuit, IconeAuto } from "widgets.slint";
+import { FriendsState, FriendCard, FriendRequest } from "state.slint";
+import { MButton, IconeNuit, IconeAuto, BoutonRond } from "widgets.slint";
 import { ScrollView } from "std-widgets.slint";
 
 /// La tête d'un ami, ronde, et sa pastille d'état.
@@ -91,6 +91,65 @@ component LigneAmi inherits Rectangle {
                 color: FriendsState.status-known && root.ami.online ? Theme.online-text : Theme.ink-3;
                 overflow: elide;
             }
+        }
+    }
+}
+
+/// Une demande d'ami en attente : reçue (accepter, refuser) ou envoyée (annuler).
+component LigneDemande inherits HorizontalLayout {
+    in property <FriendRequest> d;
+    height: 52px;
+    padding-left: 12px;
+    padding-right: 8px;
+    spacing: 12px;
+    VerticalLayout {
+        alignment: center;
+        Tete {
+            ami: { uuid: root.d.uuid, name: root.d.name, head: root.d.head, has-head: root.d.has-head, online: false };
+            pastille: false;
+        }
+    }
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: center;
+        spacing: 2px;
+        Text {
+            text: root.d.name;
+            font-family: Theme.sans-font;
+            font-size: 14px;
+            font-weight: 500;
+            color: Theme.ink;
+            overflow: elide;
+        }
+        Text {
+            text: root.d.incoming ? Tr.t("Amis_Demande_Recue") : Tr.t("Amis_Demande_Envoyee");
+            font-family: Theme.sans-font;
+            font-size: 12px;
+            color: Theme.ink-3;
+            overflow: elide;
+        }
+    }
+    if root.d.incoming: VerticalLayout {
+        alignment: center;
+        Rectangle {
+            width: 38px;
+            height: 38px;
+            border-radius: 19px;
+            background: accepter.has-hover ? Theme.active.brighter(0.06) : Theme.active;
+            IconeNuit { nom: "check"; taille: 15px; couleur: Theme.on-active; }
+            accepter := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { FriendsState.accept(root.d.uuid); }
+            }
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        BoutonRond {
+            icone: "fermer";
+            taille: 38px;
+            tooltip: root.d.incoming ? Tr.t("Amis_Refuser") : Tr.t("Amis_Annuler_Demande");
+            clicked => { FriendsState.decline(root.d.uuid); }
         }
     }
 }
@@ -265,6 +324,39 @@ export component FriendsPage inherits Rectangle {
                 font-size: 12.5px;
                 color: FriendsState.message-error ? Theme.danger : Theme.online-text;
                 wrap: word-wrap;
+            }
+            // demandes d'ami en attente
+            if FriendsState.requests.length > 0: Rectangle {
+                height: demandes.preferred-height;
+                border-radius: 24px;
+                background: Theme.surface;
+                border-width: 1.5px;
+                border-color: Theme.border;
+                demandes := VerticalLayout {
+                    padding: 10px;
+                    padding-top: 14px;
+                    spacing: 2px;
+                    HorizontalLayout {
+                        alignment: start;
+                        padding-left: 12px;
+                        padding-bottom: 4px;
+                        spacing: 8px;
+                        Text {
+                            text: Tr.t("Amis_EnAttente").to-uppercase();
+                            font-family: Theme.mono-font;
+                            font-size: 11px;
+                            letter-spacing: 0.6px;
+                            color: Theme.ink-3;
+                        }
+                        Text {
+                            text: FriendsState.requests.length;
+                            font-family: Theme.mono-font;
+                            font-size: 11px;
+                            color: Theme.ink;
+                        }
+                    }
+                    for d in FriendsState.requests: LigneDemande { d: d; }
+                }
             }
             // la liste
             Rectangle {

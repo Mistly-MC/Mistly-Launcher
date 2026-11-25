@@ -133,6 +133,7 @@ fn afficher(app: &App, sections: Vec<Section>) {
             recent: i == 0,
         })
         .collect();
+    etat.set_current(misty_core::systeme::app_info::VERSION.into());
     etat.set_sections(modele(sections));
     etat.set_selected(index as i32);
 }

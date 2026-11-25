@@ -1,8 +1,8 @@
 //! Page Amis : la liste (ajout par pseudo, retrait), les têtes, et qui joue avec Misty Client.
 
 use super::{lancer, modele, page, App};
-use crate::{AppState, FriendCard, FriendsState};
-use misty_core::social::amis::{self, Ajout, Ami, Etat as EtatReseau};
+use crate::{AppState, FriendCard, FriendRequest, FriendsState};
+use misty_core::social::amis::{self, Ajout, Ami, Demandes, Etat as EtatReseau};
 use misty_core::systeme::loc;
 use slint::{ComponentHandle, Image, SharedString};
 use std::collections::{HashMap, HashSet};
@@ -16,6 +16,8 @@ const RAFRAICHIR: Duration = Duration::from_secs(60);
 #[derive(Default)]
 pub struct Etat {
     amis: Vec<Ami>,
+    /// demandes d'ami du site (vide sans jeton Mistly)
+    demandes: Demandes,
     en_ligne: HashSet<String>,
     tetes: HashMap<String, Image>,
     /// têtes déjà demandées (une fois par lancement)
@@ -41,7 +43,17 @@ pub fn installer(app: &Rc<App>) {
         amis::retirer(&uuid);
         a.amis.borrow_mut().amis.retain(|x| x.uuid != uuid.as_str());
         afficher(&a);
+        // aussi sur le site (sans jeton : rien à faire)
+        let u = uuid.to_string();
+        let b = a.clone();
+        lancer(async move {
+            let _ = b.bg(async move { amis::retirer_du_site(&u).await }).await;
+        });
     });
+    let a = app.clone();
+    st.on_accept(move |uuid| repondre(&a, uuid.to_string(), true));
+    let a = app.clone();
+    st.on_decline(move |uuid| repondre(&a, uuid.to_string(), false));
     let a = app.clone();
     st.on_refresh(move || {
         let a = a.clone();
@@ -102,7 +114,40 @@ fn afficher(app: &Rc<App>) {
         .iter()
         .filter(|a| etat.en_ligne.contains(&a.uuid))
         .count();
+    let demandes: Vec<FriendRequest> = etat
+        .demandes
+        .recues
+        .iter()
+        .map(|a| (a, true))
+        .chain(etat.demandes.envoyees.iter().map(|a| (a, false)))
+        .map(|(a, recue)| {
+            let tete = etat.tetes.get(&a.uuid);
+            FriendRequest {
+                uuid: a.uuid.as_str().into(),
+                name: if a.nom.is_empty() {
+                    a.uuid[..8].into()
+                } else {
+                    a.nom.as_str().into()
+                },
+                head: tete.cloned().unwrap_or_default(),
+                has_head: tete.is_some(),
+                incoming: recue,
+            }
+        })
+        .collect();
+    let a_charger: Vec<String> = a_charger
+        .into_iter()
+        .chain(
+            etat.demandes
+                .recues
+                .iter()
+                .chain(&etat.demandes.envoyees)
+                .filter(|a| !etat.demandees.contains(&a.uuid))
+                .map(|a| a.uuid.clone()),
+        )
+        .collect();
     drop(etat);
+    s(app).set_requests(modele(demandes));
     s(app).set_list(modele(cartes));
     s(app).set_online_count(nombre as i32);
     if !a_charger.is_empty() {
@@ -131,7 +176,86 @@ fn charger_tetes(app: &Rc<App>, uuids: Vec<String>) {
     });
 }
 
+/// Les demandes d'ami du site ; les amis confirmés qui manquent rejoignent la liste locale.
+async fn maj_demandes(app: &Rc<App>) {
+    match app.bg(async { amis::demandes().await }).await {
+        Ok(Some(d)) => {
+            let locaux: HashSet<String> = app
+                .amis
+                .borrow()
+                .amis
+                .iter()
+                .map(|a| a.uuid.clone())
+                .collect();
+            let mut nouveaux = false;
+            for ami in d
+                .amis
+                .iter()
+                .filter(|a| !locaux.contains(&a.uuid) && !a.nom.is_empty())
+            {
+                amis::ajouter_ami(ami.clone());
+                nouveaux = true;
+            }
+            let mut etat = app.amis.borrow_mut();
+            etat.demandes = d;
+            if nouveaux {
+                etat.amis = amis::lire();
+            }
+        }
+        Ok(None) => app.amis.borrow_mut().demandes = Demandes::default(),
+        // site injoignable : on garde ce qu'on savait
+        Err(e) => eprintln!("Amis : demandes indisponibles ({e})"),
+    }
+    afficher(app);
+}
+
+fn repondre(app: &Rc<App>, uuid: String, accepter: bool) {
+    let ami = {
+        let mut etat = app.amis.borrow_mut();
+        let d = &mut etat.demandes;
+        let ami = d
+            .recues
+            .iter()
+            .chain(&d.envoyees)
+            .find(|a| a.uuid == uuid)
+            .cloned();
+        d.recues.retain(|a| a.uuid != uuid);
+        d.envoyees.retain(|a| a.uuid != uuid);
+        ami
+    };
+    let Some(ami) = ami else { return };
+    afficher(app);
+    let a = app.clone();
+    lancer(async move {
+        let nom = ami.nom.clone();
+        let resultat = a
+            .bg(async move {
+                if accepter {
+                    amis::repondre(&ami, true).await
+                } else {
+                    // refuser une demande reçue, ou annuler une demande envoyée
+                    amis::retirer_du_site(&ami.uuid).await
+                }
+            })
+            .await;
+        match resultat {
+            Ok(()) if accepter => {
+                message(&a, &loc::t("Amis_Ajoute").replace("{0}", &nom), false);
+                a.amis.borrow_mut().amis = amis::lire();
+                afficher(&a);
+                maj_en_ligne(&a).await;
+            }
+            Ok(()) => {}
+            Err(e) => {
+                message(&a, &format!("{} ({e})", loc::t("Amis_Erreur")), true);
+                maj_demandes(&a).await;
+            }
+        }
+    });
+}
+
 async fn maj_en_ligne(app: &Rc<App>) {
+    maj_demandes(app).await;
     let liste = app.amis.borrow().amis.clone();
     if liste.is_empty() || s(app).get_refreshing() {
         return;
@@ -171,6 +295,9 @@ async fn ajouter(app: &Rc<App>) {
     st.set_adding(false);
     match resultat {
         Ok(Ajout::Ajoute(ami)) => {
+            // une demande d'ami part aussi sur le site (sans jeton Mistly : liste locale seulement)
+            let u = ami.uuid.clone();
+            let _ = app.bg(async move { amis::demander(&u).await }).await;
             st.set_name(SharedString::new());
             message(app, &loc::t("Amis_Ajoute").replace("{0}", &ami.nom), false);
             app.amis.borrow_mut().amis = amis::lire();
