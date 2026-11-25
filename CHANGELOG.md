@@ -1,4 +1,16 @@
 # Changelog
+## 0.4.3-beta.2
+### Launcher
+- Mistly uses much less memory: the interface is now drawn by the processor (about 90 MB instead of 250 MB). Settings → Appearance → Hardware acceleration brings back drawing by the graphics card
+- Discover shows mods, resource packs, datapacks and shaders too, not only modpacks: pick the profile to install them in
+- Installing a modpack opens its own window: choose the version, see what it contains (Minecraft version, loader, download size, date), then follow the installation there
+- Files a CurseForge author keeps off launchers are looked for on Modrinth first; for the others, Mistly watches your Downloads folder and puts them in the right place as soon as you download them
+- The profile page, the console, the dialogs and the account choice follow the new design, and Home shows a Launching screen while a version installs
+- Storage management opens as a full page in Settings, with one bar segment per category; Manage storage sits next to Clear cache
+- The Wardrobe shows the Mistly cosmetics your account can wear, as the Mistly website gives them (including the ones offered to you)
+- The edition selector (Mistly Client, Java, Bedrock, Horizon) only shows on Home
+- New installs no longer get a "Mistly" offline account: the welcome makes you choose one
+- Fixed: long tags and descriptions went past the bottom of Discover cards
 ## 0.4.3-beta.1
 ### Launcher
 - Fixed: signing in with Microsoft failed with "The provided request must include a 'response_type' input parameter"

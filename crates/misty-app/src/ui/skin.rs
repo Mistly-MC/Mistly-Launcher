@@ -168,16 +168,39 @@ fn tenue(app: &App) -> (Option<Vec<u8>>, bool) {
     }
 }
 
-/// La cape early player : demandée au site pour le compte Microsoft connecté (sans compte : non).
+/// Les cosmétiques Mistly du compte connecté, tels que le site les donne (pour tous, cape early
+/// player, ceux offerts depuis le tableau de bord) : les autres sont grisés. Sans compte : ceux
+/// pour tous, sans la cape early player.
 fn verifier_early(app: &Rc<App>) {
     let Some(uuid) = account::session().map(|s| s.uuid) else {
-        s(app).set_misty_early(false);
+        let st = s(app);
+        st.set_misty_early(false);
+        st.set_misty_cape_ok(true);
+        st.set_misty_elytra_ok(true);
+        st.set_misty_cloudly_ok(true);
         return;
     };
     let a = app.clone();
     lancer(async move {
-        let early = client::early(&uuid).await;
-        s(&a).set_misty_early(early);
+        let u = uuid.clone();
+        let permis = a
+            .bg(async move { client::cosmetiques_permis(&u).await })
+            .await;
+        let st = s(&a);
+        match permis {
+            Some(liste) => {
+                let a_droit = |id: &str| liste.iter().any(|c| c == id);
+                st.set_misty_early(a_droit(client::CAPE_EARLY));
+                st.set_misty_cape_ok(a_droit(client::CAPE));
+                st.set_misty_elytra_ok(a_droit(client::ELYTRES));
+                st.set_misty_cloudly_ok(a_droit(client::CLOUDLY));
+            }
+            // le site ne répond pas : on garde l'ancienne question (cape early seulement)
+            None => {
+                let early = a.bg(async move { client::early(&uuid).await }).await;
+                st.set_misty_early(early);
+            }
+        }
     });
 }
 

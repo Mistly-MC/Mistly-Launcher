@@ -548,8 +548,15 @@ tag=arc-en-ciel\r\n";
     #[test]
     fn data_txt_vide_ou_minimal() {
         // data.txt créé au tout premier lancement par l'ancienne version
+        // (son pseudo « Mistly » est gardé : c'est celui du joueur)
         let r = Reglages::depuis_data_txt("versiondatatxt=1.3.5\r\nlastpseudo=Mistly\r\n");
-        assert_eq!(r, Reglages::default());
+        assert_eq!(
+            r,
+            Reglages {
+                pseudo: "Mistly".into(),
+                ..Reglages::default()
+            }
+        );
         let r = Reglages::depuis_data_txt("");
         assert_eq!(r, Reglages::default());
         // valeurs hors limites ou illisibles : ramenées dans les limites ou par défaut
