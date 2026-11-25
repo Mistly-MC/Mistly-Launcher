@@ -650,26 +650,8 @@ export component ConsoleOverlay inherits Rectangle {
                 BoutonRond {
                     icone: "fermer";
                     taille: 44px;
-                    tooltip: Tr.t("Console_Arreter");
-                    clicked => { ConsoleState.kill(ConsoleState.panes[0].id); }
-                }
-                if ConsoleState.panes.length == 1 && !ConsoleState.panes[0].running: BoutonRond {
-                    icone: "poubelle";
-                    taille: 44px;
-                    tooltip: Tr.t("Console_FermerPartie");
-                    clicked => { ConsoleState.close-pane(ConsoleState.panes[0].id); }
-                }
-                if ConsoleState.panes.length == 1: VerticalLayout {
-                    alignment: center;
-                    MButton {
-                        kind: 1;
-                        height: 44px;
-                        text: ConsoleState.panes[0].sending ? Tr.t("Console_Envoi")
-                            : ConsoleState.panes[0].report-text != "" ? ConsoleState.panes[0].report-text
-                            : Tr.t("Console_Envoyer");
-                        enabled: !ConsoleState.panes[0].sending;
-                        clicked => { ConsoleState.send-report(ConsoleState.panes[0].id); }
-                    }
+                    tooltip: Tr.t("Console_Fermer");
+                    clicked => { ConsoleState.open = false; }
                 }
                 if ConsoleState.panes.length == 1: VerticalLayout {
                     alignment: center;
