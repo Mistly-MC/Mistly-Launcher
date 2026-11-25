@@ -3,7 +3,7 @@
 
 import { Theme, Tr, Assets } from "theme.slint";
 import { AppState } from "state.slint";
-import { LangItem } from "widgets.slint";
+import { LangItem, Lune, IconeNuit } from "widgets.slint";
 
 // ───────────────────────── État partagé avec Rust ─────────────────────────
 
@@ -22,7 +22,7 @@ export global ConnexionState {
 /// Premier lancement : trois étapes, puis le choix Premium / Hors ligne.
 export global BienvenueState {
     in-out property <bool> visible;
-    /// 0 langue, 1 conditions, 2 télémétrie
+    /// 0 langue, 1 conditions, 2 télémétrie, 3 connexion
     in-out property <int> etape;
     in property <[LangItem]> langues;
     in-out property <int> langue-index;
@@ -152,6 +152,183 @@ component Marque inherits HorizontalLayout {
         letter-spacing: root.taille * 0.08;
         color: Theme.ink-strong;
         vertical-alignment: center;
+    }
+}
+
+// ───────────────────────── Connexion (dernière étape) ─────────────────────────
+
+/// L'écran « Sign in » du Figma : la lune, MISTLY, la connexion Microsoft, et un pseudo pour
+/// jouer hors ligne. Sert de dernière étape du premier lancement et d'écran seul (ChoixCompte).
+export component Connexion inherits VerticalLayout {
+    callback premium();
+    callback hors-ligne(string);
+    property <string> pseudo;
+    property <bool> pseudo-ok: root.pseudo != "" && root.pseudo.character-count <= 16;
+    alignment: center;
+    spacing: 0px;
+    HorizontalLayout {
+        alignment: center;
+        Lune { pixel: 7px; }
+    }
+    Rectangle { height: 34px; }
+    Text {
+        text: "MISTLY";
+        font-family: Theme.pixel-font;
+        font-weight: 700;
+        font-size: 44px;
+        letter-spacing: 5px;
+        color: Theme.ink-strong;
+        horizontal-alignment: center;
+    }
+    Rectangle { height: 14px; }
+    Text {
+        text: Tr.t("Connexion_Slogan");
+        font-family: Theme.sans-font;
+        font-size: 14.5px;
+        color: Theme.ink-3;
+        horizontal-alignment: center;
+    }
+    Rectangle { height: 40px; }
+    HorizontalLayout {
+        alignment: center;
+        Rectangle {
+            width: 380px;
+            height: 58px;
+            border-radius: 29px;
+            background: ms.pressed ? Theme.active.darker(0.12) : ms.has-hover ? Theme.active.brighter(0.06) : Theme.active;
+            transform-scale: ms.pressed ? 0.98 : 1;
+            animate background { duration: Theme.fast; }
+            animate transform-scale { duration: 140ms; easing: ease-out; }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 12px;
+                // le logo Microsoft : quatre carrés
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 18px;
+                        height: 18px;
+                        Rectangle { x: 0; y: 0; width: 8px; height: 8px; background: Theme.on-active; }
+                        Rectangle { x: 10px; y: 0; width: 8px; height: 8px; background: Theme.on-active; }
+                        Rectangle { x: 0; y: 10px; width: 8px; height: 8px; background: Theme.on-active; }
+                        Rectangle { x: 10px; y: 10px; width: 8px; height: 8px; background: Theme.on-active; }
+                    }
+                }
+                Text {
+                    text: Tr.t("Compte_SeConnecterMs");
+                    font-family: Theme.sans-font;
+                    font-size: 15px;
+                    font-weight: 500;
+                    color: Theme.on-active;
+                    vertical-alignment: center;
+                }
+            }
+            ms := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.premium(); }
+            }
+        }
+    }
+    Rectangle { height: 12px; }
+    // hors ligne : un pseudo, puis la flèche
+    HorizontalLayout {
+        alignment: center;
+        Rectangle {
+            width: 380px;
+            height: 62px;
+            border-radius: 31px;
+            background: Theme.surface;
+            border-width: 1.5px;
+            border-color: champ.has-focus ? Theme.border-strong : Theme.border;
+            animate border-color { duration: Theme.fast; }
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-right: 9px;
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 21px;
+                        background: Theme.control;
+                        border-width: 1.5px;
+                        border-color: Theme.border-strong;
+                        IconeNuit {
+                            nom: "garde-robe";
+                            taille: 17px;
+                            couleur: Theme.icon;
+                        }
+                    }
+                }
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 2px;
+                    Rectangle {
+                        height: 20px;
+                        if root.pseudo == "": Text {
+                            x: 0;
+                            text: Tr.t("Choix_Pseudo");
+                            font-family: Theme.sans-font;
+                            font-size: 14px;
+                            color: Theme.ink-3;
+                            vertical-alignment: center;
+                        }
+                        champ := TextInput {
+                            text <=> root.pseudo;
+                            font-family: Theme.sans-font;
+                            font-size: 14px;
+                            color: Theme.ink;
+                            vertical-alignment: center;
+                            single-line: true;
+                            accepted => {
+                                if (root.pseudo-ok) {
+                                    root.hors-ligne(root.pseudo);
+                                }
+                            }
+                        }
+                    }
+                    Text {
+                        text: Tr.t("Choix_HorsLigne_Bouton");
+                        font-family: Theme.sans-font;
+                        font-size: 12px;
+                        color: Theme.ink-3;
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 21px;
+                        background: !root.pseudo-ok ? Theme.control : fleche.has-hover ? Theme.border-strong : Theme.control;
+                        border-width: 1.5px;
+                        border-color: Theme.border-strong;
+                        opacity: root.pseudo-ok ? 1 : 0.45;
+                        animate opacity, background { duration: Theme.fast; }
+                        IconeNuit {
+                            nom: "suivant";
+                            taille: 16px;
+                            couleur: Theme.icon;
+                        }
+                        fleche := TouchArea {
+                            enabled: root.pseudo-ok;
+                            mouse-cursor: root.pseudo-ok ? pointer : default;
+                            clicked => { root.hors-ligne(root.pseudo); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Rectangle { height: 26px; }
+    Text {
+        text: Tr.t("Connexion_MotDePasse");
+        font-family: Theme.sans-font;
+        font-size: 12px;
+        color: Theme.ink-3;
+        horizontal-alignment: center;
     }
 }
 
@@ -431,6 +608,10 @@ component Liste inherits Rectangle {
                 color: Theme.ink-4;
                 wrap: word-wrap;
                 horizontal-stretch: 1;
+                // le texte passe souvent sur deux lignes : sa hauteur ne suit pas la largeur dans
+                // une mise en page, d'où cette place réservée (sinon il déborde de la carte)
+                min-height: 36px;
+                vertical-alignment: center;
             }
         }
     }
@@ -526,7 +707,8 @@ export component Bienvenue inherits Rectangle {
                     spacing: 8px;
                     Etape { numero: 1; text: Tr.t("Bienvenue_EtapeLangue"); courante: BienvenueState.etape == 0; faite: BienvenueState.etape > 0; }
                     Etape { numero: 2; text: Tr.t("Bienvenue_EtapeConditions"); courante: BienvenueState.etape == 1; faite: BienvenueState.etape > 1; }
-                    Etape { numero: 3; text: Tr.t("Bienvenue_EtapeTelemetrie"); courante: BienvenueState.etape == 2; faite: false; }
+                    Etape { numero: 3; text: Tr.t("Bienvenue_EtapeTelemetrie"); courante: BienvenueState.etape == 2; faite: BienvenueState.etape > 2; }
+                    Etape { numero: 4; text: Tr.t("Bienvenue_EtapeConnexion"); courante: BienvenueState.etape == 3; faite: false; }
                 }
             }
             // place des boutons de la fenêtre (réduire, agrandir, fermer), dessinés par-dessus tout
@@ -718,7 +900,7 @@ export component Bienvenue inherits Rectangle {
                 x: (parent.width - self.width) / 2;
                 width: min(760px, parent.width);
                 height: self.preferred-height;
-                y: (parent.height - self.preferred-height) / 2 + (BienvenueState.etape == 2 ? 0px : 14px);
+                y: (parent.height - self.preferred-height) / 2 + (BienvenueState.etape == 2 ? 0px : BienvenueState.etape < 2 ? 14px : -14px);
                 opacity: BienvenueState.etape == 2 ? 1 : 0;
                 visible: self.opacity > 0.01;
                 animate opacity, y { duration: 260ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
@@ -758,15 +940,38 @@ export component Bienvenue inherits Rectangle {
                 HorizontalLayout {
                     spacing: 12px;
                     Liste {
+                        horizontal-stretch: 1;
+                        preferred-width: 0px;
                         oui: true;
                         titre: Tr.t("Bienvenue_Envoye");
                         lignes: [Tr.t("Bienvenue_Envoye1"), Tr.t("Bienvenue_Envoye2"), Tr.t("Bienvenue_Envoye3"), Tr.t("Bienvenue_Envoye4")];
                     }
                     Liste {
+                        horizontal-stretch: 1;
+                        preferred-width: 0px;
                         oui: false;
                         titre: Tr.t("Bienvenue_JamaisEnvoye");
                         lignes: [Tr.t("Bienvenue_JamaisEnvoye1"), Tr.t("Bienvenue_JamaisEnvoye2"), Tr.t("Bienvenue_JamaisEnvoye3")];
                     }
+                }
+            }
+
+            // ── 4. Connexion : Microsoft, ou un pseudo hors ligne ──
+            etape-connexion := Connexion {
+                x: (parent.width - self.width) / 2;
+                width: min(560px, parent.width);
+                height: self.preferred-height;
+                y: (parent.height - self.preferred-height) / 2 + (BienvenueState.etape == 3 ? 0px : 14px);
+                opacity: BienvenueState.etape == 3 ? 1 : 0;
+                visible: self.opacity > 0.01;
+                animate opacity, y { duration: 260ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+                premium => {
+                    BienvenueState.terminer();
+                    AppState.choose-premium();
+                }
+                hors-ligne(p) => {
+                    BienvenueState.terminer();
+                    AppState.choose-offline(p);
                 }
             }
         }
@@ -782,23 +987,18 @@ export component Bienvenue inherits Rectangle {
             }
             Rectangle { horizontal-stretch: 1; }
             Text {
-                text: Tr.t("Bienvenue_Etape") + " " + (BienvenueState.etape + 1) + " / 3";
+                text: Tr.t("Bienvenue_Etape") + " " + (BienvenueState.etape + 1) + " / 4";
                 font-family: Theme.mono-font;
                 font-size: 12.5px;
                 color: Theme.ink-3;
                 vertical-alignment: center;
             }
-            Pastille {
+            // la dernière étape se termine par la connexion (ou le pseudo hors ligne)
+            if BienvenueState.etape < 3: Pastille {
                 principal: true;
-                text: BienvenueState.etape == 0 ? Tr.t("Bienvenue_Continuer") : BienvenueState.etape == 1 ? Tr.t("Bienvenue_AccepterContinuer") : Tr.t("Bienvenue_Terminer");
+                text: BienvenueState.etape == 0 ? Tr.t("Bienvenue_Continuer") : BienvenueState.etape == 1 ? Tr.t("Bienvenue_AccepterContinuer") : Tr.t("Bienvenue_Continuer");
                 enabled: BienvenueState.etape != 1 || BienvenueState.accepte;
-                clicked => {
-                    if (BienvenueState.etape < 2) {
-                        BienvenueState.etape += 1;
-                    } else {
-                        BienvenueState.terminer();
-                    }
-                }
+                clicked => { BienvenueState.etape += 1; }
             }
         }
     }

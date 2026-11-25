@@ -123,6 +123,16 @@ pub fn afficher(app: &Rc<App>) {
     b.set_langues(modele(items));
     b.set_langue_index(index);
     b.set_etape(0);
+    // captures d'écran de développement : ouvrir directement une étape
+    if cfg!(debug_assertions) {
+        if let Some(n) = std::env::var("MISTY_CAPTURE_ETAPE")
+            .ok()
+            .and_then(|n| n.parse::<i32>().ok())
+        {
+            b.set_etape(n);
+            b.set_accepte(true);
+        }
+    }
     b.set_accepte(false);
     b.set_telemetrie(true);
     b.set_visible(true);

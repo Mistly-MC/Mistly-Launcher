@@ -1,4 +1,12 @@
 # Changelog
+## 0.4.2-beta.2
+### Launcher
+- Fixed: signing in with Microsoft failed with "The provided request must include a 'response_type' input parameter"
+- The welcome has a 4th step, Sign in, with the new sign-in screen: sign in with Microsoft, or type a username to play offline. Players who never chose how to play see the same screen
+- Friends: your friends on the left, the profile of the one you pick on the right, with their status and a Remove friend button
+- Profiles are now a list with their loader, version and last game, and New profile shows the loaders as cards and the Minecraft versions as a grid
+- The white pill of the edition selector (Mistly Client, Java, Bedrock, Horizon) now slides to the one you pick
+- Fixed: the text of the telemetry lists went past the bottom of their cards, and the line between your account and the window buttons touched them
 ## 0.4.2-beta.1
 ### Launcher
 - Security: Minecraft versions you already installed now get the library fixes Mojang publishes. Before, the launcher kept the version file it downloaded the first time, so a library Mojang replaced after a security issue (like the one fixed on November 24) stayed on the old version. At each launch the version file is now compared with Mojang's, downloaded again if it changed, and the new libraries come with it
