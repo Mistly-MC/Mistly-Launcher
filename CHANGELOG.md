@@ -1,5 +1,5 @@
 # Changelog
-## 0.4.3-beta.2
+## 0.4.4-beta.1
 ### Launcher
 - Mistly uses much less memory: the interface is now drawn by the processor (about 90 MB instead of 250 MB). Settings → Appearance → Hardware acceleration brings back drawing by the graphics card
 - Discover shows mods, resource packs, datapacks and shaders too, not only modpacks: pick the profile to install them in
