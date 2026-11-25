@@ -190,7 +190,13 @@ fn configurer(app: &Rc<App>, contexte: Contexte, cle: String, type_: String) {
 
 fn types_du_contexte(contexte: &Contexte) -> Vec<(String, String)> {
     match contexte {
-        Contexte::Modpacks => vec![(content::MODPACK.into(), loc::t("Type_Modpacks"))],
+        // Découvrir : les modpacks, puis tout ce qui s'installe dans un profil (choisi à
+        // l'installation)
+        Contexte::Modpacks => {
+            let mut t = vec![(content::MODPACK.to_string(), loc::t("Type_Modpacks"))];
+            t.extend(content::types());
+            t
+        }
         Contexte::Packs => vec![(content::PACK_RESSOURCES.into(), loc::t("Type_Packs"))],
         _ => content::types(),
     }
@@ -554,7 +560,9 @@ fn item(_app: &App, p: &ProjetDistant) -> ResultItem {
 fn est_installe(app: &App, p: &ProjetDistant) -> bool {
     match &app.browser.borrow().contexte {
         Contexte::Instance(_) => super::instance::est_installe(app, p),
-        Contexte::Modpacks => super::profiles::modpack_installe(p),
+        Contexte::Modpacks => {
+            app.browser.borrow().type_ == content::MODPACK && super::profiles::modpack_installe(p)
+        }
         Contexte::Packs => super::packs::deja_importe(app, p),
         Contexte::Aucun => false,
     }
@@ -569,7 +577,7 @@ pub fn rafraichir_etats(app: &Rc<App>) {
         e.installes = installes.clone();
         let packs = matches!(e.contexte, Contexte::Packs);
         let libelle = match e.contexte {
-            Contexte::Modpacks => "Profil_Creer",
+            Contexte::Modpacks if e.type_ == content::MODPACK => "Profil_Creer",
             Contexte::Packs => "Pack_ImporterBouton",
             _ => "Explorateur_Installer",
         };
@@ -641,8 +649,11 @@ async fn installer_projet(app: &Rc<App>, i: usize) {
         Contexte::Instance(_) => {
             super::instance::installer_projet(app, projet, type_).await;
         }
-        Contexte::Modpacks => {
+        Contexte::Modpacks if type_ == content::MODPACK => {
             super::profiles::installer_modpack(app, projet).await;
+        }
+        Contexte::Modpacks => {
+            super::instance::installer_dans_un_profil(app, projet, type_).await;
         }
         Contexte::Packs => {
             super::packs::importer_distant(app, projet).await;

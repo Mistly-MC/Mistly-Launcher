@@ -1,7 +1,7 @@
 //! Liste des profils, création d'un profil, installation d'un modpack Modrinth / CurseForge.
 
 use super::{browser, dialogs, images, lancer, maj_ligne, modele, modele_textes, App};
-use crate::{AppState, ProfileCard, ProfilesState};
+use crate::{AppState, PackVersion, ProfileCard, ProfilesState};
 use misty_core::contenu::catalogue::ProjetDistant;
 use misty_core::minecraft::instances::{self, Instance};
 use misty_core::minecraft::{install, loaders};
@@ -14,6 +14,8 @@ pub struct Etat {
     liste: Vec<Instance>,
     versions: Vec<String>,
     loaders: Vec<String>,
+    /// Fenêtre d'installation d'un modpack ouverte : Some(true) installer, Some(false) annuler
+    choix_pack: Option<futures::channel::oneshot::Sender<bool>>,
 }
 
 fn p(app: &App) -> ProfilesState<'_> {
@@ -22,6 +24,10 @@ fn p(app: &App) -> ProfilesState<'_> {
 
 pub fn installer(app: &Rc<App>) {
     let s = p(app);
+    let a = app.clone();
+    s.on_pack_install(move || repondre_pack(&a, true));
+    let a = app.clone();
+    s.on_pack_cancel(move || repondre_pack(&a, false));
     let a = app.clone();
     s.on_open(move |id| {
         if let Some(i) = trouver(&a, &id) {
@@ -307,22 +313,56 @@ pub fn modpack_installe(projet: &ProjetDistant) -> bool {
     })
 }
 
-/// Installation depuis l'explorateur de modpacks. Renvoie true si elle a réussi.
+/// Taille lisible (« 412 Mo »), vide si inconnue.
+fn taille_lisible(octets: u64) -> String {
+    if octets == 0 {
+        return String::new();
+    }
+    let mo = octets as f64 / (1024.0 * 1024.0);
+    if mo >= 1024.0 {
+        format!("{:.2} {}", mo / 1024.0, loc::t("Unite_Go"))
+    } else if mo >= 1.0 {
+        format!("{mo:.0} {}", loc::t("Unite_Mo"))
+    } else {
+        format!("{:.0} Ko", octets as f64 / 1024.0)
+    }
+}
+
+/// Réponse de la fenêtre d'installation (Installer / Annuler).
+fn repondre_pack(app: &App, installer: bool) {
+    if let Some(tx) = app.profiles.borrow_mut().choix_pack.take() {
+        let _ = tx.send(installer);
+    }
+}
+
+/// Installation depuis l'explorateur de modpacks, dans sa fenêtre : la version (la plus récente
+/// en haut) et son récapitulatif, puis l'avancement. Renvoie true si elle a réussi.
 pub async fn installer_modpack(app: &Rc<App>, projet: ProjetDistant) -> bool {
     let s = p(app);
+    s.set_pack_title(projet.titre.clone().into());
+    s.set_pack_author(
+        if projet.auteur.is_empty() {
+            String::new()
+        } else {
+            loc::tf("Explorateur_Par", &[&projet.auteur])
+        }
+        .into(),
+    );
+    s.set_pack_description(projet.description.clone().into());
+    s.set_pack_versions(modele(Vec::<PackVersion>::new()));
+    s.set_pack_installing(false);
+    s.set_pack_loading(true);
+    s.set_pack_open(true);
 
-    // 1. Liste des versions du modpack
-    s.set_wait_title(projet.titre.to_uppercase().into());
-    s.set_wait_text(loc::t("Commun_Preparation").into());
-    s.set_waiting(true);
+    // 1. Les versions du modpack
     let a_lister = projet.clone();
     let versions = app
         .bg(async move { modpack::versions_disponibles(&a_lister).await })
         .await;
-    s.set_waiting(false);
     let versions = match versions {
         Ok(v) if !v.is_empty() => v,
         Ok(_) => {
+            s.set_pack_open(false);
             dialogs::erreur(
                 app,
                 &loc::t("Profil_ModpackImpossible"),
@@ -332,53 +372,57 @@ pub async fn installer_modpack(app: &Rc<App>, projet: ProjetDistant) -> bool {
             return false;
         }
         Err(e) => {
+            s.set_pack_open(false);
             dialogs::erreur(app, &loc::t("Profil_ModpackImpossible"), &format!("{e:#}")).await;
             return false;
         }
     };
+    let items: Vec<PackVersion> = versions
+        .iter()
+        .map(|v| PackVersion {
+            name: v.nom.clone().into(),
+            mc: v.mc.clone().into(),
+            loader: v.loader.clone().into(),
+            size: taille_lisible(v.taille).into(),
+            date: v.date.clone().into(),
+            kind: v.type_.clone().into(),
+        })
+        .collect();
+    s.set_pack_versions(modele(items));
+    // la plus récente version stable, sinon la plus récente
+    let defaut = versions
+        .iter()
+        .position(|v| v.type_ == "release")
+        .unwrap_or(0);
+    s.set_pack_version_index(defaut as i32);
+    s.set_pack_loading(false);
 
-    // 2. Choix de la version (la plus récente est en haut), puis confirmation
-    let libelles: Vec<String> = versions.iter().map(|v| v.libelle.clone()).collect();
-    let Some(choix) = dialogs::choisir(
-        app,
-        &loc::t("Profil_VersionPack_Titre"),
-        &loc::tf("Profil_VersionPack_Texte", &[&projet.titre]),
-        &libelles,
-    )
-    .await
-    else {
-        return false;
-    };
-    let Some(version) = versions.get(choix).cloned() else {
-        return false;
-    };
-    let ok = dialogs::confirmer(
-        app,
-        &loc::t("Profil_ConfirmerPack_Titre"),
-        &loc::tf(
-            "Profil_ConfirmerPack_Texte",
-            &[&projet.titre, &version.libelle],
-        ),
-        Some(&loc::t("Profil_ConfirmerPack_Oui")),
-        None,
-        false,
-    )
-    .await;
-    if !ok {
+    // 2. Installer ou annuler
+    let (tx, rx) = futures::channel::oneshot::channel();
+    app.profiles.borrow_mut().choix_pack = Some(tx);
+    if !rx.await.unwrap_or(false) {
+        s.set_pack_open(false);
         return false;
     }
-    let version_id = Some(version.id);
+    let Some(version) = versions
+        .get(s.get_pack_version_index().max(0) as usize)
+        .cloned()
+    else {
+        s.set_pack_open(false);
+        return false;
+    };
 
-    s.set_wait_title(projet.titre.to_uppercase().into());
-    s.set_wait_text(loc::t("Commun_Preparation").into());
-    s.set_waiting(true);
-
+    // 3. L'installation, dans la même fenêtre
+    s.set_pack_status(loc::t("Commun_Preparation").into());
+    s.set_pack_installing(true);
     let progression =
-        app.progression(|ui, texte| ui.global::<ProfilesState>().set_wait_text(texte.into()));
+        app.progression(|ui, texte| ui.global::<ProfilesState>().set_pack_status(texte.into()));
+    let version_id = Some(version.id);
     let resultat = app
         .bg(async move { modpack::installer(&projet, version_id, progression).await })
         .await;
-    s.set_waiting(false);
+    s.set_pack_installing(false);
+    s.set_pack_open(false);
 
     match resultat {
         Ok(r) => {
@@ -450,7 +494,11 @@ pub async fn proposer_telechargements_manuels(app: &Rc<App>, r: &modpack::Result
     let ouvrir = dialogs::confirmer(
         app,
         &loc::t("Manuel_Titre"),
-        &loc::tf("Manuel_Texte", &[&r.bloques.len(), &liste.join("\n")]),
+        &format!(
+            "{}\n\n{}",
+            loc::tf("Manuel_Texte", &[&r.bloques.len(), &liste.join("\n")]),
+            loc::t("Manuel_Auto")
+        ),
         Some(&loc::t("Manuel_Ouvrir")),
         Some(&loc::t("Commun_PlusTard")),
         false,
@@ -461,6 +509,32 @@ pub async fn proposer_telechargements_manuels(app: &Rc<App>, r: &modpack::Result
     }
     for b in &r.bloques {
         system_info::ouvrir(&b.page);
+    }
+    // Comme Prism Launcher : les fichiers que le joueur télécharge arrivent dans son dossier
+    // Téléchargements ; on les y cherche toutes les 3 secondes (20 minutes au plus) et on les
+    // range dans le profil.
+    let Some(telechargements) = dirs::download_dir() else {
+        system_info::ouvrir_dossier(&r.instance.dossier());
+        return;
+    };
+    let mut restants = r.bloques.clone();
+    for _ in 0..400 {
+        let (d, b) = (telechargements.clone(), restants.clone());
+        restants = app
+            .bg(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                modpack::ranger_telecharges(&d, &b)
+            })
+            .await;
+        if restants.is_empty() {
+            dialogs::info(
+                app,
+                &loc::t("Manuel_Ranges"),
+                &loc::tf("Manuel_Ranges_Texte", &[&r.instance.nom]),
+            )
+            .await;
+            return;
+        }
     }
     system_info::ouvrir_dossier(&r.instance.dossier());
 }

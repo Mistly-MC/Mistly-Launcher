@@ -5,7 +5,7 @@
 
 import { Theme, Tr, Assets } from "theme.slint";
 import { HomeState, AppState, FriendsState, FriendCard, ProfileItem } from "state.slint";
-import { Icon, PixelLabel, PlayButton, IconeNuit, BoutonRond, Puce, CarteNuit, Thumb, Lune } from "widgets.slint";
+import { Icon, PixelLabel, PlayButton, IconeNuit, BoutonRond, Puce, CarteNuit, Thumb, Lune, MButton } from "widgets.slint";
 import { SkinState, SkinPanel } from "skin.slint";
 import { ConsoleState } from "console.slint";
 
@@ -464,6 +464,119 @@ component Etoiles inherits Rectangle {
     }
 }
 
+/// L'écran « Launching » du Figma : le nom du jeu en grand, l'étape en cours, le pourcentage, des
+/// blocs qui se remplissent, puis Annuler et la console. Il couvre l'accueil pendant
+/// l'installation (les suivantes sont instantanées).
+component Lancement inherits Rectangle {
+    background: Theme.bg;
+    opacity: 0;
+    animate opacity { duration: 240ms; easing: ease-out; }
+    init => { self.opacity = 1; }
+    TouchArea { }
+    Etoiles { }
+    VerticalLayout {
+        x: 80px;
+        width: min(760px, parent.width - 160px);
+        alignment: center;
+        spacing: 0px;
+        HorizontalLayout {
+            alignment: start;
+            Rectangle {
+                height: 34px;
+                width: puce.preferred-width + 40px;
+                border-radius: 17px;
+                background: Theme.surface;
+                border-width: 1.5px;
+                border-color: Theme.border-field;
+                Rectangle {
+                    x: 14px;
+                    width: 7px;
+                    height: 7px;
+                    background: Theme.ink;
+                }
+                puce := Text {
+                    x: 28px;
+                    text: Tr.t("Lancement_Premiere");
+                    font-family: Theme.sans-font;
+                    font-size: 12.5px;
+                    color: Theme.ink-4;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        Rectangle { height: 22px; }
+        Text {
+            text: HomeState.card-label != "" ? HomeState.card-label : "Minecraft";
+            font-family: Theme.sans-font;
+            font-size: 64px;
+            font-weight: 600;
+            letter-spacing: -2.5px;
+            color: Theme.ink-strong;
+            overflow: elide;
+        }
+        Rectangle { height: 10px; }
+        Text {
+            text: HomeState.status;
+            font-family: Theme.sans-font;
+            font-size: 16px;
+            color: Theme.ink-3;
+            overflow: elide;
+        }
+        Rectangle { height: 60px; }
+        HorizontalLayout {
+            spacing: 14px;
+            Text {
+                text: round(HomeState.progress * 100) + " %";
+                font-family: Theme.mono-font;
+                font-size: 30px;
+                font-weight: 500;
+                color: Theme.ink-strong;
+                vertical-alignment: bottom;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: HomeState.percent-text;
+                font-family: Theme.mono-font;
+                font-size: 12.5px;
+                color: Theme.ink-3;
+                horizontal-alignment: right;
+                vertical-alignment: bottom;
+                overflow: elide;
+            }
+        }
+        Rectangle { height: 14px; }
+        // des blocs pixel qui se remplissent
+        blocs := Rectangle {
+            height: 18px;
+            property <int> n: 40;
+            property <length> l: (self.width - (self.n - 1) * 4px) / self.n;
+            for b in 40: Rectangle {
+                x: b * (blocs.l + 4px);
+                width: blocs.l;
+                height: parent.height;
+                background: b < HomeState.progress * 40 ? Theme.active : Theme.control;
+                animate background { duration: 200ms; }
+            }
+        }
+        Rectangle { height: 30px; }
+        HorizontalLayout {
+            alignment: start;
+            spacing: 10px;
+            if HomeState.can-cancel: MButton {
+                text: Tr.t("Commun_Annuler");
+                clicked => { HomeState.cancel-install(); }
+            }
+            MButton {
+                text: Tr.t("Lancement_Console");
+                clicked => {
+                    ConsoleState.focused = -1;
+                    ConsoleState.open = true;
+                }
+            }
+        }
+    }
+}
+
 export component HomePage inherits Rectangle {
     // ═══════════ Jouer : l'accueil de l'édition choisie ═══════════
     if SkinState.tab == 0: Rectangle {
@@ -784,4 +897,7 @@ export component HomePage inherits Rectangle {
         height: parent.height - 40px;
         SkinPanel { }
     }
+
+    // ═══════════ Lancement (Figma « Launching ») : pendant l'installation d'une version ═══════════
+    if SkinState.tab == 0 && HomeState.edition != 2 && (HomeState.can-cancel || (HomeState.progress > 0 && HomeState.progress < 1)): Lancement { }
 }

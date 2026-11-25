@@ -276,7 +276,12 @@ pub fn installer(app: &Rc<App>) {
         {
             let a = app.clone();
             slint::Timer::single_shot(std::time::Duration::from_secs(2), move || {
-                nav_clicked(&a, n)
+                // 99 : la console (pas un onglet)
+                if n == 99 {
+                    a.ui.global::<crate::ConsoleState>().set_open(true);
+                } else {
+                    nav_clicked(&a, n)
+                }
             });
         }
     }
@@ -447,7 +452,10 @@ pub async fn demarrer(app: Rc<App>) {
     }
 
     reglages::initialiser();
-    misty_core::social::pseudos::initialiser();
+    misty_core::social::pseudos::initialiser(
+        !misty_core::auth::account::comptes().is_empty(),
+        &reglages::lire().pseudo,
+    );
     news::charger(&app);
 
     verifier_mise_a_jour(&app, false).await;

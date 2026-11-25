@@ -40,6 +40,10 @@ export global SkinState {
     in-out property <bool> misty-hat: false;
     /// Ce compte a droit à la cape early player (le site le dit)
     in property <bool> misty-early: false;
+    /// Cosmétiques permis par le site (mistly.cc) au compte connecté ; sans compte : ceux pour tous
+    in property <bool> misty-cape-ok: true;
+    in property <bool> misty-elytra-ok: true;
+    in property <bool> misty-cloudly-ok: true;
     in property <image> misty-early-cape;
     in property <image> misty-cloudly;
     /// Misty Client (le mod en jeu) est dans ce launcher : l'article équipé se voit en jeu
@@ -1001,6 +1005,7 @@ export component SkinPanel inherits Rectangle {
                     a-image: true;
                     forme: 0;
                     equipe: SkinState.misty-equip == 1;
+                    verrou: !SkinState.misty-cape-ok;
                     clicked => { root.essayer(1); }
                 }
                 if root.voir-capes: TuileCos {
@@ -1026,6 +1031,7 @@ export component SkinPanel inherits Rectangle {
                     a-image: true;
                     forme: 1;
                     equipe: SkinState.misty-equip == 2;
+                    verrou: !SkinState.misty-elytra-ok;
                     clicked => { root.essayer(2); }
                 }
                 if root.voir-chapeaux: TuileCos {
@@ -1038,6 +1044,7 @@ export component SkinPanel inherits Rectangle {
                     a-image: true;
                     forme: 1;
                     equipe: SkinState.misty-hat;
+                    verrou: !SkinState.misty-cloudly-ok;
                     clicked => { root.essayer(4); }
                 }
                 if root.voir-tags: Rectangle {

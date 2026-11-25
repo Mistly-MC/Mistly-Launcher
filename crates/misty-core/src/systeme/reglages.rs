@@ -66,8 +66,9 @@ fn vrai() -> bool {
 fn theme_par_defaut() -> i32 {
     1
 }
+/// Pas de pseudo d'office : le premier lancement fait choisir un compte (Microsoft ou un pseudo).
 fn pseudo_par_defaut() -> String {
-    "Mistly".into()
+    String::new()
 }
 fn ram_par_defaut() -> u32 {
     app_info::RAM_PAR_DEFAUT_MO
@@ -116,6 +117,10 @@ pub struct Reglages {
     /// Fenêtre floutée (flou)
     #[serde(default = "vrai")]
     pub flou: bool,
+    /// Dessin de l'interface par la carte graphique (OpenGL). Désactivé par défaut : le dessin par
+    /// le processeur utilise environ 150 Mo de mémoire de moins, pour la même image.
+    #[serde(default)]
+    pub acceleration_gpu: bool,
     /// Thèmes de saison automatiques : Halloween, Noël (saison)
     #[serde(default = "vrai")]
     pub saison: bool,
@@ -543,8 +548,15 @@ tag=arc-en-ciel\r\n";
     #[test]
     fn data_txt_vide_ou_minimal() {
         // data.txt créé au tout premier lancement par l'ancienne version
+        // (son pseudo « Mistly » est gardé : c'est celui du joueur)
         let r = Reglages::depuis_data_txt("versiondatatxt=1.3.5\r\nlastpseudo=Mistly\r\n");
-        assert_eq!(r, Reglages::default());
+        assert_eq!(
+            r,
+            Reglages {
+                pseudo: "Mistly".into(),
+                ..Reglages::default()
+            }
+        );
         let r = Reglages::depuis_data_txt("");
         assert_eq!(r, Reglages::default());
         // valeurs hors limites ou illisibles : ramenées dans les limites ou par défaut
@@ -561,7 +573,7 @@ tag=arc-en-ciel\r\n";
     #[test]
     fn valeurs_par_defaut_et_champs_inconnus() {
         let d = Reglages::default();
-        assert_eq!(d.pseudo, "Mistly");
+        assert_eq!(d.pseudo, "");
         assert_eq!(d.ram_mo, app_info::RAM_PAR_DEFAUT_MO);
         assert!(d.rich_presence && d.flou && d.saison && d.console && d.misty_client && d.partage);
         assert_eq!((d.fond_flou, d.telechargements), (2, 16));
@@ -573,7 +585,7 @@ tag=arc-en-ciel\r\n";
         .unwrap();
         assert_eq!(r.ram_mo, 8192);
         assert_eq!(r.mode_compte, ModeCompte::NonChoisi);
-        assert_eq!(r.pseudo, "Mistly");
+        assert_eq!(r.pseudo, "");
     }
 
     #[test]

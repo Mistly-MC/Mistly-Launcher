@@ -668,6 +668,23 @@ pub async fn early(uuid: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Les cosmétiques Mistly que ce compte peut porter, d'après le site (cosmétiques pour tous,
+/// cape early player, ceux donnés depuis le tableau de bord ; aucun pour un compte banni).
+/// None : le site n'a pas répondu.
+pub async fn cosmetiques_permis(uuid: &str) -> Option<Vec<String>> {
+    let url = format!("https://mistly.cc/api/client/cosmetics/{uuid}");
+    let v = crate::systeme::http::get_json::<serde_json::Value>(&url)
+        .await
+        .ok()?;
+    Some(
+        v["cosmetics"]
+            .as_array()?
+            .iter()
+            .filter_map(|c| c.as_str().map(str::to_string))
+            .collect(),
+    )
+}
+
 /// Équipe un cosmétique Misty (ou aucun) : il est gardé d'une session à l'autre et le mod le
 /// voit tout de suite, même en pleine partie.
 pub fn equiper(cosmetique: &str) {

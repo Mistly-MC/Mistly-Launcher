@@ -22,6 +22,45 @@ pub struct FichierBloque {
     pub nom: String,
     pub page: String,
     pub dossier: String,
+    /// Nom du fichier tel que CurseForge le donne au téléchargement
+    pub fichier: String,
+    pub sha1: Option<String>,
+    /// Où le ranger dans le profil
+    pub destination: PathBuf,
+}
+
+/// Range dans le profil les fichiers bloqués que le joueur a téléchargés à la main dans `dossier`
+/// (son dossier Téléchargements) : même nom, et même empreinte SHA-1 quand CurseForge la donne.
+/// Renvoie ceux qui manquent encore.
+pub fn ranger_telecharges(dossier: &Path, bloques: &[FichierBloque]) -> Vec<FichierBloque> {
+    bloques
+        .iter()
+        .filter(|b| !ranger_un(dossier, b))
+        .cloned()
+        .collect()
+}
+
+fn ranger_un(dossier: &Path, b: &FichierBloque) -> bool {
+    if b.destination.is_file() {
+        return true;
+    }
+    let source = dossier.join(&b.fichier);
+    if b.fichier.is_empty() || !source.is_file() {
+        return false;
+    }
+    if let Some(attendu) = b.sha1.as_deref().filter(|s| !s.is_empty()) {
+        if !download::sha1_fichier(&source).is_ok_and(|h| h.eq_ignore_ascii_case(attendu)) {
+            return false;
+        }
+    }
+    if let Some(parent) = b.destination.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::rename(&source, &b.destination).is_ok()
+        || (std::fs::copy(&source, &b.destination).is_ok() && {
+            let _ = std::fs::remove_file(&source);
+            true
+        })
 }
 
 pub struct Resultat {
@@ -34,6 +73,29 @@ pub struct Resultat {
 pub struct VersionPack {
     pub id: String,
     pub libelle: String,
+    /// Nom de la version seul (« 5.10.16 »)
+    pub nom: String,
+    /// Version de Minecraft (« 1.20.1 »), vide si inconnue
+    pub mc: String,
+    /// Mod loader (« Forge », « Fabric »…), vide si inconnu
+    pub loader: String,
+    /// Taille du téléchargement en octets (0 : inconnue)
+    pub taille: u64,
+    /// Date de publication (« 2026-11-02 »)
+    pub date: String,
+    /// "release", "beta" ou "alpha"
+    pub type_: String,
+}
+
+/// « forge » → « Forge », « neoforge » → « NeoForge »…
+fn nom_loader(l: &str) -> String {
+    match l.to_ascii_lowercase().as_str() {
+        "forge" => "Forge".into(),
+        "neoforge" => "NeoForge".into(),
+        "fabric" => "Fabric".into(),
+        "quilt" => "Quilt".into(),
+        _ => String::new(),
+    }
 }
 
 fn etiquette_type(type_: &str) -> &'static str {
@@ -71,6 +133,26 @@ pub async fn versions_disponibles(projet: &ProjetDistant) -> anyhow::Result<Vec<
             liste.push(VersionPack {
                 id: f.id.to_string(),
                 libelle: format!("{libelle}{}", etiquette_type(&f.release_type.to_string())),
+                nom: if f.display_name.is_empty() {
+                    f.file_name.clone()
+                } else {
+                    f.display_name.clone()
+                },
+                mc: mc.clone(),
+                loader: f
+                    .game_versions
+                    .iter()
+                    .map(|v| nom_loader(v))
+                    .find(|l| !l.is_empty())
+                    .unwrap_or_default(),
+                taille: f.file_length,
+                date: f.file_date.chars().take(10).collect(),
+                type_: match f.release_type {
+                    2 => "beta",
+                    3 => "alpha",
+                    _ => "release",
+                }
+                .into(),
             });
         }
     } else {
@@ -89,11 +171,31 @@ pub async fn versions_disponibles(projet: &ProjetDistant) -> anyhow::Result<Vec<
             };
             let libelle = match v.game_versions.last() {
                 Some(mc) => format!("{nom} · {mc}"),
-                None => nom,
+                None => nom.clone(),
             };
             liste.push(VersionPack {
                 id: v.id.clone(),
                 libelle: format!("{libelle}{}", etiquette_type(&v.version_type)),
+                nom: nom.clone(),
+                mc: v.game_versions.last().cloned().unwrap_or_default(),
+                loader: v
+                    .loaders
+                    .iter()
+                    .map(|l| nom_loader(l))
+                    .find(|l| !l.is_empty())
+                    .unwrap_or_default(),
+                taille: v
+                    .files
+                    .iter()
+                    .find(|f| f.filename.to_lowercase().ends_with(".mrpack"))
+                    .map(|f| f.size)
+                    .unwrap_or(0),
+                date: v.date_published.chars().take(10).collect(),
+                type_: if v.version_type.is_empty() {
+                    "release".into()
+                } else {
+                    v.version_type.clone()
+                },
             });
         }
     }
@@ -837,6 +939,9 @@ async fn fichiers_curseforge(
                 nom: titre,
                 page: curseforge::page_fichier(m, entree.project_id, entree.file_id),
                 dossier: nom_dossier,
+                fichier: fichier.file_name.clone(),
+                sha1: fichier.sha1().map(str::to_string),
+                destination: destination.clone(),
             },
             destination,
         });
@@ -1289,6 +1394,9 @@ mod tests_reseau {
                 nom: "Sodium".into(),
                 page: String::new(),
                 dossier: "mods".into(),
+                fichier: "sodium-cf.jar".into(),
+                sha1: None,
+                destination: i.dossier().join("mods").join("sodium-cf.jar"),
             },
         }];
         let rien: Progress = std::sync::Arc::new(|_| {});
@@ -1314,5 +1422,33 @@ mod tests_reseau {
             "epicterraincompatible"
         );
         assert_eq!(nom_simple("Cloth Config API"), "clothconfigapi");
+    }
+
+    #[test]
+    fn ranger_un_fichier_telecharge_a_la_main() {
+        let base = std::env::temp_dir().join(format!("misty-ranger-{}", std::process::id()));
+        let telechargements = base.join("Downloads");
+        std::fs::create_dir_all(&telechargements).unwrap();
+        std::fs::write(telechargements.join("pack.zip"), b"abc").unwrap();
+        let bloque = |sha1: Option<&str>, nom: &str| FichierBloque {
+            nom: nom.into(),
+            page: String::new(),
+            dossier: "resourcepacks".into(),
+            fichier: nom.into(),
+            sha1: sha1.map(str::to_string),
+            destination: base.join("profil").join("resourcepacks").join(nom),
+        };
+        // mauvaise empreinte : laissé où il est
+        let faux = bloque(Some("0000000000000000000000000000000000000000"), "pack.zip");
+        assert_eq!(ranger_telecharges(&telechargements, &[faux]).len(), 1);
+        // bonne empreinte (SHA-1 de « abc ») : rangé dans le profil
+        let bon = bloque(Some("a9993e364706816aba3e25717850c26c9cd0d89d"), "pack.zip");
+        let manquant = bloque(None, "absent.zip");
+        let restants = ranger_telecharges(&telechargements, &[bon.clone(), manquant]);
+        assert_eq!(restants.len(), 1);
+        assert_eq!(restants[0].fichier, "absent.zip");
+        assert!(bon.destination.is_file());
+        assert!(!telechargements.join("pack.zip").exists());
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

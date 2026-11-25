@@ -778,6 +778,56 @@ pub fn est_installe(app: &App, projet: &ProjetDistant) -> bool {
 
 // ───────────────────────── Installation depuis l'explorateur ─────────────────────────
 
+/// Depuis Découvrir : un mod, un pack, un datapack ou un shader s'installe dans un profil que le
+/// joueur choisit (seulement ceux qui peuvent le recevoir : pas de mods sur un profil Vanilla).
+pub async fn installer_dans_un_profil(app: &Rc<App>, projet: ProjetDistant, type_: String) -> bool {
+    let profils: Vec<Instance> = misty_core::minecraft::instances::lister()
+        .into_iter()
+        .filter(|i| (type_ != content::MOD && type_ != content::SHADER) || i.supporte_mods())
+        .collect();
+    if profils.is_empty() {
+        dialogs::info(
+            app,
+            &loc::t("Decouvrir_AucunProfil"),
+            &loc::t("Decouvrir_AucunProfil_Texte"),
+        )
+        .await;
+        return false;
+    }
+    let noms: Vec<String> = profils
+        .iter()
+        .map(|i| format!("{} · {} {}", i.nom, i.loader, i.version_mc))
+        .collect();
+    let Some(choix) = dialogs::choisir(
+        app,
+        &loc::t("Decouvrir_ChoisirProfil"),
+        &loc::tf("Decouvrir_ChoisirProfil_Texte", &[&projet.titre]),
+        &noms,
+    )
+    .await
+    else {
+        return false;
+    };
+    let inst = profils[choix].clone();
+    {
+        let mut e = app.instance.borrow_mut();
+        e.instance = Some(inst.clone());
+        e.majs.clear();
+        e.majs_en_cours.clear();
+    }
+    charger_contenu(app).await;
+    let fait = installer_projet(app, projet.clone(), type_).await;
+    if fait {
+        dialogs::info(
+            app,
+            &loc::t("Decouvrir_Installe"),
+            &loc::tf("Decouvrir_Installe_Texte", &[&projet.titre, &inst.nom]),
+        )
+        .await;
+    }
+    fait
+}
+
 /// Installation (avec les cas particuliers datapacks / shaders). Renvoie true si elle a réussi.
 pub async fn installer_projet(app: &Rc<App>, projet: ProjetDistant, type_: String) -> bool {
     let Some(inst) = instance(app) else {

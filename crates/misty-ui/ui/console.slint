@@ -5,7 +5,7 @@
 // Couleurs claires ou sombres selon le thème. Rust remplit ConsoleState.
 
 import { Theme, Tr } from "theme.slint";
-import { Icon } from "widgets.slint";
+import { Icon, IconeNuit, BoutonRond } from "widgets.slint";
 import { AppState } from "state.slint";
 import { ListView } from "std-widgets.slint";
 
@@ -56,36 +56,35 @@ export global ConsoleState {
 /// Couleurs de la console : claires avec le thème clair, sombres avec le thème sombre.
 global CC {
     out property <bool> d: Theme.dark;
-    /// voile sur tout le launcher
-    out property <color> voile: d ? #070B16D9 : #EEF4FCE0;
+    out property <color> voile: Theme.bg;
     /// cadre des lignes
-    out property <color> zone: d ? #02040ACC : #FFFFFFD9;
-    out property <color> entete: d ? #FFFFFF0A : #F4F8FE;
-    out property <color> bord: d ? #FFFFFF14 : #1C23351F;
-    out property <color> titre: d ? #FFFFFF : #1C2335;
-    out property <color> sous-titre: d ? #9FB0D0 : #5A6B82;
-    out property <color> discret: d ? #8C9AB8 : #7A8AA3;
-    out property <color> vide: d ? #6F7D9C : #8A8E98;
+    out property <color> zone: Theme.surface;
+    out property <color> entete: Theme.surface-2;
+    out property <color> bord: Theme.border;
+    out property <color> titre: Theme.ink-strong;
+    out property <color> sous-titre: Theme.ink-3;
+    out property <color> discret: Theme.ink-3;
+    out property <color> vide: Theme.ink-4;
     // boutons et filtres
-    out property <color> bouton: d ? #FFFFFF12 : #FFFFFFB3;
-    out property <color> bouton-survol: d ? #FFFFFF1F : #FFFFFF;
-    out property <color> bouton-appui: d ? #FFFFFF2A : #E3ECF8;
-    out property <color> bouton-bord: d ? #FFFFFF1A : #1C23351F;
-    out property <color> encre: d ? #DCE6FF : #1C2335;
+    out property <color> bouton: Theme.control;
+    out property <color> bouton-survol: Theme.border-strong;
+    out property <color> bouton-appui: Theme.border-strong;
+    out property <color> bouton-bord: Theme.border-strong;
+    out property <color> encre: Theme.ink;
     out property <color> danger: d ? #FF8A98 : #C8243A;
-    out property <color> filtre-actif: d ? #FFFFFF26 : #1C23351A;
-    out property <color> filtre-survol: d ? #FFFFFF14 : #FFFFFF99;
-    out property <color> filtre-bord: d ? #FFFFFF40 : #1C233533;
-    out property <color> filtre-texte: d ? #B7C3DE : #5A6B82;
+    out property <color> filtre-actif: Theme.active;
+    out property <color> filtre-survol: Theme.control;
+    out property <color> filtre-bord: transparent;
+    out property <color> filtre-texte: Theme.ink-4;
     // lignes
-    out property <color> info: d ? #D5DCEB : #1C2335;
+    out property <color> info: Theme.ink-2;
     out property <color> avert: d ? #FFC46B : #A85F00;
     out property <color> erreur: d ? #FF7A8A : #C8243A;
-    out property <color> misty: d ? #7FB2FF : #2F6FD6;
-    out property <color> succes: d ? #9FE8B8 : #13883D;
-    out property <color> bleu: d ? #8FB8FF : #2F6FD6;
+    out property <color> misty: Theme.ink-strong;
+    out property <color> succes: Theme.online-text;
+    out property <color> bleu: Theme.ink-3;
     /// lignes sélectionnées
-    out property <color> selection: d ? #3B82F633 : #2F6FD622;
+    out property <color> selection: d ? #FFFFFF1F : #1C23351A;
 }
 
 /// Bouton de la console (texte et/ou icône).
@@ -136,36 +135,27 @@ component FiltreConsole inherits Rectangle {
     in property <color> pastille;
     in property <bool> checked;
     callback clicked;
-    height: 30px;
-    width: ligne.preferred-width + 22px;
-    border-radius: 14px;
-    background: root.checked ? CC.filtre-actif : zone.has-hover ? CC.filtre-survol : transparent;
-    border-width: 1.5px;
-    border-color: root.checked ? CC.filtre-bord : CC.bord;
-    animate background { duration: 120ms; }
+    height: 34px;
+    width: ligne.preferred-width + 28px;
+    border-radius: 17px;
+    background: root.checked ? Theme.active : zone.has-hover ? Theme.control : transparent;
+    animate background { duration: Theme.fast; }
     ligne := HorizontalLayout {
         alignment: center;
-        spacing: 7px;
-        Rectangle {
-            width: 7px;
-            height: 7px;
-            y: (parent.height - self.height) / 2;
-            border-radius: 6px;
-            background: root.pastille;
-        }
+        spacing: 6px;
         Text {
             text: root.text;
-            font-family: Theme.ui-font;
-            font-size: 12px;
-            font-weight: 600;
-            color: root.checked ? CC.titre : CC.filtre-texte;
+            font-family: Theme.sans-font;
+            font-size: 13px;
+            font-weight: 500;
+            color: root.checked ? Theme.on-active : Theme.ink-4;
             vertical-alignment: center;
         }
         if root.count != "": Text {
             text: root.count;
-            font-family: "Consolas";
-            font-size: 11.5px;
-            color: CC.discret;
+            font-family: Theme.mono-font;
+            font-size: 12px;
+            color: root.checked ? Theme.on-active : root.pastille;
             vertical-alignment: center;
         }
     }
@@ -209,7 +199,7 @@ component PanneauLogs inherits Rectangle {
         }
     }
 
-    border-radius: 14px;
+    border-radius: 24px;
     background: CC.zone;
     border-width: 1.5px;
     border-color: root.p.crashed ? #FF5A6E66 : CC.bord;
@@ -265,7 +255,7 @@ component PanneauLogs inherits Rectangle {
                     }
                     Text {
                         text: root.p.warnings;
-                        font-family: "Consolas";
+                        font-family: Theme.mono-font;
                         font-size: 11.5px;
                         color: CC.avert;
                         vertical-alignment: center;
@@ -281,7 +271,7 @@ component PanneauLogs inherits Rectangle {
                     }
                     Text {
                         text: root.p.errors;
-                        font-family: "Consolas";
+                        font-family: Theme.mono-font;
                         font-size: 11.5px;
                         color: CC.erreur;
                         vertical-alignment: center;
@@ -400,7 +390,7 @@ component PanneauLogs inherits Rectangle {
                         x: 8px;
                         width: parent.width - 16px;
                         text: l.text;
-                        font-family: "Consolas";
+                        font-family: Theme.mono-font;
                         font-size: 12.5px;
                         color: l.level == 2 ? CC.erreur : l.level == 1 ? CC.avert : l.level == 3 ? CC.misty : CC.info;
                         vertical-alignment: center;
@@ -481,163 +471,146 @@ component PanneauLogs inherits Rectangle {
 export component ConsoleOverlay inherits Rectangle {
     // rien ne passe au launcher derrière
     TouchArea { }
+    background: Theme.bg;
 
     Rectangle {
-        border-radius: 14px;
-        background: Theme.surface.with-alpha(1);
-        border-width: 1.5px;
-        border-color: Theme.glass-border;
-        drop-shadow-blur: 24px;
-        drop-shadow-color: Theme.shadow;
-        clip: true;
-
         VerticalLayout {
-            // ── en-tête : comme les autres pages (titre, info, actions) ──
+            padding-bottom: 40px;
+            // ── en-tête (Figma) : titre, état de la partie, filtres, dossier, fermer ──
             HorizontalLayout {
-                height: 62px;
-                padding-left: 16px;
-                padding-right: 14px;
+                height: 52px;
+                padding-left: 8px;
                 spacing: 12px;
-                VerticalLayout {
-                    alignment: center;
-                    Rectangle {
-                        width: 36px;
-                        height: 36px;
-                        border-radius: 14px;
-                        background: Theme.accent-soft;
-                        Icon {
-                            text: "\u{E756}";
-                            font-size: 15px;
-                            color: Theme.accent;
-                        }
-                    }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    Text {
-                        text: Tr.t("Console_Titre");
-                        font-size: 20px;
-                        font-weight: 600;
-                        color: Theme.navy;
-                    }
+                Text {
+                    text: Tr.t("Console_Titre");
+                    font-family: Theme.sans-font;
+                    font-size: 32px;
+                    font-weight: 600;
+                    letter-spacing: -1px;
+                    color: Theme.ink-strong;
+                    vertical-alignment: center;
                 }
                 if ConsoleState.subtitle != "": VerticalLayout {
                     alignment: center;
                     Rectangle {
-                        height: 24px;
-                        width: sous-titre.preferred-width + 16px;
-                        border-radius: 18px;
-                        background: Theme.glass-strong;
-                        border-width: 1.5px;
-                        border-color: Theme.glass-border;
-                        sous-titre := Text {
-                            text: ConsoleState.subtitle;
-                            font-size: 12px;
-                            font-weight: 600;
-                            color: Theme.text-muted;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-                Rectangle { horizontal-stretch: 1; }
-                VerticalLayout {
-                    alignment: center;
-                    BoutonConsole {
-                        icon: "\u{E838}";
-                        text: root.width < 760px ? "" : Tr.t("Console_Dossier");
-                        clicked => { ConsoleState.open-folder(); }
-                    }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    BoutonConsole {
-                        icon: "\u{E711}";
-                        text: Tr.t("Console_Fermer");
-                        clicked => { ConsoleState.open = false; }
-                    }
-                }
-            }
-            Rectangle {
-                height: 1px;
-                background: Theme.line;
-            }
-
-            // ── filtres et recherche (pour tous les panneaux) ──
-            HorizontalLayout {
-                padding-left: 16px;
-                padding-right: 16px;
-                padding-top: 12px;
-                spacing: 8px;
-                FiltreConsole {
-                    text: Tr.t("Console_Tout");
-                    count: "";
-                    pastille: CC.bleu;
-                    checked: ConsoleState.filter == 0;
-                    clicked => { ConsoleState.filter = 0; ConsoleState.filter-changed(); }
-                }
-                FiltreConsole {
-                    text: Tr.t("Console_Avertissements");
-                    count: ConsoleState.warnings > 0 ? "" + ConsoleState.warnings : "";
-                    pastille: #FFBE5A;
-                    checked: ConsoleState.filter == 1;
-                    clicked => { ConsoleState.filter = 1; ConsoleState.filter-changed(); }
-                }
-                FiltreConsole {
-                    text: Tr.t("Console_Erreurs");
-                    count: ConsoleState.errors > 0 ? "" + ConsoleState.errors : "";
-                    pastille: #FF5A6E;
-                    checked: ConsoleState.filter == 2;
-                    clicked => { ConsoleState.filter = 2; ConsoleState.filter-changed(); }
-                }
-                Rectangle { horizontal-stretch: 1; }
-                Rectangle {
-                    width: min(260px, max(150px, root.width - 560px));
-                    height: 32px;
-                    border-radius: 14px;
-                    background: CC.bouton;
-                    border-width: 1.5px;
-                    border-color: recherche.has-focus ? CC.bleu : CC.bouton-bord;
-                    HorizontalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-                        spacing: 8px;
-                        Icon {
-                            text: "\u{E721}";
-                            font-size: 12px;
-                            color: CC.discret;
-                            vertical-alignment: center;
-                        }
+                        height: 28px;
+                        width: sous-titre.preferred-width + 34px;
+                        border-radius: 14px;
+                        background: Theme.online-bg;
                         Rectangle {
-                            horizontal-stretch: 1;
-                            recherche := TextInput {
-                                width: 100%;
-                                height: 100%;
-                                text <=> ConsoleState.search;
-                                font-family: Theme.ui-font;
-                                font-size: 12.5px;
-                                color: CC.titre;
-                                vertical-alignment: center;
-                                single-line: true;
-                                edited => { ConsoleState.filter-changed(); }
+                            x: 12px;
+                            width: 7px;
+                            height: 7px;
+                            border-radius: 3.5px;
+                            background: Theme.online;
+                        }
+                        sous-titre := Text {
+                            x: 25px;
+                            text: ConsoleState.subtitle;
+                            font-family: Theme.sans-font;
+                            font-size: 12.5px;
+                            color: Theme.online-text;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        height: 44px;
+                        width: filtres.preferred-width + 10px;
+                        border-radius: 22px;
+                        background: Theme.surface-2;
+                        border-width: 1.5px;
+                        border-color: Theme.border-field;
+                        filtres := HorizontalLayout {
+                            x: 5px;
+                            alignment: center;
+                            spacing: 2px;
+                            FiltreConsole {
+                                text: Tr.t("Console_Tout");
+                                count: "";
+                                checked: ConsoleState.filter == 0;
+                                clicked => { ConsoleState.filter = 0; ConsoleState.filter-changed(); }
                             }
-                            if ConsoleState.search == "": Text {
-                                width: 100%;
-                                text: Tr.t("Console_Rechercher");
-                                font-family: Theme.ui-font;
-                                font-size: 12.5px;
-                                color: CC.vide;
-                                vertical-alignment: center;
+                            FiltreConsole {
+                                text: Tr.t("Console_Avertissements");
+                                count: ConsoleState.warnings > 0 ? "" + ConsoleState.warnings : "";
+                                pastille: CC.avert;
+                                checked: ConsoleState.filter == 1;
+                                clicked => { ConsoleState.filter = 1; ConsoleState.filter-changed(); }
+                            }
+                            FiltreConsole {
+                                text: Tr.t("Console_Erreurs");
+                                count: ConsoleState.errors > 0 ? "" + ConsoleState.errors : "";
+                                pastille: CC.erreur;
+                                checked: ConsoleState.filter == 2;
+                                clicked => { ConsoleState.filter = 2; ConsoleState.filter-changed(); }
                             }
                         }
                     }
+                }
+                // recherche
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: min(220px, max(120px, root.width - 760px));
+                        height: 44px;
+                        border-radius: 22px;
+                        background: Theme.surface-2;
+                        border-width: 1.5px;
+                        border-color: recherche.has-focus ? Theme.border-strong : Theme.border-field;
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 14px;
+                            spacing: 8px;
+                            VerticalLayout {
+                                alignment: center;
+                                IconeNuit { nom: "recherche"; taille: 14px; couleur: Theme.ink-3; }
+                            }
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                recherche := TextInput {
+                                    width: 100%;
+                                    height: 100%;
+                                    text <=> ConsoleState.search;
+                                    font-family: Theme.sans-font;
+                                    font-size: 13px;
+                                    color: Theme.ink;
+                                    vertical-alignment: center;
+                                    single-line: true;
+                                    edited => { ConsoleState.filter-changed(); }
+                                }
+                                if ConsoleState.search == "": Text {
+                                    width: 100%;
+                                    text: Tr.t("Console_Rechercher");
+                                    font-family: Theme.sans-font;
+                                    font-size: 13px;
+                                    color: Theme.ink-3;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+                BoutonRond {
+                    icone: "dossier";
+                    taille: 44px;
+                    tooltip: Tr.t("Console_Dossier");
+                    clicked => { ConsoleState.open-folder(); }
+                }
+                BoutonRond {
+                    icone: "fermer";
+                    taille: 44px;
+                    tooltip: Tr.t("Console_Fermer");
+                    clicked => { ConsoleState.open = false; }
                 }
             }
 
             HorizontalLayout {
                 vertical-stretch: 1;
-                padding: 16px;
-                padding-top: 12px;
+                padding-top: 18px;
                 // ── les parties, en écran partagé ──
                 grille := Rectangle {
                     vertical-stretch: 1;
@@ -667,7 +640,7 @@ export component ConsoleOverlay inherits Rectangle {
                     }
 
                     if ConsoleState.panes.length == 0: Rectangle {
-                        border-radius: 14px;
+                        border-radius: 24px;
                         background: CC.zone;
                         border-width: 1.5px;
                         border-color: CC.bord;

@@ -19,6 +19,7 @@ misty-core.workspace = true
 misty-ui.workspace = true
 slint.workspace = true
 tokio.workspace = true
+dirs.workspace = true
 futures.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

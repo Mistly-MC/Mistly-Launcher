@@ -2,7 +2,7 @@
 
 import { Theme, Tr, Assets } from "theme.slint";
 import { InstanceState } from "state.slint";
-import { Icon, PixelLabel, BodyText, SectionTitle, Badge, Thumb, IconButton, MButton, PlayButton, TabPill, GlassInput, ToggleSwitch } from "widgets.slint";
+import { Icon, PixelLabel, BodyText, SectionTitle, Badge, Thumb, IconButton, MButton, PlayButton, TabPill, GlassInput, ToggleSwitch, BoutonRond, IconeNuit } from "widgets.slint";
 import { ContentBrowser } from "browser.slint";
 import { ListView } from "std-widgets.slint";
 
@@ -66,19 +66,17 @@ component CaseMisty inherits Rectangle {
 component SideChip inherits Rectangle {
     /// 1 client, 2 serveur, 3 les deux
     in property <int> side;
-    property <color> teinte: root.side == 1 ? #13B24C : root.side == 2 ? #F08A24 : #2F8CFF;
-    height: 18px;
-    width: label.preferred-width + 14px;
-    border-radius: 14px;
-    background: root.teinte.with-alpha(0.18);
+    height: 20px;
+    width: label.preferred-width + 16px;
+    border-radius: 10px;
+    background: Theme.surface-2;
     border-width: 1.5px;
-    border-color: root.teinte.with-alpha(0.55);
+    border-color: Theme.border-strong;
     label := Text {
         text: root.side == 1 ? Tr.t("Env_Client") : root.side == 2 ? Tr.t("Env_Serveur") : Tr.t("Env_LesDeux");
-        font-family: Theme.ui-font;
+        font-family: Theme.sans-font;
         font-size: 11px;
-        font-weight: 600;
-        color: root.teinte.brighter(0.25);
+        color: Theme.ink-4;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
@@ -90,44 +88,53 @@ export component InstancePage inherits Rectangle {
         padding: 0px;
         spacing: 0px;
 
-        // ═══ En-tête ═══
+        // ═══ En-tête (Figma) : retour, icône ronde, nom et résumé, actions rondes, Jouer ═══
         HorizontalLayout {
-            padding-bottom: 18px;
-            spacing: 0px;
+            padding-bottom: 20px;
+            spacing: 16px;
             VerticalLayout {
                 alignment: center;
-                IconButton {
-                    icon: "\u{E72B}";
+                BoutonRond {
+                    icone: "retour";
+                    taille: 48px;
                     tooltip: Tr.t("Profil_Retour");
                     clicked => { InstanceState.back(); }
                 }
             }
-            HorizontalLayout {
-                padding-left: 16px;
-                padding-right: 18px;
-                Thumb {
-                    width: 80px;
-                    height: 80px;
-                    radius: 22px;
-                    border: 3px;
-                    logo-margin: 16px;
-                    logo-opacity: 1;
-                    source: InstanceState.icon;
-                    has-image: InstanceState.has-icon;
-                    drop-shadow-blur: 8px;
-                    drop-shadow-color: Theme.shadow;
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 30px;
+                    clip: true;
+                    background: Theme.control;
+                    border-width: 1.5px;
+                    border-color: Theme.border-strong;
+                    if InstanceState.has-icon: Image {
+                        width: parent.width;
+                        height: parent.height;
+                        source: InstanceState.icon;
+                        image-fit: cover;
+                    }
+                    if !InstanceState.has-icon: IconeNuit {
+                        nom: "instances";
+                        taille: 22px;
+                        couleur: Theme.icon;
+                    }
                 }
             }
             VerticalLayout {
                 horizontal-stretch: 1;
                 alignment: center;
-                spacing: 8px;
-                // nom du profil : police d'interface (un nom long reste lisible et se coupe proprement)
+                spacing: 6px;
                 if !InstanceState.renaming: Text {
                     text: InstanceState.name;
-                    font-size: 28px;
+                    font-family: Theme.sans-font;
+                    font-size: 30px;
                     font-weight: 600;
-                    color: Theme.navy;
+                    letter-spacing: -0.8px;
+                    color: Theme.ink-strong;
                     overflow: elide;
                 }
                 // Renommage : remplace le nom le temps de la saisie
@@ -149,12 +156,15 @@ export component InstancePage inherits Rectangle {
                         clicked => { InstanceState.rename-ok(); }
                     }
                 }
+                // le résumé : loader, Minecraft, modpack… séparés par des points
                 HorizontalLayout {
-                    spacing: 6px;
+                    spacing: 0px;
                     alignment: start;
-                    for b in InstanceState.badges: Badge {
-                        text: b.text;
-                        couleur: b.color;
+                    for b[i] in InstanceState.badges: Text {
+                        text: (i > 0 ? "  ·  " : "") + b.text;
+                        font-family: Theme.sans-font;
+                        font-size: 13.5px;
+                        color: Theme.ink-3;
                     }
                 }
             }
@@ -162,60 +172,65 @@ export component InstancePage inherits Rectangle {
                 spacing: 8px;
                 if InstanceState.is-modpack: VerticalLayout {
                     alignment: center;
-                    IconButton {
-                        icon: "\u{E895}";
+                    BoutonRond {
+                        icone: "rafraichir";
+                        taille: 46px;
                         tooltip: Tr.t("Pack_MettreAJour");
                         clicked => { InstanceState.update-pack(); }
                     }
                 }
                 VerticalLayout {
                     alignment: center;
-                    IconButton {
-                        icon: "\u{E8B7}";
+                    BoutonRond {
+                        icone: "dossier";
+                        taille: 46px;
                         tooltip: Tr.t("Instance_Dossier");
                         clicked => { InstanceState.folder(); }
                     }
                 }
                 VerticalLayout {
                     alignment: center;
-                    IconButton {
-                        icon: "\u{EDE1}";
+                    BoutonRond {
+                        icone: "exporter";
+                        taille: 46px;
                         tooltip: Tr.t("Instance_Exporter");
                         clicked => { InstanceState.export(); }
                     }
                 }
                 VerticalLayout {
                     alignment: center;
-                    IconButton {
-                        icon: "\u{E8B9}";
+                    BoutonRond {
+                        icone: "etoile";
+                        taille: 46px;
                         tooltip: Tr.t("Instance_Icone");
                         clicked => { InstanceState.change-icon(); }
                     }
                 }
                 VerticalLayout {
                     alignment: center;
-                    IconButton {
-                        icon: "\u{E70F}";
+                    BoutonRond {
+                        icone: "crayon";
+                        taille: 46px;
                         tooltip: Tr.t("Instance_Renommer");
                         clicked => { InstanceState.rename(); }
                     }
                 }
                 VerticalLayout {
                     alignment: center;
-                    IconButton {
-                        icon: "\u{E74D}";
-                        encre: Theme.danger;
+                    BoutonRond {
+                        icone: "poubelle";
+                        taille: 46px;
                         tooltip: Tr.t("Profil_Supprimer");
                         clicked => { InstanceState.delete(); }
                     }
                 }
-                Rectangle { width: 6px; }
+                Rectangle { width: 4px; }
                 VerticalLayout {
                     alignment: center;
                     PlayButton {
                         width: 150px;
-                        height: 60px;
-                        font-size: 22px;
+                        height: 56px;
+                        font-size: 20px;
                         text: Tr.t("Home_Bouton_Jouer");
                         clicked => { InstanceState.play(); }
                     }
@@ -275,7 +290,7 @@ export component InstancePage inherits Rectangle {
                 }
                 Rectangle { horizontal-stretch: 1; }
                 if InstanceState.updates-count > 0: MButton {
-                    kind: 3;
+                    kind: 0;
                     icon: "\u{E896}";
                     icon-spin: InstanceState.updating-all;
                     enabled: !InstanceState.updating-all;
@@ -300,9 +315,9 @@ export component InstancePage inherits Rectangle {
                         height: parent.height - 8px;
                         width: parent.width - 10px;
                         border-radius: 22px;
-                        background: Theme.glass;
+                        background: Theme.surface;
                         border-width: 1.5px;
-                        border-color: Theme.glass-border;
+                        border-color: Theme.border;
                         opacity: c.active ? 1 : 0.6;
                         HorizontalLayout {
                             padding-left: 10px;
@@ -327,10 +342,10 @@ export component InstancePage inherits Rectangle {
                                     Text {
                                         horizontal-stretch: 0;
                                         text: c.title;
-                                        font-family: Theme.ui-font;
-                                        font-weight: 600;
+                                        font-family: Theme.sans-font;
+                                        font-weight: 500;
                                         font-size: 14px;
-                                        color: Theme.navy;
+                                        color: Theme.ink;
                                         overflow: elide;
                                     }
                                     if c.side > 0: VerticalLayout {
@@ -352,28 +367,39 @@ export component InstancePage inherits Rectangle {
                                     if c.update != "": Text {
                                         horizontal-stretch: 0;
                                         text: "→ " + c.update;
-                                        font-family: Theme.ui-font;
-                                        font-size: 12px;
-                                        font-weight: 600;
-                                        color: Theme.green-dark;
+                                        font-family: Theme.mono-font;
+                                        font-size: 11.5px;
+                                        color: Theme.ink-4;
                                         overflow: elide;
                                     }
                                     Rectangle { horizontal-stretch: 1; }
                                 }
                             }
+                            // mise à jour disponible : une pastille (Figma « Update available »)
                             if c.update != "": VerticalLayout {
                                 alignment: center;
-                                IconButton {
-                                    width: 36px;
-                                    height: 36px;
-                                    icon: c.updating ? "\u{E895}" : "\u{E896}";
-                                    icon-size: 13px;
-                                    enabled: !c.updating;
-                                    fond: Theme.green-dark.with-alpha(0.2);
-                                    bord: Theme.green-dark.with-alpha(0.6);
-                                    encre: Theme.green-dark;
-                                    tooltip: Tr.t("Instance_MettreAJour") + " → " + c.update;
-                                    clicked => { InstanceState.update-item(i); }
+                                Rectangle {
+                                    height: 30px;
+                                    width: maj.preferred-width + 28px;
+                                    border-radius: 15px;
+                                    background: zone-maj.has-hover ? Theme.border-strong : Theme.control;
+                                    border-width: 1.5px;
+                                    border-color: Theme.border-strong;
+                                    opacity: c.updating ? 0.5 : 1;
+                                    animate background { duration: Theme.fast; }
+                                    maj := Text {
+                                        text: c.updating ? Tr.t("Explorateur_EnCours") : Tr.t("Instance_MajDispo");
+                                        font-family: Theme.sans-font;
+                                        font-size: 12.5px;
+                                        color: Theme.ink;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                    zone-maj := TouchArea {
+                                        enabled: !c.updating;
+                                        mouse-cursor: pointer;
+                                        clicked => { InstanceState.update-item(i); }
+                                    }
                                 }
                             }
                             ToggleSwitch {
@@ -391,7 +417,7 @@ export component InstancePage inherits Rectangle {
                                     icon-size: 13px;
                                     fond: transparent;
                                     bord: transparent;
-                                    encre: Theme.danger;
+                                    encre: Theme.ink-3;
                                     tooltip: Tr.t("Commun_Supprimer");
                                     clicked => { InstanceState.remove(i); }
                                 }

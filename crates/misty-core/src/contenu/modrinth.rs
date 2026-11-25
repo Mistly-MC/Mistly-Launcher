@@ -75,6 +75,10 @@ pub struct VersionModrinth {
     pub files: Vec<FichierModrinth>,
     #[serde(default)]
     pub dependencies: Vec<DependanceModrinth>,
+    #[serde(default)]
+    pub loaders: Vec<String>,
+    #[serde(default)]
+    pub date_published: String,
 }
 
 impl VersionModrinth {
@@ -94,6 +98,9 @@ pub struct FichierModrinth {
     pub primary: bool,
     #[serde(default)]
     pub hashes: HashMap<String, String>,
+    /// Taille en octets
+    #[serde(default)]
+    pub size: u64,
 }
 
 #[derive(Deserialize, Clone)]
