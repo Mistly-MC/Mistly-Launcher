@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 //! Rendu en direct du studio (onglet Skin) : un fil dédié dessine le personnage à la demande de
 //! l'interface (une demande par image tant que le studio est visible), avec l'angle de la caméra et
 //! l'animation choisis. Si un dessin est déjà en cours, la demande est ignorée : on ne prend jamais

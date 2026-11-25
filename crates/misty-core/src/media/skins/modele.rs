@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 //! Cosmétiques 3D du site (modèles Blockbench, `mistly.cc/models/*.bbmodel`) : lus ici et posés
 //! sur le personnage du studio, comme sur la boutique du site. Les fichiers sont copiés dans le
 //! launcher (`assets/modeles`), pour s'afficher sans Internet.

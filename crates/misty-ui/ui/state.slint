@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 // État de chaque page, partagé avec Rust.
 // Rust remplit ces propriétés et réagit aux callbacks (voir src/ui/*.rs).
 
@@ -47,6 +59,9 @@ export global AppState {
     in property <string> version-text;
     /// Fenêtre agrandie (plein écran fenêtré)
     in property <bool> maximized;
+    /// Linux : fenêtre carrée et opaque (sans compositeur, les coins transparents restent noirs
+    /// et le logo clignotait)
+    in property <bool> coins-carres;
     /// Premier affichage prêt (cache l'écran de chargement)
     in property <bool> ready;
     /// Paysage du site (masques fournis par Rust)

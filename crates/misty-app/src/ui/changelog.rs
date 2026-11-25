@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 //! Notes de version : les releases publiées sur GitHub (Mistly-MC/Mistly-Launcher), gardées en cache pour
 //! s'afficher tout de suite et hors ligne. Sans cache ni réseau : les versions publiées sur GitHub
 //! du CHANGELOG.md intégré à l'exe (à partir de 0.3.0).

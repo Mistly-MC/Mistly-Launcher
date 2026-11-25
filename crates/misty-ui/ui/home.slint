@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 // Accueil du thème Nuit (0.4.1), comme la maquette Figma : une page par édition (Mistly Client,
 // Java, Bedrock, Horizon). En haut le titre, ses puces et JOUER ; à droite les amis en ligne et la
 // dernière news ; en bas les parties récentes, posées sur un paysage en pixel art qui se fond dans
@@ -379,6 +391,9 @@ component CarteBas inherits Rectangle {
     in property <bool> pointille;
     callback clicked;
     height: 84px;
+    // toutes de la même largeur, quelle que soit la longueur du nom
+    min-width: 0px;
+    preferred-width: 0px;
     border-radius: 22px;
     background: Theme.surface;
     border-width: 1.5px;
@@ -720,24 +735,7 @@ export component HomePage inherits Rectangle {
         property <image> scene: self.ed == 1 ? Assets.scene-java : self.ed == 2 ? Assets.scene-bedrock : self.ed == 3 ? Assets.scene-horizon : Assets.scene-mistly;
         // paysage en bas, sur toute la largeur, fondu dans le fond vers le haut
         property <length> hauteur-scene: self.width * 256 / 1180;
-        // Java et Bedrock : un paysage sur toute la page, fondu vers la gauche (sous le texte) et
-        // vers le bas
-        if self.ed == 1 || self.ed == 2: Rectangle {
-            Image {
-                width: parent.width;
-                height: parent.height;
-                source: HomeState.edition == 1 ? Assets.fond-java : Assets.fond-bedrock;
-                image-fit: cover;
-                image-rendering: pixelated;
-            }
-            Rectangle {
-                background: @linear-gradient(90deg, Theme.bg 0%, Theme.bg.with-alpha(0.9) 28%, Theme.bg.with-alpha(0.45) 50%, Theme.bg.with-alpha(0.08) 75%, Theme.bg.with-alpha(0) 100%);
-            }
-            Rectangle {
-                background: @linear-gradient(180deg, Theme.bg.with-alpha(0.35) 0%, Theme.bg.with-alpha(0) 18%, Theme.bg.with-alpha(0) 70%, Theme.bg.with-alpha(0.85) 92%, Theme.bg 100%);
-            }
-        }
-        if self.ed == 0 || self.ed == 3: Image {
+        Image {
             x: 0;
             y: parent.height - parent.hauteur-scene;
             width: parent.width;
@@ -747,7 +745,7 @@ export component HomePage inherits Rectangle {
             image-rendering: pixelated;
             opacity: 1;
         }
-        if self.ed == 0 || self.ed == 3: Rectangle {
+        Rectangle {
             x: 0;
             y: parent.height - parent.hauteur-scene;
             width: parent.width;
@@ -769,8 +767,7 @@ export component HomePage inherits Rectangle {
                 heros := Rectangle {
                     horizontal-stretch: 1;
                     // le visuel en pixel art, en haut à droite du héros
-                    // (Java et Bedrock ont déjà leur paysage en fond)
-                    if root.width > 1000px && (HomeState.edition == 0 || HomeState.edition == 3): Rectangle {
+                    if root.width > 1000px: Rectangle {
                         x: heros.width - self.width - 24px;
                         y: 20px;
                         width: 168px;
@@ -848,12 +845,6 @@ export component HomePage inherits Rectangle {
                                 icone: "dossier";
                                 tooltip: Tr.t("Nav_Dossier");
                                 clicked => { AppState.open-data-folder(); }
-                            }
-                            BoutonRond {
-                                taille: 68px;
-                                icone: "etoile";
-                                tooltip: Tr.t("Home_Notes");
-                                clicked => { AppState.nav-clicked(3); }
                             }
                             if HomeState.edition != 2: BoutonRond {
                                 taille: 68px;

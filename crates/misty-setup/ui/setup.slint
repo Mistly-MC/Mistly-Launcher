@@ -1,0 +1,438 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
+// Fenêtre de l'installateur (Mistly-Setup.exe), dans le style du launcher : sombre, sans cadre,
+// une seule page (dossier d'installation, conditions, Install), puis l'avancement et Launch.
+
+import "../../misty-app/assets/fonts/Silkscreen-Bold.ttf";
+import "../../misty-app/assets/fonts/Geist-Regular.ttf";
+import "../../misty-app/assets/fonts/Geist-Medium.ttf";
+import "../../misty-app/assets/fonts/Geist-SemiBold.ttf";
+import "../../misty-app/assets/fonts/GeistMono-Regular.ttf";
+
+global C {
+    out property <color> fond: #0A0B0E;
+    out property <color> surface: #121418;
+    out property <color> controle: #1A1C21;
+    out property <color> bord: #24262C;
+    out property <color> bord-fort: #33363D;
+    out property <color> encre: #ECEDEF;
+    out property <color> encre-forte: #F4F4F5;
+    out property <color> encre-2: #8A8E98;
+    out property <color> encre-3: #7C808A;
+    out property <color> actif: #F1F2F4;
+    out property <color> sur-actif: #0A0B0E;
+    out property <color> danger: #FF7A8A;
+}
+
+/// Nuage de Mistly (tracé, comme dans le launcher).
+component Nuage inherits Path {
+    in property <color> couleur: C.encre;
+    width: 22px;
+    height: 22px;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    commands: "M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z";
+    stroke: root.couleur;
+    stroke-width: 1.8px;
+    fill: transparent;
+}
+
+/// Bouton rond de la barre du haut (réduire, fermer).
+component BoutonFenetre inherits Rectangle {
+    in property <string> trace;
+    callback clicked;
+    width: 30px;
+    height: 30px;
+    border-radius: 15px;
+    background: zone.has-hover ? C.bord-fort : C.controle;
+    border-width: 1.5px;
+    border-color: C.bord-fort;
+    animate background { duration: 150ms; }
+    Path {
+        width: 12px;
+        height: 12px;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: root.trace;
+        stroke: C.encre;
+        stroke-width: 1.6px;
+        fill: transparent;
+    }
+    zone := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+/// Bouton plein (blanc) ou discret.
+component Bouton inherits Rectangle {
+    in property <string> texte;
+    in property <bool> plein: true;
+    in property <bool> actif: true;
+    callback clicked;
+    height: 44px;
+    min-width: t.preferred-width + 44px;
+    border-radius: 22px;
+    background: !root.actif ? C.controle : root.plein ? (zone.has-hover ? #FFFFFF : C.actif) : (zone.has-hover ? C.bord-fort : C.controle);
+    border-width: root.plein && root.actif ? 0px : 1.5px;
+    border-color: C.bord-fort;
+    opacity: root.actif ? 1 : 0.55;
+    animate background, opacity { duration: 180ms; }
+    t := Text {
+        text: root.texte;
+        font-family: "Geist";
+        font-size: 14px;
+        font-weight: 500;
+        color: root.plein && root.actif ? C.sur-actif : C.encre;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    zone := TouchArea {
+        enabled: root.actif;
+        mouse-cursor: root.actif ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+/// Lien souligné dans une phrase.
+component Lien inherits Text {
+    in property <string> adresse;
+    callback ouvrir(string);
+    font-family: "Geist";
+    font-size: 13px;
+    color: zone.has-hover ? C.encre-forte : C.encre;
+    vertical-alignment: center;
+    Rectangle {
+        y: parent.height - 3px;
+        height: 1px;
+        background: parent.color;
+    }
+    zone := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.ouvrir(root.adresse); }
+    }
+}
+
+export component FenetreSetup inherits Window {
+    title: "Mistly Launcher Installer";
+    icon: @image-url("../../misty-app/assets/icone.png");
+    width: 640px;
+    height: 420px;
+    no-frame: true;
+    background: C.fond;
+    default-font-family: "Geist";
+
+    in-out property <string> dossier;
+    /// 0 : choix · 1 : installation · 2 : terminé · 3 : échec
+    in property <int> etape;
+    in property <string> erreur;
+    in-out property <bool> accepte;
+    callback parcourir();
+    callback installer();
+    callback lancer();
+    callback ouvrir-lien(string);
+    callback deplacer();
+    callback reduire();
+    callback fermer();
+
+    // horloge de l'animation d'installation
+    property <duration> temps;
+    Timer {
+        interval: 50ms;
+        running: root.etape == 1;
+        triggered => { root.temps += 50ms; }
+    }
+
+    Rectangle {
+        border-width: 1px;
+        border-color: C.bord;
+    }
+
+    VerticalLayout {
+        // ── barre du haut : se déplace en la tirant ──
+        Rectangle {
+            height: 56px;
+            TouchArea {
+                pointer-event(e) => {
+                    if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                        root.deplacer();
+                    }
+                }
+            }
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 14px;
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 10px;
+                        background: C.controle;
+                        border-width: 1.5px;
+                        border-color: C.bord-fort;
+                        Nuage { width: 18px; height: 18px; }
+                    }
+                }
+                Text {
+                    text: "Mistly Launcher Installer";
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: C.encre;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout {
+                    alignment: center;
+                    BoutonFenetre {
+                        trace: "M5 12h14";
+                        clicked => { root.reduire(); }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    BoutonFenetre {
+                        trace: "M6 6l12 12 M18 6L6 18";
+                        clicked => { root.fermer(); }
+                    }
+                }
+            }
+        }
+
+        // ── la page ──
+        VerticalLayout {
+            vertical-stretch: 1;
+            padding-left: 30px;
+            padding-right: 30px;
+            padding-top: 18px;
+            spacing: 12px;
+
+            if root.etape == 0: VerticalLayout {
+                spacing: 12px;
+                Text {
+                    text: "Installation folder:";
+                    font-size: 15px;
+                    font-weight: 500;
+                    color: C.encre-forte;
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 44px;
+                        border-radius: 14px;
+                        background: C.surface;
+                        border-width: 1.5px;
+                        border-color: champ.has-focus ? C.bord-fort : C.bord;
+                        champ := TextInput {
+                            x: 14px;
+                            width: parent.width - 28px;
+                            height: parent.height;
+                            text <=> root.dossier;
+                            font-family: "Geist Mono";
+                            font-size: 12.5px;
+                            color: C.encre-2;
+                            vertical-alignment: center;
+                            single-line: true;
+                        }
+                    }
+                    Bouton {
+                        plein: false;
+                        texte: "Browse";
+                        clicked => { root.parcourir(); }
+                    }
+                }
+            }
+
+            if root.etape == 1 || root.etape == 2: VerticalLayout {
+                alignment: center;
+                vertical-stretch: 1;
+                spacing: 16px;
+                HorizontalLayout {
+                    alignment: center;
+                    Text {
+                        text: "MISTLY";
+                        font-family: "Silkscreen";
+                        font-weight: 700;
+                        font-size: 34px;
+                        letter-spacing: 3px;
+                        color: C.encre-forte;
+                    }
+                }
+                // 16 blocs : ils défilent pendant l'installation, tous pleins à la fin
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 5px;
+                    for n in 16: Rectangle {
+                        property <int> tete: Math.mod(Math.floor(root.temps / 60ms), 22);
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 2px;
+                        background: root.etape == 2 ? C.actif
+                            : (n <= self.tete && n > self.tete - 6) ? C.actif
+                            : (n == self.tete - 6) ? C.encre-3 : C.controle;
+                    }
+                }
+                Text {
+                    text: root.etape == 2 ? "Mistly Launcher is installed" : "Installing Mistly Launcher…";
+                    font-size: 14px;
+                    color: C.encre;
+                    horizontal-alignment: center;
+                }
+            }
+
+            if root.etape == 3: VerticalLayout {
+                alignment: center;
+                vertical-stretch: 1;
+                spacing: 10px;
+                Text {
+                    text: "The installation failed";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: C.encre-forte;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: root.erreur;
+                    font-size: 13px;
+                    color: C.danger;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+            }
+
+            Rectangle { vertical-stretch: 1; }
+        }
+
+        // ── en bas : les conditions et le bouton ──
+        Rectangle {
+            height: 1px;
+            x: 30px;
+            width: parent.width - 60px;
+            background: C.bord;
+        }
+        HorizontalLayout {
+            height: 86px;
+            padding-left: 30px;
+            padding-right: 30px;
+            spacing: 16px;
+
+            if root.etape == 0: HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 22px;
+                        height: 22px;
+                        border-radius: 6px;
+                        background: root.accepte ? C.actif : C.controle;
+                        border-width: 1.5px;
+                        border-color: root.accepte ? C.actif : C.bord-fort;
+                        animate background { duration: 150ms; }
+                        if root.accepte: Path {
+                            width: 12px;
+                            height: 12px;
+                            viewbox-width: 24;
+                            viewbox-height: 24;
+                            commands: "M5 12l5 5 9-10";
+                            stroke: C.sur-actif;
+                            stroke-width: 3px;
+                            fill: transparent;
+                        }
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.accepte = !root.accepte; }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 2px;
+                    HorizontalLayout {
+                        spacing: 4px;
+                        alignment: start;
+                        Text { text: "I accept the"; font-size: 13px; color: C.encre-2; vertical-alignment: center; }
+                        Lien { text: "Terms of use"; adresse: "https://mistly.cc/terms"; ouvrir(a) => { root.ouvrir-lien(a); } }
+                        Text { text: "and"; font-size: 13px; color: C.encre-2; vertical-alignment: center; }
+                        Lien { text: "Privacy Policy"; adresse: "https://mistly.cc/privacy"; ouvrir(a) => { root.ouvrir-lien(a); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 4px;
+                        alignment: start;
+                        Text { text: "and the"; font-size: 13px; color: C.encre-2; vertical-alignment: center; }
+                        Lien { text: "Misty License"; adresse: "https://mistly.cc/license"; ouvrir(a) => { root.ouvrir-lien(a); } }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        texte: "Install";
+                        actif: root.accepte && root.dossier != "";
+                        clicked => { root.installer(); }
+                    }
+                }
+            }
+
+            if root.etape == 1: Text {
+                horizontal-stretch: 1;
+                text: "This only takes a few seconds.";
+                font-size: 13px;
+                color: C.encre-3;
+                vertical-alignment: center;
+            }
+
+            if root.etape == 2: HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: 10px;
+                Text {
+                    horizontal-stretch: 1;
+                    text: "A shortcut is on your desktop and in the Start menu.";
+                    font-size: 13px;
+                    color: C.encre-3;
+                    vertical-alignment: center;
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        texte: "Launch Mistly";
+                        clicked => { root.lancer(); }
+                    }
+                }
+            }
+
+            if root.etape == 3: HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: 10px;
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        plein: false;
+                        texte: "Close";
+                        clicked => { root.fermer(); }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        texte: "Try again";
+                        clicked => { root.installer(); }
+                    }
+                }
+            }
+        }
+    }
+}

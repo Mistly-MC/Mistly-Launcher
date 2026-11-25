@@ -953,5 +953,7 @@
   "Amis_Demande_Recue": "Quer ser teu amigo",
   "Amis_Demande_Envoyee": "Pedido enviado",
   "Amis_Refuser": "Recusar",
-  "Amis_Annuler_Demande": "Cancelar o pedido"
+  "Amis_Annuler_Demande": "Cancelar o pedido",
+  "Console_Sautees": "{0} linhas omitidas na consola (demasiadas por segundo); estão no ficheiro de registo",
+  "Console_Attendre": "Os registos acabaram de ser enviados: espera {0} s antes de enviar de novo"
 }

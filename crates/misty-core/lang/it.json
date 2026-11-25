@@ -953,5 +953,7 @@
   "Amis_Demande_Recue": "Vuole essere tuo amico",
   "Amis_Demande_Envoyee": "Richiesta inviata",
   "Amis_Refuser": "Rifiuta",
-  "Amis_Annuler_Demande": "Annulla la richiesta"
+  "Amis_Annuler_Demande": "Annulla la richiesta",
+  "Console_Sautees": "{0} righe saltate nella console (troppe al secondo); sono nel file di log",
+  "Console_Attendre": "I log sono appena stati inviati: attendi {0} s prima di inviarli di nuovo"
 }

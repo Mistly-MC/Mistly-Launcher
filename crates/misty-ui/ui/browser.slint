@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 // Explorateur de contenu Modrinth / CurseForge (maquette Figma « Discover ») : titre, recherche et
 // tri, onglets des types de contenu et des plateformes, puis une grille de cartes à 3 colonnes
 // (défilement infini, bouton d'installation).
@@ -89,6 +101,7 @@ component Etiquette inherits Rectangle {
 component CarteResultat inherits Rectangle {
     in property <ResultItem> r;
     callback install();
+    clip: true;
     border-radius: 24px;
     background: Theme.surface;
     border-width: 1.5px;
@@ -169,19 +182,26 @@ component CarteResultat inherits Rectangle {
                 }
             }
         }
-        Text {
+        // la description prend la place qui reste, coupée au besoin : les étiquettes restent en bas
+        Rectangle {
             vertical-stretch: 1;
-            // trois lignes au plus : la description ne pousse plus les étiquettes hors de la carte
-            max-height: 3 * 19px;
-            text: root.r.description;
-            font-family: Theme.sans-font;
-            font-size: 13.5px;
-            color: Theme.ink-2;
-            wrap: word-wrap;
-            overflow: elide;
-            vertical-alignment: top;
+            min-height: 0px;
+            clip: true;
+            Text {
+                y: 0;
+                width: parent.width;
+                height: min(self.preferred-height, parent.height);
+                text: root.r.description;
+                font-family: Theme.sans-font;
+                font-size: 13.5px;
+                color: Theme.ink-2;
+                wrap: word-wrap;
+                overflow: elide;
+                vertical-alignment: top;
+            }
         }
         HorizontalLayout {
+            height: 24px;
             spacing: 8px;
             alignment: start;
             if root.r.categories != "": Etiquette { horizontal-stretch: 1; text: root.r.categories; }
@@ -340,7 +360,7 @@ export component ContentBrowser inherits Rectangle {
             grille := ScrollView {
                 property <int> colonnes: max(1, min(3, floor((self.visible-width + 16px) / (300px + 16px))));
                 property <length> case: (self.visible-width - (self.colonnes - 1) * 16px) / self.colonnes;
-                property <length> haut: 198px;
+                property <length> haut: 206px;
                 property <int> nombre: BrowserState.results.length;
                 // Remonte en haut de la liste quand Rust le demande
                 property <int> reset: BrowserState.scroll-reset;

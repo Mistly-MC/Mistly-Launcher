@@ -1,6 +1,22 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 //! Compteur de joueurs en ligne du site (`/api/online`) : tant que Misty est ouvert, un signe de
-//! vie part toutes les 60 secondes avec un identifiant tiré au hasard à chaque démarrage (rien ne
-//! reste d'une session à l'autre, rien ne relie au compte) et s'il y a une partie en cours.
+//! vie part toutes les 60 secondes avec l'identifiant de ce PC et s'il y a une partie en cours.
+//!
+//! L'identifiant est le même pour tous les launchers ouverts sur le PC (deux launchers ouverts =
+//! un seul joueur) : un nombre tiré au hasard une fois, gardé dans le dossier de données, mélangé
+//! avec la date du jour. Le site ne voit donc jamais deux jours de suite le même identifiant, et
+//! rien ne le relie au compte.
 
 use crate::systeme::contexte::Contexte;
 use crate::{systeme::http, systeme::journal};
@@ -9,10 +25,37 @@ use std::time::Duration;
 
 const URL: &str = "https://mistly.cc/api/presence";
 
-/// Identifiant de cette session de Misty.
-fn session() -> &'static str {
+/// Nombre tiré au hasard une fois pour ce PC (`presence-id` du dossier de données).
+fn graine() -> &'static str {
     static S: OnceLock<String> = OnceLock::new();
-    S.get_or_init(|| uuid::Uuid::new_v4().simple().to_string())
+    S.get_or_init(|| {
+        let fichier = crate::systeme::paths::data_dir().join("presence-id");
+        if let Ok(texte) = std::fs::read_to_string(&fichier) {
+            let texte = texte.trim().to_string();
+            if texte.len() == 32 && texte.chars().all(|c| c.is_ascii_hexdigit()) {
+                return texte;
+            }
+        }
+        let nouveau = uuid::Uuid::new_v4().simple().to_string();
+        let _ = std::fs::create_dir_all(crate::systeme::paths::data_dir());
+        let _ = std::fs::write(&fichier, &nouveau);
+        nouveau
+    })
+}
+
+/// Identifiant de ce PC pour aujourd'hui (le même pour tous ses launchers ouverts).
+fn session() -> String {
+    identifiant(
+        graine(),
+        &chrono::Local::now().format("%Y-%m-%d").to_string(),
+    )
+}
+
+fn identifiant(graine: &str, jour: &str) -> String {
+    format!(
+        "{:x}",
+        md5::compute(format!("mistly-presence:{graine}:{jour}"))
+    )
 }
 
 async fn envoyer(corps: serde_json::Value) {
@@ -59,4 +102,17 @@ pub fn quitter(contexte: &Contexte) {
         )
         .await
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::identifiant;
+
+    #[test]
+    fn meme_pc_meme_jour_meme_identifiant() {
+        let g = "0123456789abcdef0123456789abcdef";
+        assert_eq!(identifiant(g, "2026-11-25"), identifiant(g, "2026-11-25"));
+        assert_ne!(identifiant(g, "2026-11-25"), identifiant(g, "2026-11-26"));
+        assert_eq!(identifiant(g, "2026-11-25").len(), 32);
+    }
 }

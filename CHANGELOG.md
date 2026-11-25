@@ -1,4 +1,18 @@
 # Changelog
+## 0.4.7-beta.1
+### Launcher
+- New installer in Mistly's style: pick the folder, accept the terms, Install, then Launch Mistly
+- Patch notes moved to a button in the top bar, next to Settings, which gets a new gear icon
+- Java and Bedrock Home show their own pixel landscape at the bottom, fading into the page like Mistly Client and Horizon
+- The console has a Close button, and its All / Warnings / Errors filters slide like the edition selector
+- A game that writes hundreds of log lines per second no longer floods the console (the lines stay in the log file), and logs can be sent to the team once a minute
+- Two launchers open on the same PC count as one player online
+- Smoother opening and closing of the console and of the profile windows
+- Fixed: the bottom profile cards on Home had different widths
+- Fixed: the selected version was invisible in Choose a version; the rows are taller
+- Fixed: Friends online and Latest news were cut off on Horizon Home
+- Fixed: tags at the bottom of Discover cards could go past the card
+- Fixed: on Linux, the window corners showed black and the logo flickered; the window is now square there
 ## 0.4.6-beta.1
 ### Launcher
 - Friend requests: adding someone sends them a request, and requests you receive show under Pending on the Friends page, to accept or decline (needs one game with Mistly Client and a Microsoft account)

@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 // Console des parties : la sortie de Minecraft ou d'Horizon en direct, dans une grande tuile sous
 // la rangée du haut de la fenêtre.
 // Une partie = un panneau ; plusieurs parties lancées en même temps partagent l'écran
@@ -143,7 +155,8 @@ component FiltreConsole inherits Rectangle {
     height: 34px;
     width: ligne.preferred-width + 28px;
     border-radius: 17px;
-    background: root.checked ? Theme.active : zone.has-hover ? Theme.control : transparent;
+    // le fond blanc est la pastille qui glisse (ConsoleOverlay) ; ici, seulement le survol
+    background: !root.checked && zone.has-hover ? Theme.control : transparent;
     animate background { duration: Theme.fast; }
     ligne := HorizontalLayout {
         alignment: center;
@@ -154,6 +167,7 @@ component FiltreConsole inherits Rectangle {
             font-size: 13px;
             font-weight: 500;
             color: root.checked ? Theme.on-active : Theme.ink-4;
+            animate color { duration: 200ms; }
             vertical-alignment: center;
         }
         if root.count != "": Text {
@@ -560,29 +574,45 @@ export component ConsoleOverlay inherits Rectangle {
                     alignment: center;
                     Rectangle {
                         height: 44px;
-                        width: filtres.preferred-width + 10px;
+                        width: filtres.preferred-width;
                         border-radius: 22px;
                         background: Theme.surface-2;
                         border-width: 1.5px;
                         border-color: Theme.border-field;
+                        // la pastille blanche glisse vers le filtre choisi (comme le choix de l'édition)
+                        property <length> pastille-x: ConsoleState.filter == 0 ? f0.x : ConsoleState.filter == 1 ? f1.x : f2.x;
+                        property <length> pastille-l: ConsoleState.filter == 0 ? f0.width : ConsoleState.filter == 1 ? f1.width : f2.width;
+                        Rectangle {
+                            x: parent.pastille-x;
+                            y: (parent.height - self.height) / 2;
+                            width: parent.pastille-l;
+                            height: 34px;
+                            border-radius: 17px;
+                            background: Theme.active;
+                            animate x, width { duration: 320ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+                        }
                         filtres := HorizontalLayout {
-                            x: 5px;
-                            alignment: center;
+                            padding-left: 5px;
+                            padding-right: 5px;
                             spacing: 2px;
-                            FiltreConsole {
+                            alignment: center;
+                            f0 := FiltreConsole {
+                                y: (parent.height - self.height) / 2;
                                 text: Tr.t("Console_Tout");
                                 count: "";
                                 checked: ConsoleState.filter == 0;
                                 clicked => { ConsoleState.filter = 0; ConsoleState.filter-changed(); }
                             }
-                            FiltreConsole {
+                            f1 := FiltreConsole {
+                                y: (parent.height - self.height) / 2;
                                 text: Tr.t("Console_Avertissements");
                                 count: ConsoleState.warnings > 0 ? "" + ConsoleState.warnings : "";
                                 pastille: CC.avert;
                                 checked: ConsoleState.filter == 1;
                                 clicked => { ConsoleState.filter = 1; ConsoleState.filter-changed(); }
                             }
-                            FiltreConsole {
+                            f2 := FiltreConsole {
+                                y: (parent.height - self.height) / 2;
                                 text: Tr.t("Console_Erreurs");
                                 count: ConsoleState.errors > 0 ? "" + ConsoleState.errors : "";
                                 pastille: CC.erreur;
@@ -606,7 +636,7 @@ export component ConsoleOverlay inherits Rectangle {
                     clicked => { ConsoleState.open-folder(); }
                 }
                 if ConsoleState.panes.length == 1 && ConsoleState.panes[0].running: BoutonRond {
-                    icone: "fermer";
+                    icone: "stop";
                     taille: 44px;
                     tooltip: Tr.t("Console_Arreter");
                     clicked => { ConsoleState.kill(ConsoleState.panes[0].id); }
@@ -616,6 +646,12 @@ export component ConsoleOverlay inherits Rectangle {
                     taille: 44px;
                     tooltip: Tr.t("Console_FermerPartie");
                     clicked => { ConsoleState.close-pane(ConsoleState.panes[0].id); }
+                }
+                BoutonRond {
+                    icone: "fermer";
+                    taille: 44px;
+                    tooltip: Tr.t("Console_Fermer");
+                    clicked => { ConsoleState.open = false; }
                 }
                 if ConsoleState.panes.length == 1: VerticalLayout {
                     alignment: center;

@@ -1,4 +1,18 @@
-﻿; Installateur Windows de Misty (Inno Setup 6.3+), version Rust.
+﻿;  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+;  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+;  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+;  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+;  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+;  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+;
+;  Mistly Launcher · https://mistly.cc
+;  Code : https://github.com/Mistly-MC/Mistly-Launcher
+;  Discord : https://discord.gg/rdQJUgvUh3
+;  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+;
+; Installateur Windows de Mistly Launcher (Inno Setup 6.3+).
+; La fenêtre que voit le joueur est Mistly-Setup.exe (crates\misty-setup) : elle contient cet
+; installateur et le lance sans fenêtre (/VERYSILENT /DIR=…). Lancé seul, il garde ses pages.
 ; Ne pas compiler à la main : lancer installer\build.ps1, qui compile l'app puis appelle ISCC avec la bonne version.
 ;
 ; Structure installée (compatible avec la mise à jour automatique, voir crates\misty-core\src\systeme\update.rs) :
@@ -32,8 +46,8 @@ AppId={{8F4C2A61-3B7E-4D19-9A55-6C1E0F2B7D43}
 AppName=Mistly Launcher
 AppVersion={#Version}
 AppVerName=Mistly Launcher {#Version}
-AppPublisher=xTheoxreborn
-AppPublisherURL=https://github.com/Mistly-MC/Mistly-Launcher
+AppPublisher=Mistly
+AppPublisherURL=https://mistly.cc
 AppSupportURL=https://github.com/Mistly-MC/Mistly-Launcher/issues
 AppUpdatesURL=https://github.com/Mistly-MC/Mistly-Launcher/releases
 VersionInfoVersion={#NumVersion}
@@ -45,10 +59,10 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#Sortie}
-OutputBaseFilename=Misty-Setup-{#Version}
+OutputBaseFilename=Mistly-Setup-Inno-{#Version}
 SetupIconFile=..\crates\misty-app\assets\icone.ico
 UninstallDisplayIcon={app}\{#Dossier}\Misty.exe
-UninstallDisplayName=Mistly
+UninstallDisplayName=Mistly Launcher
 UninstallFilesDir={app}\uninstall
 LicenseFile=..\LICENSE.txt
 Compression=lzma2/ultra64
@@ -62,10 +76,10 @@ Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 Name: "en"; MessagesFile: "compiler:Default.isl"
 
 [CustomMessages]
-fr.SupprimerDonnees=Supprimer aussi les données de Mistly (versions de Minecraft, profils, mondes, packs de textures) ?%n%nChoisis « Non » pour les garder en cas de réinstallation.
-fr.Lancer=Lancer Mistly
-en.SupprimerDonnees=Also delete Mistly's data (Minecraft versions, profiles, worlds, texture packs)?%n%nChoose "No" to keep them for a later reinstall.
-en.Lancer=Launch Mistly
+fr.SupprimerDonnees=Supprimer aussi les données de Mistly Launcher (versions de Minecraft, profils, mondes) ?%n%nChoisis « Non » pour les garder en cas de réinstallation.
+fr.Lancer=Lancer Mistly Launcher
+en.SupprimerDonnees=Also delete Mistly Launcher's data (Minecraft versions, profiles, worlds)?%n%nChoose "No" to keep them for a later reinstall.
+en.Lancer=Launch Mistly Launcher
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"

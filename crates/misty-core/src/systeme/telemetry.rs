@@ -1,3 +1,15 @@
+//  ███╗   ███╗██╗███████╗████████╗██╗     ██╗   ██╗
+//  ████╗ ████║██║██╔════╝╚══██╔══╝██║     ╚██╗ ██╔╝
+//  ██╔████╔██║██║███████╗   ██║   ██║      ╚████╔╝
+//  ██║╚██╔╝██║██║╚════██║   ██║   ██║       ╚██╔╝
+//  ██║ ╚═╝ ██║██║███████║   ██║   ███████╗   ██║
+//  ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚══════╝   ╚═╝
+//
+//  Mistly Launcher · https://mistly.cc
+//  Code : https://github.com/Mistly-MC/Mistly-Launcher
+//  Discord : https://discord.gg/rdQJUgvUh3
+//  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
+//
 //! Télémétrie anonyme, seulement si le joueur l'a acceptée (question au premier lancement,
 //! interrupteur dans les options).
 //!
@@ -82,12 +94,27 @@ pub fn evenement(nom: &str, donnees: Value) {
 }
 
 /// Envoie les dernières lignes de la console. Renvoie le code du rapport.
+/// Un rapport manuel au plus par minute (« Send to the team » cliqué en boucle) ; les rapports
+/// de plantage passent toujours (le site les limite aussi).
+const ATTENTE_RAPPORT: std::time::Duration = std::time::Duration::from_secs(60);
+
 pub async fn rapport(
     raison: &str,
     jeu: &str,
     lignes: Vec<String>,
     pseudo: &str,
 ) -> anyhow::Result<String> {
+    if raison == "manual" {
+        static DERNIER: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+        let mut dernier = DERNIER.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(d) = *dernier {
+            let reste = ATTENTE_RAPPORT.saturating_sub(d.elapsed());
+            if !reste.is_zero() {
+                anyhow::bail!(loc::tf("Console_Attendre", &[&reste.as_secs().max(1)]));
+            }
+        }
+        *dernier = Some(std::time::Instant::now());
+    }
     let mut corps = contexte();
     corps["reason"] = json!(raison);
     corps["game"] = json!(jeu);
