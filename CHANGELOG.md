@@ -1,4 +1,19 @@
 # Changelog
+## 0.4.6-beta.1
+### Launcher
+- Friend requests: adding someone sends them a request, and requests you receive show under Pending on the Friends page, to accept or decline (needs one game with Mistly Client and a Microsoft account)
+- The Launching screen shows its steps (Java, game version, libraries, sounds and textures, launch), the number of files and the download speed
+- The loading screen follows the new design and says when Mistly checks for updates, with a tip at the bottom
+- Patch notes have their own button on Home and a new page: the versions on the left, the notes of the one you pick on the right
+- The console shows each line in columns (time, level, message), with warnings and errors highlighted, and Copy and Send to the team at the top
+- The version choice only shows the versions of the edition you are on, one per line
+- Java and Bedrock Home have a pixel landscape in the background, grey and white for Bedrock
+- Home only shows your profiles at the bottom, and no longer the feature chips and the label above the title
+- Profiles show their content (number of mods), and the second New profile button under the list is gone
+- The window can no longer be made smaller than the size the interface is designed for
+- Fixed: the green dot of Friends online showed even when nobody was online
+- The Texture packs page and its pack editor are removed; resource packs can still be installed in a profile from Discover
+- Fixed: the languages in Settings were too close together
 ## 0.4.5-beta.1
 ### Launcher
 - Choose the colour of your Mist Wings like on the website: Mistly, Crimson, Amethyst, Jade, Gold, Shadow or Snow, or your own colours for the membrane and the bones

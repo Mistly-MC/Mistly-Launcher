@@ -12,12 +12,10 @@ pub mod browser;
 pub mod changelog;
 pub mod console;
 pub mod dialogs;
-pub mod editor;
 pub mod home;
 pub mod images;
 pub mod instance;
 pub mod news;
-pub mod packs;
 pub mod picker;
 pub mod profiles;
 pub mod scene;
@@ -42,9 +40,7 @@ pub mod page {
     pub const PROFILS: i32 = 1;
     pub const OPTIONS: i32 = 2;
     pub const NOTES: i32 = 3;
-    pub const PACKS: i32 = 4;
     pub const INSTANCE: i32 = 5;
-    pub const EDITEUR: i32 = 6;
     /// Onglet de la barre latérale (pas une page) : l'accueil, sur le studio du skin
     pub const SKIN: i32 = 7;
     /// Amis : la liste et qui joue avec Misty Client
@@ -67,9 +63,7 @@ pub struct App {
     pub instance: RefCell<instance::Etat>,
     pub browser: RefCell<browser::Etat>,
     pub settings: RefCell<settings::Etat>,
-    pub packs: RefCell<packs::Etat>,
     pub amis: RefCell<amis::Etat>,
-    pub editor: RefCell<editor::Etat>,
     pub skin: RefCell<skin::Etat>,
     /// Liens des news du carrousel de l'accueil (vide = notes de version du launcher)
     pub news_urls: RefCell<Vec<String>>,
@@ -95,9 +89,7 @@ impl App {
             instance: RefCell::default(),
             browser: RefCell::default(),
             settings: RefCell::default(),
-            packs: RefCell::default(),
             amis: RefCell::default(),
-            editor: RefCell::default(),
             news_urls: RefCell::default(),
             skin: RefCell::default(),
         })
@@ -185,6 +177,23 @@ pub fn installer(app: &Rc<App>) {
         etat.set_loading_stars(etat.get_scene_stars());
         etat.set_loading_twinkle(etat.get_scene_twinkle());
         etat.set_loading_logo(images::logo_chargement());
+        etat.set_loading_detail(
+            format!(
+                "Launcher {} · {}",
+                misty_core::systeme::app_info::VERSION,
+                if cfg!(windows) {
+                    "Windows x64"
+                } else {
+                    "Linux x64"
+                }
+            )
+            .into(),
+        );
+        let instant = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(0);
+        etat.set_loading_tip((instant % 4) as i32);
     }
     let flou = reglages::lire().fond_flou;
     ui.global::<crate::Theme>().set_bg_blur(flou as i32);
@@ -260,9 +269,7 @@ pub fn installer(app: &Rc<App>) {
     browser::installer(app);
     settings::installer(app);
     changelog::installer(app);
-    packs::installer(app);
     amis::installer(app);
-    editor::installer(app);
     skin::installer(app);
     studio::installer(app);
     news::installer(app);
@@ -277,10 +284,73 @@ pub fn installer(app: &Rc<App>) {
             let a = app.clone();
             slint::Timer::single_shot(std::time::Duration::from_secs(2), move || {
                 // 99 : la console (pas un onglet)
-                if n == 99 {
+                if n == 97 {
+                    // l'écran « Launching », à 62 % des bibliothèques
+                    let h = a.ui.global::<crate::HomeState>();
+                    h.set_card_label("Minecraft 26.3".into());
+                    h.set_card_version("26.3".into());
+                    h.set_status("Downloading game files…".into());
+                    h.set_install_step(3);
+                    h.set_files_text("412 / 660 files · 18.0 MB/s".into());
+                    h.set_progress(0.62);
+                } else if n == 98 {
+                    // le choix de version (Java)
+                    let h = a.ui.global::<crate::HomeState>();
+                    h.set_edition(1);
+                    h.set_picker_misty(false);
+                    h.set_picker_horizon(false);
+                    let groupes: Vec<crate::VersionGroup> = [
+                        ("26.3", "Mist and Moonlight", "4 versions", "2026"),
+                        ("1.21", "Tricky Trials", "12 versions", "2024 – 2025"),
+                        ("1.20", "Trails & Tales", "7 versions", "2023"),
+                    ]
+                    .iter()
+                    .map(|(t, n, c, y)| crate::VersionGroup {
+                        key: (*t).into(),
+                        title: (*t).into(),
+                        name: (*n).into(),
+                        art: picker::illustration(&picker::cle_groupe(t, 0)),
+                        count: (*c).into(),
+                        years: (*y).into(),
+                    })
+                    .collect();
+                    h.set_picker_groups(modele(groupes));
+                    h.set_picker_open(true);
+                } else if n == 99 {
+                    // une partie de démonstration, pour voir les lignes
+                    use misty_core::systeme::journal;
+                    let id = journal::nouvelle_partie("Minecraft 26.3");
+                    for (t, n) in [
+                        ("[08:41:02] [main/INFO]: [Mistly] Launching Minecraft 26.3 (Java 25, 4 GB)", 3),
+                        ("[08:41:03] [main/INFO]: Loading Minecraft 26.3 with Fabric Loader", 0),
+                        ("[08:41:06] [Render thread/WARN]: Missing sound for event: minecraft:item.goat_horn.play", 1),
+                        ("[08:41:14] [Render thread/ERROR]: Failed to load texture: mistly:textures/hat/cloudly_glow.png", 2),
+                        ("[08:41:15] [Render thread/INFO]: [CHAT] Cloudy joined the game", 0),
+                    ] {
+                        journal::ajouter(id, t, n);
+                    }
                     a.ui.global::<crate::ConsoleState>().set_open(true);
                 } else {
-                    nav_clicked(&a, n)
+                    nav_clicked(&a, n);
+                    // une demande d'ami de démonstration
+                    if n == page::AMIS {
+                        let demandes: Vec<crate::FriendRequest> =
+                            [("Cloudy", true), ("Notch", false)]
+                                .iter()
+                                .map(|(nom, recue)| crate::FriendRequest {
+                                    uuid: (*nom).into(),
+                                    name: (*nom).into(),
+                                    head: Default::default(),
+                                    has_head: false,
+                                    incoming: *recue,
+                                })
+                                .collect();
+                        let b = a.clone();
+                        slint::Timer::single_shot(std::time::Duration::from_secs(3), move || {
+                            b.ui.global::<crate::FriendsState>()
+                                .set_requests(modele(demandes));
+                        });
+                    }
                 }
             });
         }
@@ -367,8 +437,6 @@ pub fn maj_discord(app: &App, force: bool) {
             page::ACCUEIL => discord::Page::Accueil,
             page::PROFILS | page::INSTANCE => discord::Page::Profils,
             page::NOTES => discord::Page::Notes,
-            page::PACKS => discord::Page::Packs,
-            page::EDITEUR => discord::Page::Editeur,
             page::AMIS => discord::Page::Amis,
             _ => discord::Page::Accueil,
         }
@@ -697,17 +765,11 @@ fn nav_clicked(app: &Rc<App>, i: i32) {
     let etat = app.ui.global::<AppState>();
     let page = etat.get_page();
 
-    // Re-cliquer sur l'onglet actif depuis une sous-page (profil, éditeur) ramène à sa page principale
+    // Re-cliquer sur l'onglet actif depuis une sous-page (profil) ramène à sa page principale
     if i == etat.get_nav() {
         if i == page::PROFILS && page == page::INSTANCE {
             profiles::rafraichir(app);
             naviguer(app, page::PROFILS);
-        } else if i == page::PACKS && page == page::EDITEUR {
-            naviguer(app, page::PACKS);
-            packs::rafraichir(app);
-        } else if i == page::PACKS && app.ui.global::<crate::PacksState>().get_view() != 0 {
-            // depuis l'explorateur : retour à la galerie
-            app.ui.global::<crate::PacksState>().invoke_back();
         }
         return;
     }
@@ -731,10 +793,6 @@ fn nav_clicked(app: &Rc<App>, i: i32) {
     if i == page::AMIS {
         amis::ouvrir(app);
     }
-
-    if i == page::PACKS {
-        packs::rafraichir(app); // après naviguer : l'éditeur a pu enregistrer une texture
-    }
     maj_discord(app, false);
 }
 
@@ -744,13 +802,8 @@ pub fn naviguer(app: &Rc<App>, p: i32) {
     if etat.get_page() == p {
         return;
     }
-    // On quitte l'éditeur : la texture en cours ne doit pas être perdue
-    if etat.get_page() == page::EDITEUR {
-        editor::quitter(app);
-    }
     etat.set_nav(match p {
         page::INSTANCE => page::PROFILS,
-        page::EDITEUR => page::PACKS,
         autre => autre,
     });
     etat.set_page(p);
@@ -766,6 +819,5 @@ pub fn langue_changee(app: &Rc<App>) {
     instance::langue_changee(app);
     browser::langue_changee(app);
     settings::maj_textes(app);
-    editor::langue_changee(app);
     skin::langue_changee(app);
 }

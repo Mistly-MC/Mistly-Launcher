@@ -32,8 +32,6 @@ pub enum Page {
     Skin,
     Profils,
     Notes,
-    Packs,
-    Editeur,
     Options,
     Amis,
 }
@@ -45,8 +43,6 @@ impl Page {
             Page::Skin => "Discord_Skin",
             Page::Profils => "Discord_Profils",
             Page::Notes => "Discord_Notes",
-            Page::Packs => "Discord_Packs",
-            Page::Editeur => "Discord_Pack",
             Page::Options => "Discord_Options",
             Page::Amis => "Discord_Amis",
         }

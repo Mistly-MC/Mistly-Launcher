@@ -2,4 +2,3 @@
 
 pub mod musique;
 pub mod skins;
-pub mod texture_categories;

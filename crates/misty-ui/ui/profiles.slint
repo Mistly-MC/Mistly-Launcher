@@ -661,6 +661,16 @@ component LigneInstance inherits Rectangle {
         Text {
             horizontal-stretch: 1;
             min-width: 90px;
+            text: root.carte.content;
+            font-family: Theme.sans-font;
+            font-size: 13px;
+            color: Theme.ink-2;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            horizontal-stretch: 1;
+            min-width: 90px;
             text: root.carte.last;
             font-family: Theme.sans-font;
             font-size: 13px;
@@ -671,9 +681,10 @@ component LigneInstance inherits Rectangle {
         VerticalLayout {
             alignment: center;
             BoutonRond {
-                icone: "poubelle";
+                icone: "options";
                 taille: 44px;
-                clicked => { root.delete(); }
+                tooltip: Tr.t("Profil_Options");
+                clicked => { root.open(); }
             }
         }
         VerticalLayout {
@@ -695,59 +706,6 @@ component LigneInstance inherits Rectangle {
                 }
             }
         }
-    }
-}
-
-/// Ligne en pointillés « New profile », au bout de la liste.
-component LigneNouvelle inherits Rectangle {
-    callback clicked;
-    height: 80px;
-    border-radius: 22px;
-    background: zone.has-hover ? Theme.surface : transparent;
-    border-width: 1.5px;
-    border-color: Theme.border-strong;
-    animate background { duration: Theme.fast; }
-    HorizontalLayout {
-        padding-left: 22px;
-        spacing: 16px;
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 48px;
-                height: 48px;
-                border-radius: 24px;
-                background: Theme.control;
-                border-width: 1.5px;
-                border-color: Theme.border-strong;
-                IconeNuit {
-                    nom: "plus";
-                    taille: 18px;
-                    couleur: Theme.icon;
-                }
-            }
-        }
-        VerticalLayout {
-            horizontal-stretch: 1;
-            alignment: center;
-            spacing: 3px;
-            Text {
-                text: Tr.t("Profil_NouveauCarte");
-                font-family: Theme.sans-font;
-                font-size: 15px;
-                font-weight: 500;
-                color: Theme.ink;
-            }
-            Text {
-                text: Tr.t("Profil_NouveauCarte_Texte");
-                font-family: Theme.sans-font;
-                font-size: 12px;
-                color: Theme.ink-3;
-            }
-        }
-    }
-    zone := TouchArea {
-        mouse-cursor: pointer;
-        clicked => { root.clicked(); }
     }
 }
 
@@ -809,7 +767,7 @@ export component ProfilesPage inherits Rectangle {
                 }
                 Rectangle { horizontal-stretch: 1; }
             }
-            // les colonnes, puis une ligne par instance et la ligne « New profile »
+            // les colonnes, puis une ligne par instance
             HorizontalLayout {
                 padding-left: 22px + 48px + 16px;
                 padding-right: 20px + 44px + 56px + 32px;
@@ -819,12 +777,13 @@ export component ProfilesPage inherits Rectangle {
                 height: 39px;
                 Colonne { horizontal-stretch: 3; min-width: 120px; text: Tr.t("Profil_Col_Nom").to-uppercase(); }
                 Colonne { horizontal-stretch: 2; min-width: 120px; text: Tr.t("Commun_Version").to-uppercase(); }
+                Colonne { horizontal-stretch: 1; min-width: 90px; text: Tr.t("Profil_Col_Contenu").to-uppercase(); }
                 Colonne { horizontal-stretch: 1; min-width: 90px; text: Tr.t("Profil_Col_Derniere").to-uppercase(); }
             }
             Rectangle {
                 vertical-stretch: 1;
                 zone := ScrollView {
-                    property <int> nombre: ProfilesState.list.length + 1;
+                    property <int> nombre: ProfilesState.list.length;
                     content-width: self.visible-width;
                     content-height: self.nombre * 98px;
                     for p[i] in ProfilesState.list: LigneInstance {
@@ -835,12 +794,6 @@ export component ProfilesPage inherits Rectangle {
                         open => { ProfilesState.open(p.id); }
                         play => { ProfilesState.play(p.id); }
                         delete => { ProfilesState.delete(p.id); }
-                    }
-                    LigneNouvelle {
-                        x: 0;
-                        y: ProfilesState.list.length * 98px;
-                        width: zone.visible-width;
-                        clicked => { ProfilesState.new-profile(); }
                     }
                 }
             }

@@ -132,6 +132,7 @@ pub fn rafraichir_liste(app: &Rc<App>) {
             name: i.nom.clone().into(),
             summary: i.resume().into(),
             last: i.dernier_lancement_texte().into(),
+            content: i.contenu_texte().into(),
             icon: images::vide(),
             has_icon: false,
             version: i.version_mc.clone().into(),

@@ -5,9 +5,7 @@ use crate::{BadgeItem, ContentItem, InstanceState};
 use misty_core::contenu::catalogue::{ProjetDistant, MODRINTH};
 use misty_core::contenu::content::{self, ContenuInstalle, MajDispo};
 use misty_core::minecraft::instances::{self, Instance};
-use misty_core::{
-    contenu::export, contenu::packs, minecraft::client, systeme::loc, systeme::system_info,
-};
+use misty_core::{contenu::export, minecraft::client, systeme::loc, systeme::system_info};
 use slint::{Color, ComponentHandle, ModelRc};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -999,7 +997,7 @@ async fn changer_icone(app: &Rc<App>) {
     // Réencodé en PNG 128 px pour garder un fichier léger
     let destination = i.chemin_icone();
     let resultat = app
-        .bloquant(move || packs::enregistrer_icone(&fichier, &destination))
+        .bloquant(move || enregistrer_icone(&fichier, &destination))
         .await;
     match resultat {
         Ok(()) => {
@@ -1070,4 +1068,23 @@ async fn exporter(app: &Rc<App>) {
         }
         Err(e) => dialogs::erreur(app, &loc::t("Export_Erreur"), &e.to_string()).await,
     }
+}
+
+/// Réencode une image en PNG de 128 px de large (icône d'un profil).
+fn enregistrer_icone(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+) -> anyhow::Result<()> {
+    let img = image::open(source)?;
+    let img = if img.width() > 128 {
+        img.resize(
+            128,
+            128 * img.height() / img.width().max(1),
+            image::imageops::FilterType::Lanczos3,
+        )
+    } else {
+        img
+    };
+    img.save_with_format(destination, image::ImageFormat::Png)?;
+    Ok(())
 }

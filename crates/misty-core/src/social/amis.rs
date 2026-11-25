@@ -8,7 +8,9 @@
 //!   dossier du launcher (`misty-network.json`) après avoir prouvé le compte auprès de Mojang. Le
 //!   launcher ne fait pas lui-même cette preuve (pas de « join » en plus chez Mojang, donc pas de
 //!   risque de 429) et ne touche jamais au jeton Minecraft.
-//! - Il n'y a pas de demandes d'ami : la liste est la tienne, comme des favoris.
+//! - Demandes d'ami (`mistly.cc/api/client/friends`, avec le même jeton) : ajouter quelqu'un lui
+//!   envoie aussi une demande ; une demande reçue s'accepte ou se refuse sur la page Amis, et
+//!   l'ami accepté rejoint la liste. Sans jeton, la liste reste locale, comme des favoris.
 
 use crate::{media::skins, systeme::http, systeme::paths};
 use serde::{Deserialize, Serialize};
@@ -180,6 +182,112 @@ pub async fn en_ligne(amis: &[Ami]) -> anyhow::Result<Etat> {
     Ok(Etat::Connu(resultat))
 }
 
+// ───────────────────────── Demandes d'ami ─────────────────────────
+
+/// Les demandes d'ami du compte (site Mistly).
+#[derive(Clone, Debug, Default)]
+pub struct Demandes {
+    /// reçues, à accepter ou refuser
+    pub recues: Vec<Ami>,
+    /// envoyées, en attente
+    pub envoyees: Vec<Ami>,
+    /// amis confirmés des deux côtés
+    pub amis: Vec<Ami>,
+}
+
+fn amis_du_json(v: &serde_json::Value) -> Vec<Ami> {
+    v.as_array()
+        .map(|l| {
+            l.iter()
+                .filter_map(|a| {
+                    let uuid = tirets(a.get("uuid")?.as_str()?)?;
+                    let nom = a
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    Some(Ami { uuid, nom })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Les demandes reçues et envoyées. None : pas de jeton Misty (ou refusé).
+pub async fn demandes() -> anyhow::Result<Option<Demandes>> {
+    let Some(jeton) = jeton() else {
+        return Ok(None);
+    };
+    let r = http::client()
+        .get(format!("{API}/friends"))
+        .bearer_auth(&jeton)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await?;
+    if r.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Ok(None);
+    }
+    let v: serde_json::Value = r.error_for_status()?.json().await?;
+    Ok(Some(Demandes {
+        recues: amis_du_json(&v["incoming"]),
+        envoyees: amis_du_json(&v["outgoing"]),
+        amis: amis_du_json(&v["friends"]),
+    }))
+}
+
+async fn envoyer(chemin: &str, corps: serde_json::Value) -> anyhow::Result<bool> {
+    let Some(jeton) = jeton() else {
+        return Ok(false);
+    };
+    let r = http::client()
+        .post(format!("{API}/friends/{chemin}"))
+        .bearer_auth(&jeton)
+        .timeout(std::time::Duration::from_secs(10))
+        .json(&corps)
+        .send()
+        .await?;
+    if r.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Ok(false);
+    }
+    r.error_for_status()?;
+    Ok(true)
+}
+
+/// Envoie une demande d'ami (après un ajout). false : pas de jeton.
+pub async fn demander(uuid: &str) -> anyhow::Result<bool> {
+    envoyer("request", serde_json::json!({ "uuid": uuid })).await
+}
+
+/// Accepte ou refuse une demande reçue ; acceptée, l'ami rejoint la liste.
+pub async fn repondre(ami: &Ami, accepter: bool) -> anyhow::Result<()> {
+    envoyer(
+        "respond",
+        serde_json::json!({ "uuid": ami.uuid, "accept": accepter }),
+    )
+    .await?;
+    if accepter {
+        ajouter_ami(ami.clone());
+    }
+    Ok(())
+}
+
+/// Retire l'ami (ou annule la demande) aussi sur le site.
+pub async fn retirer_du_site(uuid: &str) -> anyhow::Result<()> {
+    envoyer("remove", serde_json::json!({ "uuid": uuid })).await?;
+    Ok(())
+}
+
+/// Ajoute à la liste locale (sans rien demander à Mojang), s'il n'y est pas déjà.
+pub fn ajouter_ami(ami: Ami) {
+    let mut amis = lire();
+    if amis.iter().any(|a| a.uuid == ami.uuid) {
+        return;
+    }
+    amis.push(ami);
+    amis.sort_by_key(|a| a.nom.to_lowercase());
+    ecrire(&amis);
+}
+
 // ───────────────────────── Têtes ─────────────────────────
 
 /// Tête 64 × 64 d'un ami, depuis son skin (gardé un jour sur le disque).
@@ -265,6 +373,19 @@ fn base64(texte: &str) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn lit_les_demandes_du_site() {
+        let v = serde_json::json!([
+            { "uuid": "ec561538f3fd461daff5086b22154bce", "name": "Alex" },
+            { "uuid": "pas-un-uuid", "name": "?" }
+        ]);
+        let l = amis_du_json(&v);
+        assert_eq!(l.len(), 1);
+        assert_eq!(l[0].uuid, "ec561538-f3fd-461d-aff5-086b22154bce");
+        assert_eq!(l[0].nom, "Alex");
+    }
+
     use super::*;
 
     #[test]

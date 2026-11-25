@@ -57,8 +57,41 @@ pub fn annuler_connexion() {
     ANNULATION.notify_waiters();
 }
 
+/// Client HTTP d'`oauth2` : le reqwest du launcher (`oauth2` 5 ne sait utiliser que reqwest 0.12).
+#[derive(Clone)]
+struct HttpOauth(reqwest::Client);
+
+impl<'c> oauth2::AsyncHttpClient<'c> for HttpOauth {
+    type Error = oauth2::HttpClientError<reqwest::Error>;
+    type Future = std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<oauth2::HttpResponse, Self::Error>> + Send + 'c,
+        >,
+    >;
+
+    fn call(&'c self, requete: oauth2::HttpRequest) -> Self::Future {
+        Box::pin(async move {
+            let requete = reqwest::Request::try_from(requete).map_err(Box::new)?;
+            let reponse = self.0.execute(requete).await.map_err(Box::new)?;
+            let mut r = oauth2::http::Response::builder()
+                .status(reponse.status())
+                .version(reponse.version());
+            for (nom, valeur) in reponse.headers() {
+                r = r.header(nom, valeur);
+            }
+            let corps = reponse.bytes().await.map_err(Box::new)?;
+            r.body(corps.to_vec())
+                .map_err(oauth2::HttpClientError::Http)
+        })
+    }
+}
+
 /// Client HTTP de la connexion : sans redirection (recommandé par `oauth2`).
-fn client_connexion() -> reqwest::Client {
+fn client_connexion() -> HttpOauth {
+    HttpOauth(client_sans_redirection())
+}
+
+fn client_sans_redirection() -> reqwest::Client {
     static CLIENT: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| {
         reqwest::Client::builder()
             .user_agent(crate::systeme::app_info::user_agent())

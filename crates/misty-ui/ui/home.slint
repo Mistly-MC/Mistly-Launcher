@@ -192,9 +192,10 @@ component ChoixJeu inherits Rectangle {
                 HomeState.picker-open = false;
                 return;
             }
-            HomeState.picker-tab = HomeState.quick || HomeState.horizon-selected ? 0 : 1;
-            HomeState.picker-horizon = HomeState.horizon-selected;
-            HomeState.picker-misty = HomeState.misty-selected && HomeState.quick && !HomeState.horizon-selected;
+            // seulement les versions de l'édition choisie (Mistly Client, Java ou Horizon)
+            HomeState.picker-tab = 0;
+            HomeState.picker-horizon = HomeState.edition == 3;
+            HomeState.picker-misty = HomeState.edition == 0;
             HomeState.picker-open = true;
             if (HomeState.horizon-selected) {
                 HomeState.horizon-refresh();
@@ -211,17 +212,21 @@ component CarteAmis inherits CarteNuit {
         padding-right: 24px;
         spacing: 14px;
         HorizontalLayout {
+            spacing: 12px;
             Text {
+                horizontal-stretch: 1;
                 text: Tr.t("Home_AmisEnLigne");
                 font-size: 15px;
                 font-weight: 500;
                 color: Theme.ink;
                 vertical-alignment: center;
+                overflow: elide;
             }
-            Rectangle { horizontal-stretch: 1; }
             HorizontalLayout {
+                horizontal-stretch: 0;
+                alignment: end;
                 spacing: 8px;
-                VerticalLayout {
+                if FriendsState.online-count > 0: VerticalLayout {
                     alignment: center;
                     Rectangle {
                         width: 7px;
@@ -234,7 +239,8 @@ component CarteAmis inherits CarteNuit {
                     text: FriendsState.online-count;
                     font-family: Theme.mono-font;
                     font-size: 13px;
-                    color: Theme.online-text;
+                    color: FriendsState.online-count > 0 ? Theme.online-text : Theme.ink-3;
+                    horizontal-alignment: right;
                     vertical-alignment: center;
                 }
             }
@@ -464,9 +470,58 @@ component Etoiles inherits Rectangle {
     }
 }
 
-/// L'écran « Launching » du Figma : le nom du jeu en grand, l'étape en cours, le pourcentage, des
-/// blocs qui se remplissent, puis Annuler et la console. Il couvre l'accueil pendant
-/// l'installation (les suivantes sont instantanées).
+/// Une étape de l'écran « Launching » : rond coché (faite), point (en cours) ou vide, son nom, et
+/// à droite OK, la version ou le pourcentage.
+component EtapeLancement inherits HorizontalLayout {
+    in property <string> nom;
+    in property <int> etat; // 0 à venir, 1 en cours, 2 faite
+    in property <string> valeur;
+    height: 40px;
+    spacing: 14px;
+    VerticalLayout {
+        alignment: center;
+        Rectangle {
+            width: 28px;
+            height: 28px;
+            border-radius: 14px;
+            background: root.etat == 2 ? Theme.active : transparent;
+            border-width: root.etat == 2 ? 0px : 1.5px;
+            border-color: root.etat == 1 ? Theme.ink : Theme.border-strong;
+            if root.etat == 2: IconeNuit {
+                nom: "check";
+                taille: 13px;
+                couleur: Theme.on-active;
+            }
+            if root.etat == 1: Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: Theme.ink;
+            }
+        }
+    }
+    Text {
+        horizontal-stretch: 1;
+        text: root.nom;
+        font-family: Theme.sans-font;
+        font-size: 14px;
+        color: root.etat == 0 ? Theme.ink-4 : Theme.ink;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    Text {
+        text: root.valeur;
+        font-family: Theme.mono-font;
+        font-size: 12px;
+        color: Theme.ink-3;
+        vertical-alignment: center;
+    }
+}
+
+/// L'écran « Launching » du Figma : à gauche le nom du jeu, l'étape en cours, des blocs qui se
+/// remplissent, le pourcentage, les fichiers et la vitesse, puis Annuler et la console ; à
+/// droite les étapes (Java, version du jeu, bibliothèques, sons et textures, lancement). Il couvre
+/// l'accueil pendant l'installation (les suivantes sont instantanées).
 component Lancement inherits Rectangle {
     background: Theme.bg;
     opacity: 0;
@@ -474,103 +529,184 @@ component Lancement inherits Rectangle {
     init => { self.opacity = 1; }
     TouchArea { }
     Etoiles { }
-    VerticalLayout {
-        x: 80px;
-        width: min(760px, parent.width - 160px);
-        alignment: center;
-        spacing: 0px;
-        HorizontalLayout {
+    property <int> e: HomeState.install-step;
+    property <string> pourcent: round(HomeState.progress * 100) + " %";
+    property <string> nom-etape: root.e == 1 ? Tr.t("Lancement_Java") : root.e == 2 ? Tr.t("Lancement_Version") : root.e == 3 ? Tr.t("Lancement_Bibliotheques") : root.e == 4 ? Tr.t("Lancement_Assets") : Tr.t("Lancement_Lancer");
+    HorizontalLayout {
+        padding-left: 48px;
+        padding-right: 40px;
+        padding-top: 20px;
+        padding-bottom: 28px;
+        spacing: 48px;
+        // ── à gauche ──
+        VerticalLayout {
+            horizontal-stretch: 1;
+            max-width: 640px;
             alignment: start;
-            Rectangle {
-                height: 34px;
-                width: puce.preferred-width + 40px;
-                border-radius: 17px;
-                background: Theme.surface;
-                border-width: 1.5px;
-                border-color: Theme.border-field;
+            padding-top: 64px;
+            spacing: 0px;
+            HorizontalLayout {
+                alignment: start;
                 Rectangle {
-                    x: 14px;
-                    width: 7px;
-                    height: 7px;
-                    background: Theme.ink;
-                }
-                puce := Text {
-                    x: 28px;
-                    text: Tr.t("Lancement_Premiere");
-                    font-family: Theme.sans-font;
-                    font-size: 12.5px;
-                    color: Theme.ink-4;
-                    vertical-alignment: center;
+                    height: 36px;
+                    width: puce.preferred-width;
+                    border-radius: 18px;
+                    background: Theme.surface;
+                    border-width: 1.5px;
+                    border-color: Theme.border-field;
+                    puce := HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 18px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 7px;
+                                height: 7px;
+                                background: Theme.ink;
+                            }
+                        }
+                        Text {
+                            text: Tr.t("Lancement_Premiere_Titre");
+                            font-family: Theme.sans-font;
+                            font-size: 13px;
+                            color: Theme.ink;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "· " + Tr.t("Lancement_Premiere_Detail");
+                            font-family: Theme.sans-font;
+                            font-size: 13px;
+                            color: Theme.ink-4;
+                            vertical-alignment: center;
+                        }
+                    }
                 }
             }
-        }
-        Rectangle { height: 22px; }
-        Text {
-            text: HomeState.card-label != "" ? HomeState.card-label : "Minecraft";
-            font-family: Theme.sans-font;
-            font-size: 64px;
-            font-weight: 600;
-            letter-spacing: -2.5px;
-            color: Theme.ink-strong;
-            overflow: elide;
-        }
-        Rectangle { height: 10px; }
-        Text {
-            text: HomeState.status;
-            font-family: Theme.sans-font;
-            font-size: 16px;
-            color: Theme.ink-3;
-            overflow: elide;
-        }
-        Rectangle { height: 60px; }
-        HorizontalLayout {
-            spacing: 14px;
+            Rectangle { height: 30px; }
             Text {
-                text: round(HomeState.progress * 100) + " %";
-                font-family: Theme.mono-font;
-                font-size: 30px;
-                font-weight: 500;
+                text: HomeState.card-label != "" ? HomeState.card-label : "Minecraft";
+                font-family: Theme.sans-font;
+                font-size: 64px;
+                font-weight: 600;
+                letter-spacing: -2.5px;
                 color: Theme.ink-strong;
-                vertical-alignment: bottom;
-            }
-            Text {
-                horizontal-stretch: 1;
-                text: HomeState.percent-text;
-                font-family: Theme.mono-font;
-                font-size: 12.5px;
-                color: Theme.ink-3;
-                horizontal-alignment: right;
-                vertical-alignment: bottom;
                 overflow: elide;
             }
-        }
-        Rectangle { height: 14px; }
-        // des blocs pixel qui se remplissent
-        blocs := Rectangle {
-            height: 18px;
-            property <int> n: 40;
-            property <length> l: (self.width - (self.n - 1) * 4px) / self.n;
-            for b in 40: Rectangle {
-                x: b * (blocs.l + 4px);
-                width: blocs.l;
-                height: parent.height;
-                background: b < HomeState.progress * 40 ? Theme.active : Theme.control;
-                animate background { duration: 200ms; }
+            Rectangle { height: 14px; }
+            Text {
+                text: HomeState.status;
+                font-family: Theme.sans-font;
+                font-size: 15px;
+                color: Theme.ink-3;
+                overflow: elide;
+            }
+            Rectangle { height: 22px; }
+            // 24 blocs pixel qui se remplissent
+            blocs := Rectangle {
+                height: 28px;
+                property <length> l: (self.width - 23 * 4px) / 24;
+                for b in 24: Rectangle {
+                    x: b * (blocs.l + 4px);
+                    width: blocs.l;
+                    height: parent.height;
+                    background: b < floor(HomeState.progress * 24) ? Theme.active : b < HomeState.progress * 24 ? Theme.ink-3 : Theme.control;
+                    animate background { duration: 200ms; }
+                }
+            }
+            Rectangle { height: 22px; }
+            HorizontalLayout {
+                spacing: 16px;
+                Text {
+                    text: root.pourcent;
+                    font-family: Theme.mono-font;
+                    font-size: 26px;
+                    font-weight: 500;
+                    color: Theme.ink-strong;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.nom-etape;
+                    font-family: Theme.sans-font;
+                    font-size: 13.5px;
+                    color: Theme.ink-3;
+                    vertical-alignment: center;
+                }
+                Text {
+                    horizontal-stretch: 1;
+                    text: HomeState.files-text;
+                    font-family: Theme.mono-font;
+                    font-size: 12.5px;
+                    color: Theme.ink-3;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+            Rectangle { height: 28px; }
+            HorizontalLayout {
+                alignment: start;
+                spacing: 12px;
+                if HomeState.can-cancel: MButton {
+                    text: Tr.t("Commun_Annuler");
+                    clicked => { HomeState.cancel-install(); }
+                }
+                MButton {
+                    text: Tr.t("Lancement_Console");
+                    clicked => {
+                        ConsoleState.focused = -1;
+                        ConsoleState.open = true;
+                    }
+                }
             }
         }
-        Rectangle { height: 30px; }
-        HorizontalLayout {
+        Rectangle { horizontal-stretch: 0.001; }
+        // ── à droite : les étapes ──
+        VerticalLayout {
+            width: 342px;
             alignment: start;
-            spacing: 10px;
-            if HomeState.can-cancel: MButton {
-                text: Tr.t("Commun_Annuler");
-                clicked => { HomeState.cancel-install(); }
-            }
-            MButton {
-                text: Tr.t("Lancement_Console");
-                clicked => {
-                    ConsoleState.focused = -1;
-                    ConsoleState.open = true;
+            Rectangle {
+                height: etapes.preferred-height;
+                border-radius: 24px;
+                background: Theme.surface;
+                border-width: 1.5px;
+                border-color: Theme.border;
+                etapes := VerticalLayout {
+                    padding: 24px;
+                    padding-top: 22px;
+                    spacing: 14px;
+                    Text {
+                        text: Tr.t("Lancement_Etapes");
+                        font-family: Theme.sans-font;
+                        font-size: 15px;
+                        font-weight: 500;
+                        color: Theme.ink;
+                    }
+                    EtapeLancement {
+                        nom: Tr.t("Lancement_Java");
+                        etat: root.e > 1 ? 2 : root.e == 1 ? 1 : 0;
+                        valeur: root.e > 1 ? "OK" : root.e == 1 ? root.pourcent : "";
+                    }
+                    EtapeLancement {
+                        nom: Tr.t("Lancement_Version");
+                        etat: root.e > 2 ? 2 : root.e == 2 ? 1 : 0;
+                        valeur: root.e >= 2 ? HomeState.card-version : "";
+                    }
+                    EtapeLancement {
+                        nom: Tr.t("Lancement_Bibliotheques");
+                        etat: root.e > 3 ? 2 : root.e == 3 ? 1 : 0;
+                        valeur: root.e > 3 ? "OK" : root.e == 3 ? root.pourcent : "";
+                    }
+                    EtapeLancement {
+                        nom: Tr.t("Lancement_Assets");
+                        etat: root.e > 4 ? 2 : root.e == 4 ? 1 : 0;
+                        valeur: root.e > 4 ? "OK" : root.e == 4 ? root.pourcent : "";
+                    }
+                    EtapeLancement {
+                        nom: Tr.t("Lancement_Lancer");
+                        etat: root.e >= 5 ? 1 : 0;
+                        valeur: "";
+                    }
                 }
             }
         }
@@ -584,7 +720,24 @@ export component HomePage inherits Rectangle {
         property <image> scene: self.ed == 1 ? Assets.scene-java : self.ed == 2 ? Assets.scene-bedrock : self.ed == 3 ? Assets.scene-horizon : Assets.scene-mistly;
         // paysage en bas, sur toute la largeur, fondu dans le fond vers le haut
         property <length> hauteur-scene: self.width * 256 / 1180;
-        Image {
+        // Java et Bedrock : un paysage sur toute la page, fondu vers la gauche (sous le texte) et
+        // vers le bas
+        if self.ed == 1 || self.ed == 2: Rectangle {
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: HomeState.edition == 1 ? Assets.fond-java : Assets.fond-bedrock;
+                image-fit: cover;
+                image-rendering: pixelated;
+            }
+            Rectangle {
+                background: @linear-gradient(90deg, Theme.bg 0%, Theme.bg.with-alpha(0.9) 28%, Theme.bg.with-alpha(0.45) 50%, Theme.bg.with-alpha(0.08) 75%, Theme.bg.with-alpha(0) 100%);
+            }
+            Rectangle {
+                background: @linear-gradient(180deg, Theme.bg.with-alpha(0.35) 0%, Theme.bg.with-alpha(0) 18%, Theme.bg.with-alpha(0) 70%, Theme.bg.with-alpha(0.85) 92%, Theme.bg 100%);
+            }
+        }
+        if self.ed == 0 || self.ed == 3: Image {
             x: 0;
             y: parent.height - parent.hauteur-scene;
             width: parent.width;
@@ -594,7 +747,7 @@ export component HomePage inherits Rectangle {
             image-rendering: pixelated;
             opacity: 1;
         }
-        Rectangle {
+        if self.ed == 0 || self.ed == 3: Rectangle {
             x: 0;
             y: parent.height - parent.hauteur-scene;
             width: parent.width;
@@ -616,7 +769,8 @@ export component HomePage inherits Rectangle {
                 heros := Rectangle {
                     horizontal-stretch: 1;
                     // le visuel en pixel art, en haut à droite du héros
-                    if root.width > 1000px: Rectangle {
+                    // (Java et Bedrock ont déjà leur paysage en fond)
+                    if root.width > 1000px && (HomeState.edition == 0 || HomeState.edition == 3): Rectangle {
                         x: heros.width - self.width - 24px;
                         y: 20px;
                         width: 168px;
@@ -641,40 +795,6 @@ export component HomePage inherits Rectangle {
                         alignment: center;
                         spacing: 22px;
                         padding-left: 8px;
-                        // badge : la dernière version / ce qu'est l'édition
-                        HorizontalLayout {
-                            alignment: start;
-                            Rectangle {
-                                height: 36px;
-                                width: badge.preferred-width;
-                                border-radius: 18px;
-                                background: Theme.surface-2;
-                                border-width: 1.5px;
-                                border-color: Theme.border-field;
-                                badge := HorizontalLayout {
-                                    padding-left: 12px;
-                                    padding-right: 16px;
-                                    spacing: 10px;
-                                    VerticalLayout {
-                                        alignment: center;
-                                        Rectangle {
-                                            width: 8px;
-                                            height: 8px;
-                                            background: Theme.active;
-                                        }
-                                    }
-                                    Text {
-                                        text: HomeState.edition == 0 ? Tr.t("Home_Badge_Client")
-                                            : HomeState.edition == 1 ? Tr.t("Home_Badge_Java")
-                                            : HomeState.edition == 2 ? Tr.t("Home_Badge_Bedrock")
-                                            : Tr.t("Home_Badge_Horizon");
-                                        font-size: 13.5px;
-                                        color: Theme.icon;
-                                        vertical-alignment: center;
-                                    }
-                                }
-                            }
-                        }
                         VerticalLayout {
                             spacing: 10px;
                             Text {
@@ -696,15 +816,6 @@ export component HomePage inherits Rectangle {
                                 font-size: 16px;
                                 color: Theme.ink-2;
                                 wrap: word-wrap;
-                            }
-                            if HomeState.edition == 0: HorizontalLayout {
-                                alignment: start;
-                                spacing: 8px;
-                                padding-top: 4px;
-                                Puce { text: Tr.t("Home_Puce_Menu"); }
-                                Puce { text: Tr.t("Home_Puce_Hud"); }
-                                Puce { text: Tr.t("Home_Puce_Cosmetiques"); }
-                                Puce { text: Tr.t("Home_Puce_Badge"); }
                             }
                         }
                         // JOUER et ses boutons
@@ -737,6 +848,12 @@ export component HomePage inherits Rectangle {
                                 icone: "dossier";
                                 tooltip: Tr.t("Nav_Dossier");
                                 clicked => { AppState.open-data-folder(); }
+                            }
+                            BoutonRond {
+                                taille: 68px;
+                                icone: "etoile";
+                                tooltip: Tr.t("Home_Notes");
+                                clicked => { AppState.nav-clicked(3); }
                             }
                             if HomeState.edition != 2: BoutonRond {
                                 taille: 68px;
@@ -800,25 +917,19 @@ export component HomePage inherits Rectangle {
                     horizontal-stretch: 1;
                     HorizontalLayout {
                         spacing: 16px;
-                        for i in min(3, HomeState.profile-items.length): CarteBas {
-                            property <ProfileItem> p: HomeState.profile-items[i];
+                        // seulement les profils du joueur (pas Mistly Client ni le jeu rapide)
+                        for j in min(3, max(0, HomeState.profile-items.length - 1)): CarteBas {
+                            property <int> i: j + 1;
+                            property <ProfileItem> p: HomeState.profile-items[self.i];
                             horizontal-stretch: 1;
-                            titre: i == 0 ? (HomeState.edition == 0 ? "Mistly Client" : Tr.t("Home_JeuRapide")) : self.p.name;
-                            detail: i == 0 ? (HomeState.edition == 0 ? HomeState.misty-mc + " · Fabric" : Tr.t("Home_JeuRapide_Detail")) : self.p.detail;
-                            choisi: i == HomeState.profile-index && !HomeState.horizon-selected;
+                            titre: self.p.name;
+                            detail: self.p.detail;
+                            choisi: self.i == HomeState.profile-index && !HomeState.horizon-selected;
                             clicked => {
-                                if (i == 0 && HomeState.edition == 0) {
-                                    HomeState.edition-selected(0);
-                                } else {
-                                    HomeState.profile-index = i;
-                                    HomeState.profile-selected(i);
-                                }
+                                HomeState.profile-index = self.i;
+                                HomeState.profile-selected(self.i);
                             }
-                            if i == 0: RondCarte {
-                                nuage: true;
-                                blanc: i == HomeState.profile-index && !HomeState.horizon-selected;
-                            }
-                            if i > 0 && HomeState.profile-items[i].has-icon: Rectangle {
+                            if HomeState.profile-items[j + 1].has-icon: Rectangle {
                                 width: 44px;
                                 height: 44px;
                                 border-radius: 22px;
@@ -826,13 +937,17 @@ export component HomePage inherits Rectangle {
                                 Image {
                                     width: parent.width;
                                     height: parent.height;
-                                    source: HomeState.profile-items[i].icon;
+                                    source: HomeState.profile-items[j + 1].icon;
                                     image-fit: cover;
                                 }
                             }
-                            if i > 0 && !HomeState.profile-items[i].has-icon: RondCarte {
+                            if !HomeState.profile-items[j + 1].has-icon: RondCarte {
                                 icone: "instances";
                             }
+                        }
+                        // trois cases toujours de la même largeur
+                        for k in max(0, 3 - max(0, HomeState.profile-items.length - 1)): Rectangle {
+                            horizontal-stretch: 1;
                         }
                     }
                     if (Theme.noel || Theme.halloween) && HomeState.profile-items.length > 2: Saison {

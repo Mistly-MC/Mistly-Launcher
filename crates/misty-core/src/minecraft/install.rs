@@ -111,6 +111,25 @@ fn json_a_jour(chemin: &Path, sha1_attendu: &str) -> bool {
 }
 
 /// Installe tout ce qu'il faut pour lancer `id` (déjà présent : vérification rapide).
+/// Étapes de `installer`, dans l'ordre de l'écran « Launching » : Java, version du jeu (jar),
+/// bibliothèques, sons et textures, lancement.
+pub const ETAPE_JAVA: u8 = 1;
+pub const ETAPE_VERSION: u8 = 2;
+pub const ETAPE_BIBLIOTHEQUES: u8 = 3;
+pub const ETAPE_ASSETS: u8 = 4;
+pub const ETAPE_LANCEMENT: u8 = 5;
+static ETAPE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// L'étape en cours de la dernière installation (voir `ETAPE_JAVA`…), 0 avant la première.
+pub fn etape() -> u8 {
+    ETAPE.load(Ordering::Relaxed)
+}
+
+/// Une installation commence : le loader et le JSON de la version comptent dans « version du jeu ».
+pub fn commencer() {
+    ETAPE.store(ETAPE_VERSION, Ordering::Relaxed);
+}
+
 pub async fn installer(
     dirs: &McDirs,
     id: &str,
@@ -129,6 +148,12 @@ pub async fn installer(
     let json = version::fusionner(dirs, id)?;
     let vanilla = version::id_vanilla(&json);
 
+    // Java d'abord (première étape de l'écran « Launching »)
+    ETAPE.store(ETAPE_JAVA, Ordering::Relaxed);
+    let (composant, majeure) = version::java_requis(&json);
+    let java = java::assurer(dirs, &composant, majeure, &progression).await?;
+
+    ETAPE.store(ETAPE_VERSION, Ordering::Relaxed);
     let mut fichiers: Vec<Tache> = Vec::new();
 
     // Jar du jeu : celui de la version vanilla
@@ -147,11 +172,12 @@ pub async fn installer(
         }
     }
 
-    // Bibliothèques
+    // Bibliothèques (après le jar et la configuration des logs)
     let libs = version::bibliotheques(dirs, &json);
+    let mut bibliotheques: Vec<Tache> = Vec::new();
     for lib in &libs {
         match &lib.url {
-            Some(url) => fichiers.push(Tache {
+            Some(url) => bibliotheques.push(Tache {
                 chemin: lib.chemin.clone(),
                 url: url.clone(),
                 sha1: lib.sha1.clone(),
@@ -187,14 +213,14 @@ pub async fn installer(
     }
 
     telecharger_tout(fichiers, &progression).await?;
+    ETAPE.store(ETAPE_BIBLIOTHEQUES, Ordering::Relaxed);
+    telecharger_tout(bibliotheques, &progression).await?;
 
-    // Assets
+    // Assets (sons et textures)
+    ETAPE.store(ETAPE_ASSETS, Ordering::Relaxed);
     let (assets_index, game_assets, map_to_resources) =
         installer_assets(dirs, &json, &progression).await?;
-
-    // Java
-    let (composant, majeure) = version::java_requis(&json);
-    let java = java::assurer(dirs, &composant, majeure, &progression).await?;
+    ETAPE.store(ETAPE_LANCEMENT, Ordering::Relaxed);
 
     // Jar à mettre dans le classpath : versions/<id>/<id>.jar (copie du jar vanilla pour les loaders,
     // Forge 1.17+ s'attend à ce nom), ou celui indiqué par "jar" (anciens Forge)

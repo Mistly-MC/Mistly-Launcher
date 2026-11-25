@@ -2,7 +2,7 @@
 // dialogue et les boutons de la fenêtre.
 
 import { Theme, Tr, Assets, Bulle } from "theme.slint";
-import { AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, PacksState, EditorState, FriendsState } from "state.slint";
+import { AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, FriendsState } from "state.slint";
 import { Icon, PixelLabel, BodyText, SectionTitle, IconButton, ChromeButton, MButton, SlimProgress, Spinner, OutlinedText, IconeNuit, IconeAuto } from "widgets.slint";
 import { BarreHaut } from "dock.slint";
 import { ChoixCompte } from "bienvenue.slint";
@@ -14,15 +14,13 @@ import { SettingsModal } from "settings.slint";
 import { ChangelogPage } from "changelog.slint";
 import { FriendsPage } from "friends.slint";
 import { SkinState } from "skin.slint";
-import { PacksPage, PackCreateOverlay } from "packs.slint";
-import { EditorPage } from "editor.slint";
 import { ScrollView, Palette } from "std-widgets.slint";
 import { VersionPicker } from "versions.slint";
 import { ConsoleOverlay, ConsoleState, LogLine, LogPane } from "console.slint";
 
 export { ConsoleState, LogLine, LogPane }
 export { BienvenueState, ConnexionState }
-export { Theme, Tr, Assets, Bulle, AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, PacksState, EditorState, SkinState, FriendsState }
+export { Theme, Tr, Assets, Bulle, AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, SkinState, FriendsState }
 
 /// Bouton rond de la fenêtre (réduire, agrandir, fermer) : 30 px, rouge au survol pour fermer.
 component BoutonFenetre inherits Rectangle {
@@ -79,9 +77,8 @@ component Onglet inherits Rectangle {
     }
 }
 
-/// Écran de chargement, le même que celui de Misty Client (MistyLoading.java) : le paysage de nuit
-/// qui défile vers la droite, le nuage et le nom MISTY en pixel art, et une barre bleue. En thème
-/// clair (Brume), le même paysage de jour : ciel bleu pâle, crêtes claires, sans étoiles.
+/// Écran de chargement (Figma « Loading ») : le nuage et MISTLY, 16 blocs qui se remplissent,
+/// « Checking for updates… », la version du launcher, et une astuce en bas.
 /// Il reste au moins 0,7 s (pas de flash) et au plus 2,5 s (on ne bloque jamais le launcher).
 component Chargement inherits Rectangle {
     property <bool> fini: AppState.ready && self.minimum;
@@ -95,112 +92,125 @@ component Chargement inherits Rectangle {
     Timer { interval: 700ms; running: !root.minimum; triggered => { root.minimum = true; } }
     Timer { interval: 2500ms; running: !root.maximum; triggered => { root.maximum = true; } }
     init => { root.lance = true; }
-
-    // ── Scène : mêmes proportions que le paysage du fond (1600 × 440, en bas) ──
-    property <float> s: max(root.width / 1600px, root.height * 0.74 / 440px);
-    property <length> sw: 1600px * root.s;
-    property <length> sh: 440px * root.s;
-    property <length> haut: root.height - root.sh;
-    // plus lue une fois l'écran effacé : rien ne redessine sans fin derrière le launcher
-    property <float> secondes: root.visible ? animation-tick() / 1s : 0;
-    property <[float]> vitesses: [4, 7, 11, 17];
-    // nuit (comme le client, et pour les thèmes de saison) ou jour (thème Brume)
-    property <bool> nuit: Theme.dark;
-    property <[color]> couleurs: root.nuit ? [#24345A, #1A2748, #121C36, #0D1528] : [#B7CDEB, #A0BBE2, #8BA9D7, #7896CA];
-    property <color> bas: root.nuit ? #070B16 : #6D8EC2;
-
-    background: root.nuit ? @linear-gradient(180deg, Theme.bg 0%, #121B33 100%) : @linear-gradient(180deg, #F3F6FB 0%, #DCE7F5 55%, #B4D0F1 100%);
+    background: Theme.bg;
     clip: true;
     TouchArea { }
 
-    // étoiles : le champ (symétrique) glisse lentement et se répète tous les 1600 px
-    property <length> decalage-etoiles: Math.mod(root.secondes * 1.5, 1600) * root.s * 1px;
-    for k in 2: Image {
-        visible: root.nuit;
-        x: root.decalage-etoiles - root.sw + k * root.sw;
-        y: root.haut;
-        width: root.sw;
-        height: root.sh;
-        source: AppState.loading-stars;
-        image-rendering: pixelated;
-        image-fit: fill;
-        colorize: #DBE7FF;
-        opacity: 0.55;
-    }
-    for k in 2: Image {
-        visible: root.nuit;
-        x: root.decalage-etoiles - root.sw + k * root.sw;
-        y: root.haut;
-        width: root.sw;
-        height: root.sh;
-        source: AppState.loading-twinkle;
-        image-rendering: pixelated;
-        image-fit: fill;
-        colorize: white;
-        opacity: root.visible ? 0.25 + 0.75 * (0.5 + 0.5 * sin((animation-tick() / 8000ms) * 360deg)) : 0;
+    // étoiles (mêmes places que le Figma, sur 1180 × 720)
+    for e in [{x: 180, y: 150, t: 5}, {x: 960, y: 200, t: 6}, {x: 1040, y: 560, t: 5}, {x: 120, y: 560, t: 6}]: Rectangle {
+        x: root.width * e.x / 1180;
+        y: root.height * e.y / 720;
+        width: e.t * 1px;
+        height: e.t * 1px;
+        background: Theme.ink-4;
     }
 
-    // crêtes, de l'arrière vers l'avant, qui défilent vers la droite (les lointaines plus
-    // lentement) ; chaque crête est suivie de son miroir, le motif se répète tous les 3200 px
-    for crete[i] in AppState.loading-ridges: Rectangle {
-        property <length> tuile: 2 * root.sw;
-        property <length> decalage: Math.mod(root.secondes * root.vitesses[i], 3200) * root.s * 1px;
-        for k in 4: Image {
-            x: parent.decalage - parent.tuile + Math.floor(k / 2) * parent.tuile + Math.mod(k, 2) * root.sw;
-            y: root.haut;
-            width: root.sw;
-            height: root.sh;
-            source: crete;
-            image-rendering: pixelated;
-            image-fit: fill;
-            colorize: root.couleurs[i];
-            transform-scale-x: Math.mod(k, 2) == 1 ? -1 : 1;
-        }
-    }
-    Rectangle {
-        y: root.height - 96px * root.s;
-        height: 96px * root.s;
-        background: @linear-gradient(180deg, root.bas.with-alpha(0) 0%, root.bas 100%);
-    }
-
-    // ── Nuage, nom et barre, au milieu ──
-    property <length> pixel: max(2px, round(min(root.width, root.height) / 160px) * 1px);
-    property <length> y0: (root.height - 39 * root.pixel) / 2 - 12 * root.pixel;
-    Image {
-        x: (root.width - self.width) / 2;
+    property <length> y0: (root.height - 160px) / 2;
+    // nuage et MISTLY
+    HorizontalLayout {
+        x: (root.width - self.preferred-width) / 2;
         y: root.y0;
-        width: 40 * root.pixel;
-        height: 40 * root.pixel;
-        source: AppState.loading-logo;
-        image-rendering: pixelated;
-        image-fit: fill;
+        height: 50px;
+        spacing: 14px;
+        Rectangle {
+            width: 50px;
+            height: 50px;
+            border-radius: 16px;
+            background: Theme.control;
+            border-width: 1.5px;
+            border-color: Theme.border-strong;
+            Image {
+                width: 28px;
+                height: 28px;
+                source: Assets.logo;
+                colorize: Theme.ink;
+                image-fit: contain;
+            }
+        }
+        Text {
+            text: "MISTLY";
+            font-family: Theme.pixel-font;
+            font-weight: 700;
+            font-size: 30px;
+            letter-spacing: 2.4px;
+            color: Theme.ink-strong;
+            vertical-alignment: center;
+        }
     }
 
     // la barre de blocs se remplit pendant le chargement, puis d'un coup quand le launcher est prêt
     property <float> avance: AppState.ready ? 1 : root.lance ? 0.85 : 0;
     animate avance { duration: AppState.ready ? 240ms : 2200ms; easing: ease-out; }
-    property <length> bloc: max(10px, 4 * root.pixel);
-    property <length> espace: max(3px, root.pixel);
     HorizontalLayout {
         x: (root.width - self.preferred-width) / 2;
-        y: root.y0 + 48 * root.pixel;
-        height: root.bloc;
-        spacing: root.espace;
+        y: root.y0 + 78px;
+        height: 22px;
+        spacing: 5px;
         for n in 16: Rectangle {
-            width: root.bloc;
-            height: root.bloc;
+            width: 22px;
+            height: 22px;
+            border-radius: 2px;
             background: (n + 1) / 16 <= root.avance ? Theme.active : (n / 16 < root.avance ? Theme.ink-3 : Theme.control);
             animate background { duration: 120ms; }
         }
     }
     Text {
-        y: root.y0 + 48 * root.pixel + root.bloc + 14px;
+        y: root.y0 + 112px;
         width: root.width;
-        text: AppState.version-text;
+        text: AppState.ready ? Tr.t("Charg_Pret") : Tr.t("Charg_Maj");
+        font-family: Theme.sans-font;
+        font-size: 14px;
+        color: Theme.ink;
+        horizontal-alignment: center;
+    }
+    Text {
+        y: root.y0 + 144px;
+        width: root.width;
+        text: AppState.loading-detail;
         font-family: Theme.mono-font;
         font-size: 12px;
         color: Theme.ink-3;
         horizontal-alignment: center;
+    }
+
+    // l'astuce, en bas
+    property <int> astuce: AppState.loading-tip;
+    Rectangle {
+        x: (root.width - self.width) / 2;
+        y: root.height - 40px - self.height;
+        height: 53px;
+        width: ligne-astuce.preferred-width;
+        border-radius: 26.5px;
+        background: Theme.surface;
+        border-width: 1.5px;
+        border-color: Theme.border;
+        ligne-astuce := HorizontalLayout {
+            padding-left: 21px;
+            padding-right: 21px;
+            spacing: 12px;
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 36px;
+                    height: 22px;
+                    border-radius: 6px;
+                    background: Theme.control;
+                    Text {
+                        text: Tr.t("Charg_Astuce");
+                        font-family: Theme.mono-font;
+                        font-size: 10px;
+                        color: Theme.ink-2;
+                    }
+                }
+            }
+            Text {
+                text: root.astuce == 0 ? Tr.t("Charg_Astuce_1") : root.astuce == 1 ? Tr.t("Charg_Astuce_2") : root.astuce == 2 ? Tr.t("Charg_Astuce_3") : Tr.t("Charg_Astuce_4");
+                font-family: Theme.sans-font;
+                font-size: 13px;
+                color: Theme.ink-2;
+                vertical-alignment: center;
+            }
+        }
     }
 }
 
@@ -211,8 +221,9 @@ export component MainWindow inherits Window {
     // Taille d'origine par défaut ; la fenêtre peut ensuite être agrandie ou redimensionnée
     preferred-width: 1180px;
     preferred-height: 720px;
-    min-width: 1040px;
-    min-height: 660px;
+    // taille du Figma : en dessous, la barre du haut et les pages se chevauchent
+    min-width: 1180px;
+    min-height: 720px;
     no-frame: true;
     // horloge du décor : un pas toutes les 50 ms (20 images par seconde : le décor dérive
     // lentement, et l'interface est dessinée par le processeur), arrêtée pendant les pauses ;
@@ -251,8 +262,18 @@ export component MainWindow inherits Window {
     property <length> largeur-boutons: 142px;
     /// fenêtre étroite : la barre du haut cache le nom MISTLY et l'étiquette RUST
     property <bool> etroit;
-    // (posé quand la largeur change, pas lié : la largeur minimale de la fenêtre dépend des tuiles)
+    // (posé quand la largeur change, pas lié : la largeur des tuiles dépend de la barre)
     changed width => { self.etroit = self.width < 1260px; }
+    // la première largeur peut arriver sans « changed » : on la relit une fois, après l'ouverture
+    property <bool> largeur-lue;
+    Timer {
+        interval: 400ms;
+        running: !root.largeur-lue;
+        triggered => {
+            root.etroit = root.width < 1260px;
+            root.largeur-lue = true;
+        }
+    }
 
     clavier := FocusScope {
         key-pressed(e) => {
@@ -304,11 +325,9 @@ export component MainWindow inherits Window {
                         height: parent.height - root.marge;
                         Onglet { actif: AppState.page == 1; ProfilesPage { } }
                         Onglet { actif: AppState.page == 3; ChangelogPage { } }
-                        Onglet { actif: AppState.page == 4; PacksPage { } }
                         Onglet { actif: AppState.page == 8; FriendsPage { } }
                         // Le détail d'un profil et l'éditeur sont recréés à chaque ouverture.
                         if AppState.page == 5: Apparition { InstancePage { } }
-                        if AppState.page == 6: Apparition { EditorPage { } }
                     }
                 }
                 Rectangle {
@@ -361,7 +380,6 @@ export component MainWindow inherits Window {
         if ProfilesState.creating: ProfileCreateOverlay { }
         if ProfilesState.waiting: ProfileWaitOverlay { }
         if ProfilesState.pack-open: ModpackInstallOverlay { }
-        if PacksState.creating: PackCreateOverlay { }
 
         // ═══ Console du jeu ═══
         // sous la rangée du haut, qui reste utilisable (onglets, tuile Logs, boutons de la fenêtre)

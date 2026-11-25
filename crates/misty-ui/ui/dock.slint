@@ -430,16 +430,6 @@ export component BarreHaut inherits Rectangle {
                     clicked => { AppState.nav-clicked(1); }
                 }
             }
-            if AppState.nav-packs: VerticalLayout {
-                alignment: center;
-                BoutonRond {
-                    taille: 44px;
-                    icone: "couches";
-                    tooltip: Tr.t("Onglet_Packs");
-                    actif: (AppState.nav == 4 || AppState.page == 6) && !SettingsState.open;
-                    clicked => { AppState.nav-clicked(4); }
-                }
-            }
             if AppState.nav-amis: VerticalLayout {
                 alignment: center;
                 BoutonRond {
