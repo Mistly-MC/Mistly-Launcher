@@ -1,5 +1,5 @@
 # Changelog
-## 0.4.2-beta.2
+## 0.4.3-beta.1
 ### Launcher
 - Fixed: signing in with Microsoft failed with "The provided request must include a 'response_type' input parameter"
 - The welcome has a 4th step, Sign in, with the new sign-in screen: sign in with Microsoft, or type a username to play offline. Players who never chose how to play see the same screen
