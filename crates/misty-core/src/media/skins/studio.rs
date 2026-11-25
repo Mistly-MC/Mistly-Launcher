@@ -14,6 +14,8 @@ pub enum Anim {
     Course,
     Vol,
     Accroupi,
+    /// Une emote du site (voir `emotes::EMOTES`)
+    Emote(u8),
 }
 
 impl Anim {
@@ -23,6 +25,8 @@ impl Anim {
             2 => Anim::Course,
             3 => Anim::Vol,
             4 => Anim::Accroupi,
+            // 5 et plus : les emotes, dans l'ordre de emotes::EMOTES
+            i if i >= 5 => Anim::Emote((i - 5).min(u8::MAX as i32) as u8),
             _ => Anim::Repos,
         }
     }
@@ -39,6 +43,8 @@ pub(super) struct Membre {
     roulis: f32,
     pivot: [f32; 3],
     decale: [f32; 3],
+    /// rotation complète autour du pivot (emotes) : remplace `incline` et `roulis`
+    rotation: Option<super::modele::Matrice>,
 }
 
 /// Pose complète à l'instant `t` (secondes).
@@ -123,6 +129,27 @@ pub(super) fn pose(anim: Anim, t: f32, b: f32) -> Pose {
             // ailes plus écartées accroupi, comme dans le jeu
             p.ailes = (0.26 + 0.04 * k, 0.38 + 0.52 * k);
         }
+        Anim::Emote(k) => {
+            if let Some(os) = super::emotes::poser(k as usize, t) {
+                let membres = [
+                    &mut p.tete,
+                    &mut p.corps,
+                    &mut p.bras_d,
+                    &mut p.bras_g,
+                    &mut p.jambe_d,
+                    &mut p.jambe_g,
+                ];
+                for (membre, o) in membres.into_iter().zip(os) {
+                    *membre = Membre {
+                        incline: 0.0,
+                        roulis: 0.0,
+                        pivot: o.pivot,
+                        decale: o.decale,
+                        rotation: Some(o.rotation),
+                    };
+                }
+            }
+        }
     }
     p
 }
@@ -193,6 +220,35 @@ pub fn rendre_live_parties(
     yaw: f32,
     pitch: f32,
     surbrillance: &[u8],
+) -> Option<(RgbaImage, Vec<u8>)> {
+    rendre_live_modeles(
+        skin,
+        cape,
+        fin,
+        elytres,
+        anim,
+        t,
+        yaw,
+        pitch,
+        surbrillance,
+        &[],
+    )
+}
+
+/// Comme `rendre_live_parties`, avec des cosmétiques 3D du site (chapeaux, ailes) portés par le
+/// personnage.
+#[allow(clippy::too_many_arguments)]
+pub fn rendre_live_modeles(
+    skin: &RgbaImage,
+    cape: Option<&RgbaImage>,
+    fin: bool,
+    elytres: bool,
+    anim: Anim,
+    t: f32,
+    yaw: f32,
+    pitch: f32,
+    surbrillance: &[u8],
+    modeles: &[&Modele3d],
 ) -> Option<(RgbaImage, Vec<u8>)> {
     if skin.width() != 64 || skin.height() < 32 {
         return None;
@@ -284,6 +340,7 @@ pub fn rendre_live_parties(
         boite.roulis = m.roulis;
         boite.pivot = m.pivot;
         boite.decale = m.decale;
+        boite.rotation_membre = m.rotation;
     }
     // cape ou élytres, accrochées au dos (elles suivent l'inclinaison du corps)
     let facteur = cape_img
@@ -306,6 +363,26 @@ pub fn rendre_live_parties(
         c.decale = p.corps.decale;
         boites.push((c, 1));
     }
+    let nb_avant_modeles = boites.len();
+    // cosmétiques 3D : chaque cube suit la tête ou le corps
+    let mut textures_modeles: Vec<&RgbaImage> = Vec::new();
+    for modele in modeles {
+        let partie = match modele.attache {
+            Attache::Tete => 0,
+            Attache::Corps => 1,
+        };
+        let m = membres[partie];
+        for b in &modele.boites {
+            let mut b = b.clone();
+            b.incline = m.incline;
+            b.roulis = m.roulis;
+            b.pivot = m.pivot;
+            b.decale = m.decale;
+            b.rotation_membre = m.rotation;
+            boites.push((b, partie));
+            textures_modeles.push(&modele.texture);
+        }
+    }
 
     // Caméra orthographique sur une sphère autour du personnage
     let (sy_, cy_) = yaw.sin_cos();
@@ -318,7 +395,17 @@ pub fn rendre_live_parties(
         vers_camera[2] * droite[0] - vers_camera[0] * droite[2],
         vers_camera[0] * droite[1] - vers_camera[1] * droite[0],
     ];
-    let centre = [0.0, 16.0 - 4.0 * (p.global / 1.25).clamp(0.0, 1.0), 0.0];
+    // un chapeau 3D dépasse de la tête : le cadre monte un peu
+    let chapeau = if modeles.iter().any(|m| m.attache == Attache::Tete) {
+        2.5
+    } else {
+        0.0
+    };
+    let centre = [
+        0.0,
+        16.0 + chapeau - 4.0 * (p.global / 1.25).clamp(0.0, 1.0),
+        0.0,
+    ];
     let origine = [
         centre[0] + vers_camera[0] * 100.0,
         centre[1] + vers_camera[1] * 100.0,
@@ -353,7 +440,9 @@ pub fn rendre_live_parties(
         .iter()
         .enumerate()
         .map(|(i, (_, partie))| {
-            if i >= nb_skin {
+            if i >= nb_avant_modeles {
+                *partie as u8
+            } else if i >= nb_skin {
                 if elytres {
                     partie::ELYTRES
                 } else {
@@ -368,7 +457,9 @@ pub fn rendre_live_parties(
         .iter()
         .enumerate()
         .map(|(i, (boite, _))| {
-            let texture = if i >= nb_skin {
+            let texture = if i >= nb_avant_modeles {
+                textures_modeles[i - nb_avant_modeles]
+            } else if i >= nb_skin {
                 cape_img.as_ref().unwrap()
             } else {
                 skin
@@ -380,13 +471,51 @@ pub fn rendre_live_parties(
                 boite.incline,
                 boite.roulis,
             );
+            let mut origine = [o[0] + px, o[1] + py, o[2] + pz];
+            let mut droite = tourner_inverse(d_m, boite.incline, boite.roulis);
+            let mut haut = tourner_inverse(h_m, boite.incline, boite.roulis);
+            let mut regard = tourner_inverse(r_m, boite.incline, boite.roulis);
+            // emote : la rotation complète du membre (orthogonale : l'inverse est la transposée)
+            if let Some(r) = &boite.rotation_membre {
+                let inverse = |v: [f32; 3]| -> [f32; 3] {
+                    [
+                        r[0][0] * v[0] + r[1][0] * v[1] + r[2][0] * v[2],
+                        r[0][1] * v[0] + r[1][1] * v[1] + r[2][1] * v[2],
+                        r[0][2] * v[0] + r[1][2] * v[1] + r[2][2] * v[2],
+                    ]
+                };
+                let l = inverse([o_m[0] - dx - px, o_m[1] - dy - py, o_m[2] - dz - pz]);
+                origine = [l[0] + px, l[1] + py, l[2] + pz];
+                droite = inverse(d_m);
+                haut = inverse(h_m);
+                regard = inverse(r_m);
+            }
+            // cube d'un cosmétique 3D : la caméra ramenée dans le repère du cube (inverse de
+            // monde = rotation × local + position ; la rotation est orthogonale)
+            if let Some((rot, pos)) = &boite.transformation {
+                let inverse = |v: [f32; 3]| -> [f32; 3] {
+                    [
+                        rot[0][0] * v[0] + rot[1][0] * v[1] + rot[2][0] * v[2],
+                        rot[0][1] * v[0] + rot[1][1] * v[1] + rot[2][1] * v[2],
+                        rot[0][2] * v[0] + rot[1][2] * v[1] + rot[2][2] * v[2],
+                    ]
+                };
+                origine = inverse([
+                    origine[0] - pos[0],
+                    origine[1] - pos[1],
+                    origine[2] - pos[2],
+                ]);
+                droite = inverse(droite);
+                haut = inverse(haut);
+                regard = inverse(regard);
+            }
             BoitePosee {
                 boite,
                 texture,
-                origine: [o[0] + px, o[1] + py, o[2] + pz],
-                droite: tourner_inverse(d_m, boite.incline, boite.roulis),
-                haut: tourner_inverse(h_m, boite.incline, boite.roulis),
-                regard: tourner_inverse(r_m, boite.incline, boite.roulis),
+                origine,
+                droite,
+                haut,
+                regard,
             }
         })
         .collect();

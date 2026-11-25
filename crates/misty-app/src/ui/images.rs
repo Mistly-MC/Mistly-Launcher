@@ -115,6 +115,26 @@ pub fn logo_chargement() -> Image {
     Image::from_rgba8(tampon(&img))
 }
 
+/// L'image découpée en rond (transparente hors du cercle inscrit). Le rendu logiciel de Slint ne
+/// découpe pas une image aux coins arrondis de son cadre : les têtes rondes (compte, amis) sont
+/// donc arrondies ici.
+pub fn rond(image: &Image) -> Image {
+    let Some(mut buf) = image.to_rgba8() else {
+        return image.clone();
+    };
+    let (l, h) = (buf.width() as f32, buf.height() as f32);
+    let (cx, cy, r) = (l / 2.0, h / 2.0, l.min(h) / 2.0);
+    let largeur = buf.width() as usize;
+    for (i, px) in buf.make_mut_slice().iter_mut().enumerate() {
+        let (x, y) = ((i % largeur) as f32 + 0.5, (i / largeur) as f32 + 0.5);
+        let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
+        // un pixel de transition, pour un bord net sans escalier
+        let couverture = (r - d + 0.5).clamp(0.0, 1.0);
+        px.a = (px.a as f32 * couverture) as u8;
+    }
+    Image::from_rgba8(buf)
+}
+
 pub fn tampon(rgba: &image::RgbaImage) -> SharedPixelBuffer<Rgba8Pixel> {
     SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(rgba.as_raw(), rgba.width(), rgba.height())
 }

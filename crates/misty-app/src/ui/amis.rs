@@ -123,7 +123,7 @@ fn charger_tetes(app: &Rc<App>, uuids: Vec<String>) {
             let u = uuid.clone();
             // un échec reste « demandé » jusqu'à la prochaine ouverture de la page (pas de boucle)
             if let Some(img) = a.bg(async move { amis::tete(&u).await }).await {
-                let image = Image::from_rgba8(super::images::tampon(&img));
+                let image = super::images::rond(&Image::from_rgba8(super::images::tampon(&img)));
                 a.amis.borrow_mut().tetes.insert(uuid, image);
                 afficher(&a);
             }

@@ -999,5 +999,18 @@
   "Pack_Recap_Note": "Mistly installs the game, the loader and every mod. Files the author keeps off launchers are looked for on Modrinth first.",
   "Pack_Installer": "Install",
   "Param_Gpu": "Hardware acceleration",
-  "Param_Gpu_Texte": "Draws the launcher with the graphics card. Off, Mistly uses about 150 MB less memory. Applies the next time you open Mistly."
+  "Param_Gpu_Texte": "Draws the launcher with the graphics card. Off, Mistly uses about 150 MB less memory. Applies the next time you open Mistly.",
+  "Type_Mondes": "Maps",
+  "Type_Monde": "Map",
+  "Erreur_PasUnMonde": "This archive has no world in it (no level.dat).",
+  "Cos_Oreilles": "Bunny ears",
+  "Cos_AilesBrume": "Mist Wings",
+  "Emote_Saluer": "Wave",
+  "Emote_Applaudir": "Clap",
+  "Emote_Danser": "Dance",
+  "Emote_Acclamer": "Cheer",
+  "Emote_Calin": "Hug",
+  "Cos_AilesCouleur": "Wings",
+  "Cos_Membrane": "Membrane #",
+  "Cos_Os": "Bones #"
 }

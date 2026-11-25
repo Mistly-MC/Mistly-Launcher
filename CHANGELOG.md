@@ -1,4 +1,13 @@
 # Changelog
+## 0.4.5-beta.1
+### Launcher
+- Choose the colour of your Mist Wings like on the website: Mistly, Crimson, Amethyst, Jade, Gold, Shadow or Snow, or your own colours for the membrane and the bones
+- Play the website's emotes on your character in the Wardrobe: Wave, Clap, Dance, Cheer, Facepalm and Hug
+- The 3D cosmetics of the Mistly website are in the Wardrobe: Cloudly and the bunny ears on the head, and the Mist Wings on the back, worn on top of your cape. They are free for everyone for now
+- Discover now has Maps from CurseForge: pick a profile and the world appears in its saves
+- Fixed: the versions column of the modpack window was too narrow
+- Fixed: your head went past its round frame at the top right, and so did your friends' heads
+- Fixed: the edition selector (Mistly Client, Java, Bedrock, Horizon) showed in the Wardrobe
 ## 0.4.4-beta.1
 ### Launcher
 - Mistly uses much less memory: the interface is now drawn by the processor (about 90 MB instead of 250 MB). Settings → Appearance → Hardware acceleration brings back drawing by the graphics card

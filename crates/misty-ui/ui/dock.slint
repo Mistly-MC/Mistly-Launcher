@@ -5,6 +5,7 @@
 
 import { Theme, Tr, Assets, Bulle } from "theme.slint";
 import { HomeState, AppState, SettingsState } from "state.slint";
+import { SkinState } from "skin.slint";
 import { Icon, Thumb, IconeNuit, BoutonRond } from "widgets.slint";
 
 /// Tuile : la brique des anciennes pages (même rayon, même fond, même bord partout).
@@ -380,7 +381,7 @@ export component BarreHaut inherits Rectangle {
             // reste, pour que les onglets ne bougent pas)
             SelecteurEdition {
                 compact: root.compact;
-                opacity: AppState.page == 0 && !SettingsState.open ? 1 : 0;
+                opacity: AppState.page == 0 && SkinState.tab == 0 && !SettingsState.open ? 1 : 0;
                 visible: self.opacity > 0.01;
                 animate opacity { duration: 200ms; easing: ease-out; }
             }

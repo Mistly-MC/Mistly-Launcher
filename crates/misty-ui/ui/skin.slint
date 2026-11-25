@@ -4,7 +4,7 @@
 
 import { Theme, Tr, Assets } from "theme.slint";
 import { HomeState, AppState, SettingsState } from "state.slint";
-import { Icon, IconeNuit, IconeAuto, PixelLabel, BodyText, MButton, Spinner } from "widgets.slint";
+import { Icon, IconeNuit, IconeAuto, PixelLabel, BodyText, MButton, Spinner, GlassInput } from "widgets.slint";
 import { ScrollView } from "std-widgets.slint";
 
 /// Un skin de « Mes skins » : sa tête, son identifiant (nom du fichier), et s'il est porté.
@@ -44,6 +44,17 @@ export global SkinState {
     in property <bool> misty-cape-ok: true;
     in property <bool> misty-elytra-ok: true;
     in property <bool> misty-cloudly-ok: true;
+    /// Cosmétiques 3D du site, gratuits pour tous pour l'instant : oreilles de lapin (chapeau) et
+    /// ailes de brume (portées en plus de la cape)
+    in-out property <bool> misty-bunny: false;
+    in-out property <bool> misty-wings: false;
+    in property <image> misty-bunny-img;
+    in property <image> misty-wings-img;
+    /// Couleur des ailes de brume : préréglage (ordre de skins::TEINTES_AILES) et couleurs libres
+    in-out property <int> wings-preset: 0;
+    in-out property <string> wings-membrane;
+    in-out property <string> wings-bones;
+    callback wings-color-changed();
     in property <image> misty-early-cape;
     in property <image> misty-cloudly;
     /// Misty Client (le mod en jeu) est dans ce launcher : l'article équipé se voit en jeu
@@ -56,7 +67,8 @@ export global SkinState {
     callback elytra-toggled();
     callback walk-toggled();
     callback look-changed();
-    /// Animation du studio : 0 repos · 1 marche · 2 course · 3 vol · 4 accroupi
+    /// Animation du studio : 0 repos · 1 marche · 2 course · 3 vol · 4 accroupi, puis les emotes
+    /// (5 saluer · 6 applaudir · 7 danser · 8 acclamer · 9 facepalm · 10 câlin)
     in-out property <int> anim: 0;
     /// Élytres sorties automatiquement pour le vol
     in-out property <bool> elytra-auto: false;
@@ -593,8 +605,18 @@ component Scene3D inherits Rectangle {
     }
 
     // ── en bas : animations, cape, élytres ──
+    // les emotes du site, au-dessus des animations
+    if SkinState.has-figure || SkinState.live-ready: Seg {
+        x: 14px;
+        y: parent.height - 2 * self.height - 22px;
+        items: [Tr.t("Emote_Saluer"), Tr.t("Emote_Applaudir"), Tr.t("Emote_Danser"), Tr.t("Emote_Acclamer"), "Facepalm", Tr.t("Emote_Calin")];
+        current: SkinState.anim - 5;
+        choisi(i) => {
+            SkinState.anim = SkinState.anim == 5 + i ? 0 : 5 + i;
+        }
+    }
     if SkinState.has-figure || SkinState.live-ready: Text {
-        y: parent.height - 78px;
+        y: parent.height - 126px;
         width: parent.width;
         text: Tr.t("Skin_Glisser");
         opacity: 1 - root.attire;
@@ -842,13 +864,19 @@ export component SkinPanel inherits Rectangle {
     // élytres, Cloudly, les deux étiquettes)
     property <int> n-mojang: root.voir-capes ? SkinState.capes.length : 0;
     property <int> i-ailes: root.voir-capes ? root.n-mojang + 2 : 0;
-    property <int> i-chapeau: root.i-ailes + (root.voir-ailes ? 1 : 0);
-    property <int> i-tags: root.i-chapeau + (root.voir-chapeaux ? 1 : 0);
+    property <int> i-chapeau: root.i-ailes + (root.voir-ailes ? 2 : 0);
+    property <int> i-tags: root.i-chapeau + (root.voir-chapeaux ? 2 : 0);
     property <int> total: root.i-tags + (root.voir-tags ? 2 : 0);
     property <bool> cape-misty: SkinState.misty-equip == 1 || SkinState.misty-equip == 3;
     function essayer(genre: int) {
         if (genre == 4) {
             SkinState.misty-hat = !SkinState.misty-hat;
+            SkinState.misty-bunny = false;
+        } else if (genre == 5) {
+            SkinState.misty-bunny = !SkinState.misty-bunny;
+            SkinState.misty-hat = false;
+        } else if (genre == 6) {
+            SkinState.misty-wings = !SkinState.misty-wings;
         } else {
             SkinState.misty-equip = SkinState.misty-equip == genre ? 0 : genre;
             if (genre == 1 || genre == 3) {
@@ -943,6 +971,49 @@ export component SkinPanel inherits Rectangle {
                 color: Theme.ink-2;
                 wrap: word-wrap;
             }
+            // couleur des ailes de brume (comme sur le site) : les préréglages, puis deux couleurs libres
+            if SkinState.misty-wings && (root.onglet == 0 || root.onglet == 2): HorizontalLayout {
+                spacing: 8px;
+                height: 36px;
+                Text {
+                    text: Tr.t("Cos_AilesCouleur");
+                    font-family: Theme.sans-font;
+                    font-size: 13px;
+                    color: Theme.ink-3;
+                    vertical-alignment: center;
+                }
+                for c[i] in [#5b8cf0, #a01a37, #8a3fd0, #1f9e66, #d0951f, #34344a, #d6deec]: Rectangle {
+                    width: 30px;
+                    height: 30px;
+                    y: 3px;
+                    border-radius: 15px;
+                    background: c;
+                    border-width: SkinState.wings-preset == i && SkinState.wings-membrane == "" && SkinState.wings-bones == "" ? 2.5px : 1.5px;
+                    border-color: SkinState.wings-preset == i && SkinState.wings-membrane == "" && SkinState.wings-bones == "" ? Theme.ink : Theme.border-strong;
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            SkinState.wings-preset = i;
+                            SkinState.wings-membrane = "";
+                            SkinState.wings-bones = "";
+                            SkinState.wings-color-changed();
+                        }
+                    }
+                }
+                Rectangle { width: 6px; }
+                GlassInput {
+                    width: 104px;
+                    placeholder: Tr.t("Cos_Membrane");
+                    text <=> SkinState.wings-membrane;
+                    edited => { SkinState.wings-color-changed(); }
+                }
+                GlassInput {
+                    width: 90px;
+                    placeholder: Tr.t("Cos_Os");
+                    text <=> SkinState.wings-bones;
+                    edited => { SkinState.wings-color-changed(); }
+                }
+            }
             if (SkinState.misty-equip != 0 || SkinState.misty-hat) && !SkinState.misty-in-game: Rectangle {
                 min-height: av.preferred-height;
                 border-radius: 16px;
@@ -1034,6 +1105,18 @@ export component SkinPanel inherits Rectangle {
                     verrou: !SkinState.misty-elytra-ok;
                     clicked => { root.essayer(2); }
                 }
+                if root.voir-ailes: TuileCos {
+                    x: Math.mod(root.i-ailes + 1, 3) * (grille.case + 14px);
+                    y: floor((root.i-ailes + 1) / 3) * (grille.haut + 14px);
+                    width: grille.case;
+                    height: grille.haut;
+                    nom: Tr.t("Cos_AilesBrume");
+                    image: SkinState.misty-wings-img;
+                    a-image: true;
+                    forme: 1;
+                    equipe: SkinState.misty-wings;
+                    clicked => { root.essayer(6); }
+                }
                 if root.voir-chapeaux: TuileCos {
                     x: Math.mod(root.i-chapeau, 3) * (grille.case + 14px);
                     y: floor(root.i-chapeau / 3) * (grille.haut + 14px);
@@ -1046,6 +1129,18 @@ export component SkinPanel inherits Rectangle {
                     equipe: SkinState.misty-hat;
                     verrou: !SkinState.misty-cloudly-ok;
                     clicked => { root.essayer(4); }
+                }
+                if root.voir-chapeaux: TuileCos {
+                    x: Math.mod(root.i-chapeau + 1, 3) * (grille.case + 14px);
+                    y: floor((root.i-chapeau + 1) / 3) * (grille.haut + 14px);
+                    width: grille.case;
+                    height: grille.haut;
+                    nom: Tr.t("Cos_Oreilles");
+                    image: SkinState.misty-bunny-img;
+                    a-image: true;
+                    forme: 1;
+                    equipe: SkinState.misty-bunny;
+                    clicked => { root.essayer(5); }
                 }
                 if root.voir-tags: Rectangle {
                     for t[k] in ["", "nuage"]: TuileCos {

@@ -63,6 +63,7 @@ pub(super) struct Region(
     pub(super) u32,
 );
 
+#[derive(Clone)]
 pub(super) struct Boite {
     pub(super) min: [f32; 3],
     pub(super) max: [f32; 3],
@@ -80,6 +81,14 @@ pub(super) struct Boite {
     pub(super) decale: [f32; 3],
     /// top and bottom faces (only boxes that can show them when tilted, like the limbs)
     pub(super) dessus: Option<[Region; 2]>,
+    /// 3D cosmetics (Blockbench cubes): rotation and position in the player's space
+    /// (world = rotation × local + position), applied inside the pose of their body part
+    pub(super) transformation: Option<([[f32; 3]; 3], [f32; 3])>,
+    /// 3D cosmetics: free UV of each face (+z, -z, -x, +x, top, bottom) as x1, y1, x2, y2 in
+    /// texture pixels (x2 < x1 flips the face); NaN: no texture on that face
+    pub(super) uv: Option<[[f32; 4]; 6]>,
+    /// full rotation of its body part (emotes), around `pivot`: replaces `incline` and `roulis`
+    pub(super) rotation_membre: Option<[[f32; 3]; 3]>,
 }
 
 /// Box of the player model, with the layout of the Minecraft skin (origin u,v and size w,h,d).
@@ -114,6 +123,9 @@ pub(super) fn boite_skin(
         pivot: [0.0, 0.0, 0.0],
         decale: [0.0, 0.0, 0.0],
         dessus: Some([Region(u + d, v, w, d), Region(u + d + w, v, w, d)]),
+        transformation: None,
+        uv: None,
+        rotation_membre: None,
     }
 }
 
@@ -134,6 +146,9 @@ pub(super) fn boite_cape(f: u32) -> Boite {
         pivot: [0.0, 24.0, -2.25],
         decale: [0.0, 0.0, 0.0],
         dessus: None,
+        transformation: None,
+        uv: None,
+        rotation_membre: None,
     }
 }
 /// Like on NameMC, the cape hangs diagonally instead of sticking to the body.
@@ -173,6 +188,9 @@ pub(super) fn echantillon(
     axe: usize,
     positif: bool,
 ) -> Rgba<u8> {
+    if let Some(uv) = &b.uv {
+        return echantillon_libre(b, uv, texture, p, axe, positif);
+    }
     if axe == 1 {
         if let Some([haut, bas]) = b.dessus {
             let mut fu = (p[0] - b.min[0]) / (b.max[0] - b.min[0]);
@@ -205,6 +223,63 @@ pub(super) fn echantillon(
     let tx = x + ((fu.clamp(0.0, 0.9999)) * w as f32) as u32;
     let ty = y + ((fv.clamp(0.0, 0.9999)) * h as f32) as u32;
     *texture.get_pixel(tx.min(texture.width() - 1), ty.min(texture.height() - 1))
+}
+
+/// Face d'un cube de Blockbench : ses UV libres, vues de dehors (comme dans Blockbench).
+fn echantillon_libre(
+    b: &Boite,
+    uv: &[[f32; 4]; 6],
+    texture: &RgbaImage,
+    p: [f32; 3],
+    axe: usize,
+    positif: bool,
+) -> Rgba<u8> {
+    let taille = |i: usize| (b.max[i] - b.min[i]).max(1e-4);
+    let (face, fu, fv) = match (axe, positif) {
+        (2, true) => (
+            0,
+            (p[0] - b.min[0]) / taille(0),
+            (b.max[1] - p[1]) / taille(1),
+        ),
+        (2, false) => (
+            1,
+            (b.max[0] - p[0]) / taille(0),
+            (b.max[1] - p[1]) / taille(1),
+        ),
+        (0, false) => (
+            2,
+            (p[2] - b.min[2]) / taille(2),
+            (b.max[1] - p[1]) / taille(1),
+        ),
+        (0, true) => (
+            3,
+            (b.max[2] - p[2]) / taille(2),
+            (b.max[1] - p[1]) / taille(1),
+        ),
+        // dessus et dessous : orientés comme dans Minecraft (le cube a fait un demi-tour)
+        (_, true) => (
+            4,
+            1.0 - (p[0] - b.min[0]) / taille(0),
+            1.0 - (p[2] - b.min[2]) / taille(2),
+        ),
+        (_, false) => (
+            5,
+            1.0 - (p[0] - b.min[0]) / taille(0),
+            (b.max[2] - p[2]) / taille(2),
+        ),
+    };
+    let [x1, y1, x2, y2] = uv[face];
+    if x1.is_nan() {
+        return Rgba([0, 0, 0, 0]);
+    }
+    let (fu, fv) = (fu.clamp(0.0, 0.9999), fv.clamp(0.0, 0.9999));
+    let tx = (x1 + fu * (x2 - x1))
+        .floor()
+        .clamp(0.0, (texture.width() - 1) as f32) as u32;
+    let ty = (y1 + fv * (y2 - y1))
+        .floor()
+        .clamp(0.0, (texture.height() - 1) as f32) as u32;
+    *texture.get_pixel(tx, ty)
 }
 
 pub(super) fn axe_largeur(axe: usize) -> usize {

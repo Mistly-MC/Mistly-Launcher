@@ -58,7 +58,15 @@ pub fn installer(app: &Rc<App>) {
     if let Some(c) = skins::rendre_cape(skins::texture_early()) {
         st.set_misty_early_cape(Image::from_rgba8(images::tampon(&c)));
     }
-    st.set_misty_cloudly(Image::from_rgba8(images::tampon(&skins::apercu_cloudly())));
+    // les cosmétiques 3D du site : leur aperçu vient du modèle lui-même
+    let apercu =
+        |cle: &str| skins::apercu_modele(cle).map(|i| Image::from_rgba8(images::tampon(&i)));
+    st.set_misty_cloudly(
+        apercu("cloudly")
+            .unwrap_or_else(|| Image::from_rgba8(images::tampon(&skins::apercu_cloudly()))),
+    );
+    st.set_misty_bunny_img(apercu("bunny_ears").unwrap_or_default());
+    st.set_misty_wings_img(apercu("mist_wings").unwrap_or_default());
     // les articles Misty équipés la dernière fois le sont toujours
     st.set_misty_equip(match client::cosmetique().as_str() {
         client::CAPE => 1,
@@ -67,6 +75,35 @@ pub fn installer(app: &Rc<App>) {
         _ => 0,
     });
     st.set_misty_hat(client::chapeau() == client::CLOUDLY);
+    st.set_misty_bunny(client::chapeau() == client::OREILLES);
+    st.set_misty_wings(misty_core::systeme::reglages::lire().ailes_brume);
+    {
+        let r = misty_core::systeme::reglages::lire();
+        let preset = skins::TEINTES_AILES
+            .iter()
+            .position(|t| t.0 == r.ailes_teinte)
+            .unwrap_or(0);
+        st.set_wings_preset(preset as i32);
+        st.set_wings_membrane(r.ailes_membrane.into());
+        st.set_wings_bones(r.ailes_os.into());
+    }
+    teindre_ailes(app);
+    let a = app.clone();
+    st.on_wings_color_changed(move || {
+        let st = s(&a);
+        let preset = skins::TEINTES_AILES
+            .get(st.get_wings_preset().max(0) as usize)
+            .map(|t| t.0)
+            .unwrap_or("misty");
+        let (membrane, os) = (st.get_wings_membrane(), st.get_wings_bones());
+        misty_core::systeme::reglages::modifier(|r| {
+            r.ailes_teinte = preset.to_string();
+            r.ailes_membrane = membrane.to_string();
+            r.ailes_os = os.to_string();
+        });
+        teindre_ailes(&a);
+    });
+    porter_modeles(app);
     st.set_tag(client::tag().into());
     st.on_tag_changed(|tag| client::equiper_tag(&tag));
     verifier_early(app);
@@ -204,6 +241,39 @@ fn verifier_early(app: &Rc<App>) {
     });
 }
 
+/// Couleur des ailes de brume (préréglage et couleurs libres de la garde-robe) : le personnage et
+/// la tuile la prennent.
+fn teindre_ailes(app: &Rc<App>) {
+    let st = s(app);
+    let preset = skins::TEINTES_AILES
+        .get(st.get_wings_preset().max(0) as usize)
+        .map(|t| t.0)
+        .unwrap_or("misty");
+    let membrane = skins::couleur_hex(&st.get_wings_membrane());
+    let os = skins::couleur_hex(&st.get_wings_bones());
+    let ailes = skins::ailes_teintes(preset, membrane, os).map(std::sync::Arc::new);
+    if let Some(img) = ailes.as_deref().and_then(skins::apercu_de_modele) {
+        st.set_misty_wings_img(Image::from_rgba8(images::tampon(&img)));
+    }
+    super::studio::teindre_ailes(ailes);
+}
+
+/// Les cosmétiques 3D du site choisis dans la garde-robe, sur le personnage du studio.
+fn porter_modeles(app: &Rc<App>) {
+    let st = s(app);
+    let mut cles = Vec::new();
+    if st.get_misty_hat() {
+        cles.push("cloudly");
+    }
+    if st.get_misty_bunny() {
+        cles.push("bunny_ears");
+    }
+    if st.get_misty_wings() {
+        cles.push("mist_wings");
+    }
+    super::studio::porter(cles);
+}
+
 /// Changement de tenue (cape montrée ou non, élytres, article Misty) : on recalcule le personnage.
 fn changer_tenue(app: &Rc<App>) {
     let st = s(app);
@@ -216,9 +286,16 @@ fn changer_tenue(app: &Rc<App>) {
     });
     client::equiper_chapeau(if st.get_misty_hat() {
         client::CLOUDLY
+    } else if st.get_misty_bunny() {
+        client::OREILLES
     } else {
         ""
     });
+    let ailes = st.get_misty_wings();
+    if ailes != misty_core::systeme::reglages::lire().ailes_brume {
+        misty_core::systeme::reglages::modifier(|r| r.ailes_brume = ailes);
+    }
+    porter_modeles(app);
     // Sans compte et sans rien d'essayé : Steve tel quel
     if account::session().is_none() && st.get_misty_equip() == 0 && !st.get_elytra() {
         afficher_steve(app, false);
