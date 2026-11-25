@@ -219,8 +219,11 @@ jobs:
 
       - name: Release GitHub
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Jeton d'un administrateur (secret de l'environnement « release ») : le ruleset des tags
+          # interdit au jeton de GitHub Actions de créer le tag de la release
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
+          [ -n "$GH_TOKEN" ] || { echo "Secret RELEASE_TOKEN absent de l'environnement release" >&2; exit 1; }
           version="${{ needs.version.outputs.version }}"
           options=(--title "Mistly Launcher $version" --notes-file "$RUNNER_TEMP/notes.md")
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
