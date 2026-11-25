@@ -14,6 +14,8 @@ pub enum Anim {
     Course,
     Vol,
     Accroupi,
+    /// Une emote du site (voir `emotes::EMOTES`)
+    Emote(u8),
 }
 
 impl Anim {
@@ -23,6 +25,8 @@ impl Anim {
             2 => Anim::Course,
             3 => Anim::Vol,
             4 => Anim::Accroupi,
+            // 5 et plus : les emotes, dans l'ordre de emotes::EMOTES
+            i if i >= 5 => Anim::Emote((i - 5).min(u8::MAX as i32) as u8),
             _ => Anim::Repos,
         }
     }
@@ -39,6 +43,8 @@ pub(super) struct Membre {
     roulis: f32,
     pivot: [f32; 3],
     decale: [f32; 3],
+    /// rotation complète autour du pivot (emotes) : remplace `incline` et `roulis`
+    rotation: Option<super::modele::Matrice>,
 }
 
 /// Pose complète à l'instant `t` (secondes).
@@ -122,6 +128,27 @@ pub(super) fn pose(anim: Anim, t: f32, b: f32) -> Pose {
             p.cape += 0.5 * k;
             // ailes plus écartées accroupi, comme dans le jeu
             p.ailes = (0.26 + 0.04 * k, 0.38 + 0.52 * k);
+        }
+        Anim::Emote(k) => {
+            if let Some(os) = super::emotes::poser(k as usize, t) {
+                let membres = [
+                    &mut p.tete,
+                    &mut p.corps,
+                    &mut p.bras_d,
+                    &mut p.bras_g,
+                    &mut p.jambe_d,
+                    &mut p.jambe_g,
+                ];
+                for (membre, o) in membres.into_iter().zip(os) {
+                    *membre = Membre {
+                        incline: 0.0,
+                        roulis: 0.0,
+                        pivot: o.pivot,
+                        decale: o.decale,
+                        rotation: Some(o.rotation),
+                    };
+                }
+            }
         }
     }
     p
@@ -313,6 +340,7 @@ pub fn rendre_live_modeles(
         boite.roulis = m.roulis;
         boite.pivot = m.pivot;
         boite.decale = m.decale;
+        boite.rotation_membre = m.rotation;
     }
     // cape ou élytres, accrochées au dos (elles suivent l'inclinaison du corps)
     let facteur = cape_img
@@ -350,6 +378,7 @@ pub fn rendre_live_modeles(
             b.roulis = m.roulis;
             b.pivot = m.pivot;
             b.decale = m.decale;
+            b.rotation_membre = m.rotation;
             boites.push((b, partie));
             textures_modeles.push(&modele.texture);
         }
@@ -446,6 +475,21 @@ pub fn rendre_live_modeles(
             let mut droite = tourner_inverse(d_m, boite.incline, boite.roulis);
             let mut haut = tourner_inverse(h_m, boite.incline, boite.roulis);
             let mut regard = tourner_inverse(r_m, boite.incline, boite.roulis);
+            // emote : la rotation complète du membre (orthogonale : l'inverse est la transposée)
+            if let Some(r) = &boite.rotation_membre {
+                let inverse = |v: [f32; 3]| -> [f32; 3] {
+                    [
+                        r[0][0] * v[0] + r[1][0] * v[1] + r[2][0] * v[2],
+                        r[0][1] * v[0] + r[1][1] * v[1] + r[2][1] * v[2],
+                        r[0][2] * v[0] + r[1][2] * v[1] + r[2][2] * v[2],
+                    ]
+                };
+                let l = inverse([o_m[0] - dx - px, o_m[1] - dy - py, o_m[2] - dz - pz]);
+                origine = [l[0] + px, l[1] + py, l[2] + pz];
+                droite = inverse(d_m);
+                haut = inverse(h_m);
+                regard = inverse(r_m);
+            }
             // cube d'un cosmétique 3D : la caméra ramenée dans le repère du cube (inverse de
             // monde = rotation × local + position ; la rotation est orthogonale)
             if let Some((rot, pos)) = &boite.transformation {

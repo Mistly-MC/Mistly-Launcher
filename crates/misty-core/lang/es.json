@@ -1004,5 +1004,13 @@
   "Type_Monde": "Mapa",
   "Erreur_PasUnMonde": "Este archivo no contiene ningún mundo (no hay level.dat).",
   "Cos_Oreilles": "Orejas de conejo",
-  "Cos_AilesBrume": "Alas de niebla"
+  "Cos_AilesBrume": "Alas de niebla",
+  "Emote_Saluer": "Saludar",
+  "Emote_Applaudir": "Aplaudir",
+  "Emote_Danser": "Bailar",
+  "Emote_Acclamer": "Animar",
+  "Emote_Calin": "Abrazo",
+  "Cos_AilesCouleur": "Alas",
+  "Cos_Membrane": "Membrana #",
+  "Cos_Os": "Huesos #"
 }

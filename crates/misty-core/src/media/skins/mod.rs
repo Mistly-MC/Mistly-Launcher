@@ -5,12 +5,17 @@ use image::{imageops, Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
 
 // Sous-modules : fichiers (historique, cache), rendu (vues fixes), studio (aperçu en temps réel)
+mod emotes;
 mod fichiers;
 mod modele;
 mod rendu;
 mod studio;
+pub use emotes::EMOTES;
 pub use fichiers::*;
-pub use modele::{apercu as apercu_modele, modele, Attache, Modele3d};
+pub use modele::{
+    ailes_teintes, apercu as apercu_modele, apercu_de as apercu_de_modele, couleur_hex, modele,
+    Attache, Modele3d, TEINTES_AILES,
+};
 pub use rendu::*;
 pub use studio::*;
 

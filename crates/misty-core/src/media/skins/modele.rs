@@ -21,6 +21,7 @@ pub enum Attache {
 }
 
 /// Un cosmétique 3D prêt à dessiner.
+#[derive(Clone)]
 pub struct Modele3d {
     pub(super) boites: Vec<Boite>,
     pub(super) texture: RgbaImage,
@@ -61,7 +62,11 @@ pub fn modele(cle: &str) -> Option<&'static Modele3d> {
 
 /// Aperçu d'un modèle seul (pour sa tuile) : vu de trois quarts, recadré sur ses pixels.
 pub fn apercu(cle: &str) -> Option<RgbaImage> {
-    let m = modele(cle)?;
+    apercu_de(modele(cle)?)
+}
+
+/// Aperçu d'un modèle donné (des ailes teintes, par exemple).
+pub fn apercu_de(m: &Modele3d) -> Option<RgbaImage> {
     // un skin transparent : seul le modèle est dessiné
     let vide = RgbaImage::new(64, 64);
     let (yaw, pitch) = match m.attache {
@@ -92,9 +97,9 @@ pub fn apercu(cle: &str) -> Option<RgbaImage> {
     Some(image::imageops::crop_imm(&img, x0, y0, x1 - x0 + 1, y1 - y0 + 1).to_image())
 }
 
-type Matrice = [[f32; 3]; 3];
+pub(super) type Matrice = [[f32; 3]; 3];
 
-fn produit(a: &Matrice, b: &Matrice) -> Matrice {
+pub(super) fn produit(a: &Matrice, b: &Matrice) -> Matrice {
     let mut r = [[0.0; 3]; 3];
     for (i, ligne) in r.iter_mut().enumerate() {
         for (j, case) in ligne.iter_mut().enumerate() {
@@ -104,7 +109,7 @@ fn produit(a: &Matrice, b: &Matrice) -> Matrice {
     r
 }
 
-fn appliquer(m: &Matrice, v: [f32; 3]) -> [f32; 3] {
+pub(super) fn appliquer(m: &Matrice, v: [f32; 3]) -> [f32; 3] {
     [
         m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
         m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
@@ -113,7 +118,7 @@ fn appliquer(m: &Matrice, v: [f32; 3]) -> [f32; 3] {
 }
 
 /// Rotation de Blockbench (degrés) : z, puis y, puis x (Rz × Ry × Rx).
-fn rotation(r: [f32; 3]) -> Matrice {
+pub(super) fn rotation(r: [f32; 3]) -> Matrice {
     let (sx, cx) = r[0].to_radians().sin_cos();
     let (sy, cy) = r[1].to_radians().sin_cos();
     let (sz, cz) = r[2].to_radians().sin_cos();
@@ -290,6 +295,7 @@ fn boite(e: &Value, parent: &Affine, ex: f32, ey: f32) -> Option<Boite> {
         decale: [0.0; 3],
         dessus: None,
         transformation: Some((m, f(t.t))),
+        rotation_membre: None,
         uv: Some([
             face("north"),
             face("south"),
@@ -299,6 +305,150 @@ fn boite(e: &Value, parent: &Affine, ex: f32, ey: f32) -> Option<Boite> {
             face("down"),
         ]),
     })
+}
+
+// ───────────────────────── Couleurs des ailes de brume ─────────────────────────
+// Comme sur le site : dans la texture, la membrane occupe les lignes du haut (avant ZONE_OS) et
+// les os les suivantes, jusqu'à ZONE_FIN. Chaque pixel prend la teinte voulue à la même
+// luminosité, du plus sombre au plus clair de ses 4 tons.
+
+const ZONE_OS: u32 = 32;
+const ZONE_FIN: u32 = 96;
+
+/// Préréglages du site : (clé, tons de la membrane, tons des os, part verticale du dégradé).
+/// None : la couleur d'origine du modèle (membrane cramoisie, os beiges).
+/// Tons d'une partie des ailes (du plus sombre au plus clair), None : la couleur d'origine.
+pub type Tons = Option<[u32; 4]>;
+
+pub const TEINTES_AILES: [(&str, Tons, Tons, f32); 7] = [
+    (
+        "misty",
+        Some([0x04050c, 0x1d3a8a, 0x5b8cf0, 0xffffff]),
+        Some([0x030305, 0x151824, 0x2e3448, 0x9bb8f0]),
+        0.85,
+    ),
+    ("crimson", None, None, 0.0),
+    (
+        "amethyst",
+        Some([0x1d0833, 0x4a1680, 0x8a3fd0, 0xd2a6ff]),
+        Some([0x120a1c, 0x3a2a4a, 0x8a78a0, 0xefe6ff]),
+        0.0,
+    ),
+    (
+        "jade",
+        Some([0x04241a, 0x0d5c3c, 0x1f9e66, 0x8be8b4]),
+        None,
+        0.0,
+    ),
+    (
+        "gold",
+        Some([0x2e1a04, 0x7a4c0c, 0xd0951f, 0xffe08a]),
+        Some([0x1a0f05, 0x5a3a18, 0xb98a4a, 0xfff0c8]),
+        0.0,
+    ),
+    (
+        "shadow",
+        Some([0x07070b, 0x1a1a24, 0x34344a, 0x7a7a96]),
+        Some([0x030305, 0x1e1e26, 0x4a4a5a, 0xc8c8d8]),
+        0.0,
+    ),
+    (
+        "snow",
+        Some([0x4a5468, 0x9aa6bd, 0xd6deec, 0xffffff]),
+        Some([0x2a3346, 0x7a8aa6, 0xc9d6ee, 0xffffff]),
+        0.0,
+    ),
+];
+
+fn rgb(c: u32) -> [f32; 3] {
+    [
+        ((c >> 16) & 255) as f32,
+        ((c >> 8) & 255) as f32,
+        (c & 255) as f32,
+    ]
+}
+
+/// « #3a7bd5 » → 0x3a7bd5
+pub fn couleur_hex(texte: &str) -> Option<u32> {
+    let t = texte.trim().strip_prefix('#')?;
+    (t.len() == 6).then(|| u32::from_str_radix(t, 16).ok())?
+}
+
+/// Une couleur libre en 4 tons, de presque noir à presque blanc (comme le site).
+fn degrade(c: u32) -> [[f32; 3]; 4] {
+    let c = rgb(c);
+    let melange = |b: [f32; 3], f: f32| [0, 1, 2].map(|i| c[i] + (b[i] - c[i]) * f);
+    [
+        melange([0.0; 3], 0.88),
+        melange([0.0; 3], 0.55),
+        c,
+        melange([255.0; 3], 0.7),
+    ]
+}
+
+/// Les ailes de brume teintes : un préréglage (`TEINTES_AILES`), et éventuellement une couleur
+/// libre pour la membrane et pour les os (elles priment sur le préréglage).
+pub fn ailes_teintes(preset: &str, membrane: Option<u32>, os: Option<u32>) -> Option<Modele3d> {
+    let base = modele("mist_wings")?;
+    let (_, p_membrane, p_os, vertical) = TEINTES_AILES
+        .iter()
+        .find(|t| t.0 == preset)
+        .copied()
+        .unwrap_or(TEINTES_AILES[0]);
+    let tons = |libre: Option<u32>, preset: Option<[u32; 4]>| -> Option<[[f32; 3]; 4]> {
+        libre.map(degrade).or_else(|| preset.map(|p| p.map(rgb)))
+    };
+    let parties = [
+        (
+            tons(membrane, p_membrane),
+            0,
+            ZONE_OS,
+            if membrane.is_some() { 0.0 } else { vertical },
+        ),
+        (tons(os, p_os), ZONE_OS, ZONE_FIN, 0.0),
+    ];
+    let src = &base.texture;
+    let mut img = src.clone();
+    let l = src.width();
+    let lum = |p: &image::Rgba<u8>| 0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32;
+    for (tons, debut, fin, vertical) in parties {
+        let Some(tons) = tons else { continue };
+        let fin = fin.min(src.height());
+        // bornes de luminosité, et dernière ligne de chaque colonne (le bord découpé, le plus clair)
+        let (mut min, mut max) = (255.0f32, 0.0f32);
+        let mut bas = vec![debut; l as usize];
+        for y in debut..fin {
+            for x in 0..l {
+                let p = src.get_pixel(x, y);
+                if p[3] > 0 {
+                    let v = lum(p);
+                    min = min.min(v);
+                    max = max.max(v);
+                    bas[x as usize] = y;
+                }
+            }
+        }
+        for y in debut..fin {
+            for x in 0..l {
+                let p = *src.get_pixel(x, y);
+                if p[3] == 0 {
+                    continue;
+                }
+                let hauteur = (y - debut) as f32 / ((bas[x as usize] - debut).max(1)) as f32;
+                let t = ((1.0 - vertical) * (lum(&p) - min) / (max - min).max(1.0)
+                    + vertical * hauteur)
+                    * 3.0;
+                let k = (t.floor() as usize).min(2);
+                let f = t - k as f32;
+                let c = [0, 1, 2]
+                    .map(|i| (tons[k][i] + (tons[k + 1][i] - tons[k][i]) * f).round() as u8);
+                img.put_pixel(x, y, image::Rgba([c[0], c[1], c[2], p[3]]));
+            }
+        }
+    }
+    let mut teint = base.clone();
+    teint.texture = img;
+    Some(teint)
 }
 
 #[cfg(test)]
@@ -316,6 +466,29 @@ mod tests {
         // la tête de référence (groupe « ref ») n'est pas dessinée : Cloudly est au-dessus de la tête
         let cloudly = modele("cloudly").unwrap();
         assert!(cloudly.boites.iter().all(|b| b.max[1] > 31.0));
+    }
+
+    #[test]
+    fn ailes_teintes_comme_sur_le_site() {
+        assert_eq!(couleur_hex("#3a7bd5"), Some(0x3a7bd5));
+        assert_eq!(couleur_hex("3a7bd5"), None);
+        let origine = &modele("mist_wings").unwrap().texture;
+        // « crimson » : la couleur d'origine
+        assert_eq!(
+            &ailes_teintes("crimson", None, None).unwrap().texture,
+            origine
+        );
+        // Mistly, ou une couleur libre : la texture change
+        assert_ne!(
+            &ailes_teintes("misty", None, None).unwrap().texture,
+            origine
+        );
+        assert_ne!(
+            &ailes_teintes("crimson", Some(0x00ff00), None)
+                .unwrap()
+                .texture,
+            origine
+        );
     }
 
     #[test]

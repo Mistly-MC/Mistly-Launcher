@@ -26,6 +26,8 @@ struct Modele {
     elytres: bool,
     /// Cosmétiques 3D du site portés (clés de skins::modele : « cloudly »…)
     cosmetiques: Vec<&'static str>,
+    /// Les ailes de brume teintes (sinon celles du modèle)
+    ailes: Option<Arc<skins::Modele3d>>,
 }
 
 static MODELE: Mutex<Modele> = Mutex::new(Modele {
@@ -34,6 +36,7 @@ static MODELE: Mutex<Modele> = Mutex::new(Modele {
     fin: false,
     elytres: false,
     cosmetiques: Vec::new(),
+    ailes: None,
 });
 static OCCUPE: AtomicBool = AtomicBool::new(false);
 static DEMANDES: OnceLock<mpsc::Sender<(f32, f32, i32)>> = OnceLock::new();
@@ -93,7 +96,7 @@ pub fn installer(app: &Rc<App>) {
                 while let Ok(d) = rx.try_recv() {
                     demande = d;
                 }
-                let (skin, cape, fin, elytres, cosmetiques) = {
+                let (skin, cape, fin, elytres, cosmetiques, ailes) = {
                     let m = MODELE.lock().unwrap();
                     (
                         m.skin.clone(),
@@ -101,11 +104,15 @@ pub fn installer(app: &Rc<App>) {
                         m.fin,
                         m.elytres,
                         m.cosmetiques.clone(),
+                        m.ailes.clone(),
                     )
                 };
                 let modeles: Vec<&skins::Modele3d> = cosmetiques
                     .iter()
-                    .filter_map(|c| skins::modele(c))
+                    .filter_map(|c| match (*c, &ailes) {
+                        ("mist_wings", Some(a)) => Some(a.as_ref()),
+                        _ => skins::modele(c),
+                    })
                     .collect();
                 let (yaw, pitch, anim) = demande;
                 let surbrillance = SURVOL.lock().map(|s| s.clone()).unwrap_or_default();
@@ -174,6 +181,13 @@ pub fn installer(app: &Rc<App>) {
 }
 
 /// Change ce que porte le personnage (skin, bras fins, cape ou élytres).
+/// Les ailes de brume teintes, à la place de celles du modèle.
+pub fn teindre_ailes(ailes: Option<Arc<skins::Modele3d>>) {
+    if let Ok(mut m) = MODELE.lock() {
+        m.ailes = ailes;
+    }
+}
+
 /// Cosmétiques 3D portés par le personnage du studio.
 pub fn porter(cosmetiques: Vec<&'static str>) {
     if let Ok(mut m) = MODELE.lock() {

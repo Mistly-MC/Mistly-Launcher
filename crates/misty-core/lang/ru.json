@@ -1004,5 +1004,13 @@
   "Type_Monde": "Карта",
   "Erreur_PasUnMonde": "В архиве нет мира (нет level.dat).",
   "Cos_Oreilles": "Заячьи уши",
-  "Cos_AilesBrume": "Крылья тумана"
+  "Cos_AilesBrume": "Крылья тумана",
+  "Emote_Saluer": "Помахать",
+  "Emote_Applaudir": "Хлопать",
+  "Emote_Danser": "Танец",
+  "Emote_Acclamer": "Ура",
+  "Emote_Calin": "Обнять",
+  "Cos_AilesCouleur": "Крылья",
+  "Cos_Membrane": "Мембрана #",
+  "Cos_Os": "Кости #"
 }

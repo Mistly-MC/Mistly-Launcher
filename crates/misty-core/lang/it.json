@@ -1004,5 +1004,13 @@
   "Type_Monde": "Mappa",
   "Erreur_PasUnMonde": "Questo archivio non contiene un mondo (nessun level.dat).",
   "Cos_Oreilles": "Orecchie da coniglio",
-  "Cos_AilesBrume": "Ali di nebbia"
+  "Cos_AilesBrume": "Ali di nebbia",
+  "Emote_Saluer": "Saluta",
+  "Emote_Applaudir": "Applaudi",
+  "Emote_Danser": "Balla",
+  "Emote_Acclamer": "Esulta",
+  "Emote_Calin": "Abbraccio",
+  "Cos_AilesCouleur": "Ali",
+  "Cos_Membrane": "Membrana #",
+  "Cos_Os": "Ossa #"
 }

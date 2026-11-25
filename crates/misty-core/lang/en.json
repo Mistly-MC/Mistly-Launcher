@@ -1004,5 +1004,13 @@
   "Type_Monde": "Map",
   "Erreur_PasUnMonde": "This archive has no world in it (no level.dat).",
   "Cos_Oreilles": "Bunny ears",
-  "Cos_AilesBrume": "Mist Wings"
+  "Cos_AilesBrume": "Mist Wings",
+  "Emote_Saluer": "Wave",
+  "Emote_Applaudir": "Clap",
+  "Emote_Danser": "Dance",
+  "Emote_Acclamer": "Cheer",
+  "Emote_Calin": "Hug",
+  "Cos_AilesCouleur": "Wings",
+  "Cos_Membrane": "Membrane #",
+  "Cos_Os": "Bones #"
 }

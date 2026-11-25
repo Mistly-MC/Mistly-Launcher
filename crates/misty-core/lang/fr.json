@@ -1004,5 +1004,13 @@
   "Type_Monde": "Map",
   "Erreur_PasUnMonde": "Cette archive ne contient pas de monde (pas de level.dat).",
   "Cos_Oreilles": "Oreilles de lapin",
-  "Cos_AilesBrume": "Ailes de brume"
+  "Cos_AilesBrume": "Ailes de brume",
+  "Emote_Saluer": "Saluer",
+  "Emote_Applaudir": "Applaudir",
+  "Emote_Danser": "Danser",
+  "Emote_Acclamer": "Acclamer",
+  "Emote_Calin": "Câlin",
+  "Cos_AilesCouleur": "Ailes",
+  "Cos_Membrane": "Membrane #",
+  "Cos_Os": "Os #"
 }

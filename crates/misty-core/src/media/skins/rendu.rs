@@ -87,6 +87,8 @@ pub(super) struct Boite {
     /// 3D cosmetics: free UV of each face (+z, -z, -x, +x, top, bottom) as x1, y1, x2, y2 in
     /// texture pixels (x2 < x1 flips the face); NaN: no texture on that face
     pub(super) uv: Option<[[f32; 4]; 6]>,
+    /// full rotation of its body part (emotes), around `pivot`: replaces `incline` and `roulis`
+    pub(super) rotation_membre: Option<[[f32; 3]; 3]>,
 }
 
 /// Box of the player model, with the layout of the Minecraft skin (origin u,v and size w,h,d).
@@ -123,6 +125,7 @@ pub(super) fn boite_skin(
         dessus: Some([Region(u + d, v, w, d), Region(u + d + w, v, w, d)]),
         transformation: None,
         uv: None,
+        rotation_membre: None,
     }
 }
 
@@ -145,6 +148,7 @@ pub(super) fn boite_cape(f: u32) -> Boite {
         dessus: None,
         transformation: None,
         uv: None,
+        rotation_membre: None,
     }
 }
 /// Like on NameMC, the cape hangs diagonally instead of sticking to the body.
