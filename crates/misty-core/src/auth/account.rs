@@ -464,6 +464,9 @@ async fn connexion_interactive() -> Result<Session, AuthErreur> {
     let demande: oauth2::StandardDeviceAuthorizationResponse = oauth
         .exchange_device_code()
         .add_scope(oauth2::Scope::new(SCOPE.to_string()))
+        // login.live.com refuse la demande sans ce paramètre (« must include a 'response_type' »),
+        // que la RFC 8628 ne prévoit pas et que `oauth2` n'envoie donc pas
+        .add_extra_param("response_type", "device_code")
         .request_async(&http)
         .await
         .map_err(|e| AuthErreur::Microsoft(e.to_string()))?;

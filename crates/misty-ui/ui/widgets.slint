@@ -1167,3 +1167,22 @@ export component EnTetePage inherits HorizontalLayout {
     Rectangle { horizontal-stretch: 1; }
     @children
 }
+
+/// La lune de la maquette : un disque de 14 × 14 pixels, avec ses cratères.
+export component Lune inherits Rectangle {
+    in property <length> pixel: 12px;
+    width: 14 * root.pixel;
+    height: 14 * root.pixel;
+    for i in 196: Rectangle {
+        property <int> px: Math.mod(i, 14);
+        property <int> py: Math.floor(i / 14);
+        property <float> d: Math.sqrt((self.px - 6.5) * (self.px - 6.5) + (self.py - 6.5) * (self.py - 6.5));
+        property <bool> cratere: i == 60 || i == 61 || i == 74 || i == 120 || i == 121 || i == 135 || i == 50 || i == 129;
+        visible: self.d <= 6.6;
+        x: self.px * root.pixel;
+        y: self.py * root.pixel;
+        width: root.pixel;
+        height: root.pixel;
+        background: self.cratere ? #C3C8D2 : self.d > 5.4 && self.px + self.py > 14 ? #D4D8E0 : #ECEFF4;
+    }
+}

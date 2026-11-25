@@ -72,7 +72,8 @@ component Edition inherits Rectangle {
     height: 38px;
     width: contenu.preferred-width;
     border-radius: 19px;
-    background: root.actif ? Theme.active : zone.has-hover ? Theme.glass-hover : transparent;
+    // la pastille de l'édition choisie est dessinée par le sélecteur (elle glisse de l'une à l'autre)
+    background: !root.actif && zone.has-hover ? Theme.glass-hover : transparent;
     animate background { duration: Theme.normal; easing: ease-out; }
     contenu := HorizontalLayout {
         padding-left: root.nuage ? 10px : 14px;
@@ -133,10 +134,22 @@ component SelecteurEdition inherits Rectangle {
     background: Theme.surface-2;
     border-width: 1.5px;
     border-color: Theme.border-field;
+    // la pastille blanche glisse sous l'édition choisie
+    property <length> pastille-x: HomeState.edition == 0 ? e0.x : HomeState.edition == 1 ? e1.x : HomeState.edition == 2 ? e2.x : e3.x;
+    property <length> pastille-l: HomeState.edition == 0 ? e0.width : HomeState.edition == 1 ? e1.width : HomeState.edition == 2 ? e2.width : e3.width;
+    Rectangle {
+        x: root.pastille-x;
+        y: (parent.height - self.height) / 2;
+        width: root.pastille-l;
+        height: 38px;
+        border-radius: 19px;
+        background: Theme.active;
+        animate x, width { duration: 320ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+    }
     rang := HorizontalLayout {
         padding: 4px;
         spacing: 4px;
-        Edition {
+        e0 := Edition {
             text: "Mistly Client";
             nuage: true;
             actif: HomeState.edition == 0;
@@ -152,17 +165,17 @@ component SelecteurEdition inherits Rectangle {
                 background: Theme.border-strong;
             }
         }
-        Edition {
+        e1 := Edition {
             text: "Java";
             actif: HomeState.edition == 1;
             clicked => { HomeState.edition-selected(1); }
         }
-        Edition {
+        e2 := Edition {
             text: "Bedrock";
             actif: HomeState.edition == 2;
             clicked => { HomeState.edition-selected(2); }
         }
-        Edition {
+        e3 := Edition {
             text: "Horizon";
             rust: true;
             compact: root.compact;
@@ -446,15 +459,6 @@ export component BarreHaut inherits Rectangle {
                 padding-left: 4px;
                 BoutonCompte {
                     taille: 44px;
-                }
-            }
-            VerticalLayout {
-                alignment: center;
-                padding-left: 6px;
-                Rectangle {
-                    width: 1.5px;
-                    height: 24px;
-                    background: Theme.border-strong;
                 }
             }
         }

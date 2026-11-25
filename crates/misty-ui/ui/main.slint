@@ -247,7 +247,7 @@ export component MainWindow inherits Window {
     property <length> barre: 76px;
     property <length> marge: 40px;
     /// largeur des boutons de la fenêtre (en haut à droite)
-    property <length> largeur-boutons: 112px;
+    property <length> largeur-boutons: 142px;
     /// fenêtre étroite : la barre du haut cache le nom MISTLY et l'étiquette RUST
     property <bool> etroit;
     // (posé quand la largeur change, pas lié : la largeur minimale de la fenêtre dépend des tuiles)
@@ -533,6 +533,16 @@ export component MainWindow inherits Window {
             width: self.preferred-width;
             height: self.preferred-height;
             spacing: 4px;
+            // séparation entre le compte (barre du haut) et les boutons de la fenêtre
+            VerticalLayout {
+                alignment: center;
+                padding-right: 8px;
+                Rectangle {
+                    width: 1.5px;
+                    height: 24px;
+                    background: Theme.border-strong;
+                }
+            }
             BoutonFenetre {
                 icone: "reduire";
                 clicked => { AppState.minimize(); }
