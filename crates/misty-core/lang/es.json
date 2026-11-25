@@ -978,5 +978,11 @@
   "Amis_Info_Non": "No",
   "Amis_Info_Compte": "Cuenta",
   "Profil_Col_Nom": "Nombre",
-  "Profil_Col_Derniere": "Última partida"
+  "Profil_Col_Derniere": "Última partida",
+  "Decouvrir_AucunProfil": "Ningún perfil puede recibirlo",
+  "Decouvrir_AucunProfil_Texte": "Crea primero un perfil (con Fabric, Forge, NeoForge o Quilt para mods y shaders) y luego instálalo desde aquí.",
+  "Decouvrir_ChoisirProfil": "¿En qué perfil instalarlo?",
+  "Decouvrir_ChoisirProfil_Texte": "Elige el perfil que recibe {0}.",
+  "Decouvrir_Installe": "Instalado",
+  "Decouvrir_Installe_Texte": "{0} está instalado en {1}."
 }

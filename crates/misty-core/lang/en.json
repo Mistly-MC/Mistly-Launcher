@@ -978,5 +978,11 @@
   "Amis_Info_Non": "No",
   "Amis_Info_Compte": "Account",
   "Profil_Col_Nom": "Name",
-  "Profil_Col_Derniere": "Last played"
+  "Profil_Col_Derniere": "Last played",
+  "Decouvrir_AucunProfil": "No profile can receive this",
+  "Decouvrir_AucunProfil_Texte": "Create a profile first (with Fabric, Forge, NeoForge or Quilt for mods and shaders), then install it from here.",
+  "Decouvrir_ChoisirProfil": "Install in which profile?",
+  "Decouvrir_ChoisirProfil_Texte": "Choose the profile that gets {0}.",
+  "Decouvrir_Installe": "Installed",
+  "Decouvrir_Installe_Texte": "{0} is installed in {1}."
 }

@@ -978,5 +978,11 @@
   "Amis_Info_Non": "Нет",
   "Amis_Info_Compte": "Аккаунт",
   "Profil_Col_Nom": "Название",
-  "Profil_Col_Derniere": "Последняя игра"
+  "Profil_Col_Derniere": "Последняя игра",
+  "Decouvrir_AucunProfil": "Нет подходящего профиля",
+  "Decouvrir_AucunProfil_Texte": "Сначала создайте профиль (с Fabric, Forge, NeoForge или Quilt для модов и шейдеров), затем установите отсюда.",
+  "Decouvrir_ChoisirProfil": "В какой профиль установить?",
+  "Decouvrir_ChoisirProfil_Texte": "Выберите профиль для {0}.",
+  "Decouvrir_Installe": "Установлено",
+  "Decouvrir_Installe_Texte": "{0} установлен в {1}."
 }

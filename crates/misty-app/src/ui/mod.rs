@@ -447,7 +447,10 @@ pub async fn demarrer(app: Rc<App>) {
     }
 
     reglages::initialiser();
-    misty_core::social::pseudos::initialiser();
+    misty_core::social::pseudos::initialiser(
+        !misty_core::auth::account::comptes().is_empty(),
+        &reglages::lire().pseudo,
+    );
     news::charger(&app);
 
     verifier_mise_a_jour(&app, false).await;

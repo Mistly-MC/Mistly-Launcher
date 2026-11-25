@@ -66,8 +66,9 @@ fn vrai() -> bool {
 fn theme_par_defaut() -> i32 {
     1
 }
+/// Pas de pseudo d'office : le premier lancement fait choisir un compte (Microsoft ou un pseudo).
 fn pseudo_par_defaut() -> String {
-    "Mistly".into()
+    String::new()
 }
 fn ram_par_defaut() -> u32 {
     app_info::RAM_PAR_DEFAUT_MO
@@ -561,7 +562,7 @@ tag=arc-en-ciel\r\n";
     #[test]
     fn valeurs_par_defaut_et_champs_inconnus() {
         let d = Reglages::default();
-        assert_eq!(d.pseudo, "Mistly");
+        assert_eq!(d.pseudo, "");
         assert_eq!(d.ram_mo, app_info::RAM_PAR_DEFAUT_MO);
         assert!(d.rich_presence && d.flou && d.saison && d.console && d.misty_client && d.partage);
         assert_eq!((d.fond_flou, d.telechargements), (2, 16));
@@ -573,7 +574,7 @@ tag=arc-en-ciel\r\n";
         .unwrap();
         assert_eq!(r.ram_mo, 8192);
         assert_eq!(r.mode_compte, ModeCompte::NonChoisi);
-        assert_eq!(r.pseudo, "Mistly");
+        assert_eq!(r.pseudo, "");
     }
 
     #[test]
