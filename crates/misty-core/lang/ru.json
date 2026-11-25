@@ -984,5 +984,7 @@
   "Decouvrir_ChoisirProfil": "В какой профиль установить?",
   "Decouvrir_ChoisirProfil_Texte": "Выберите профиль для {0}.",
   "Decouvrir_Installe": "Установлено",
-  "Decouvrir_Installe_Texte": "{0} установлен в {1}."
+  "Decouvrir_Installe_Texte": "{0} установлен в {1}.",
+  "Lancement_Premiere": "Первая установка · следующие запуски мгновенные",
+  "Lancement_Console": "Открыть консоль"
 }

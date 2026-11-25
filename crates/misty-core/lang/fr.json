@@ -984,5 +984,7 @@
   "Decouvrir_ChoisirProfil": "L'installer dans quel profil ?",
   "Decouvrir_ChoisirProfil_Texte": "Choisis le profil qui reçoit {0}.",
   "Decouvrir_Installe": "Installé",
-  "Decouvrir_Installe_Texte": "{0} est installé dans {1}."
+  "Decouvrir_Installe_Texte": "{0} est installé dans {1}.",
+  "Lancement_Premiere": "Première installation · les suivantes sont instantanées",
+  "Lancement_Console": "Voir la console"
 }

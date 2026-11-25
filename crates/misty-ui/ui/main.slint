@@ -3,7 +3,7 @@
 
 import { Theme, Tr, Assets, Bulle } from "theme.slint";
 import { AppState, DialogState, HomeState, ProfilesState, InstanceState, BrowserState, SettingsState, ChangelogState, PacksState, EditorState, FriendsState } from "state.slint";
-import { Icon, PixelLabel, BodyText, SectionTitle, IconButton, ChromeButton, MButton, SlimProgress, Spinner, OutlinedText, IconeNuit } from "widgets.slint";
+import { Icon, PixelLabel, BodyText, SectionTitle, IconButton, ChromeButton, MButton, SlimProgress, Spinner, OutlinedText, IconeNuit, IconeAuto } from "widgets.slint";
 import { BarreHaut } from "dock.slint";
 import { ChoixCompte } from "bienvenue.slint";
 import { Bienvenue, BienvenueState, ConnexionCode, ConnexionState } from "accueil.slint";
@@ -367,7 +367,8 @@ export component MainWindow inherits Window {
             x: root.marge;
             y: root.barre;
             width: parent.width - 2 * root.marge;
-            height: parent.height - self.y - root.marge;
+            // jusqu'en bas (son fond cache la page) ; sa marge du bas est à l'intérieur
+            height: parent.height - self.y;
         }
 
         // ═══ Mise à jour : avancement (bloque la fenêtre jusqu'au redémarrage) ═══
@@ -447,68 +448,129 @@ export component MainWindow inherits Window {
             TouchArea { }
 
             carte := Rectangle {
-                width: 440px;
+                width: min(500px, parent.width - 80px);
                 height: contenu.preferred-height;
                 border-radius: 28px;
                 background: Theme.surface;
                 border-width: 1.5px;
-                border-color: Theme.border-field;
-                drop-shadow-blur: 40px;
-                drop-shadow-color: Theme.shadow;
+                border-color: Theme.border-strong;
+                drop-shadow-blur: 48px;
+                drop-shadow-color: #00000099;
                 transform-scale: 0.94;
                 animate transform-scale { duration: 320ms; easing: cubic-bezier(0.34, 1.32, 0.64, 1); }
                 init => { self.transform-scale = 1; }
 
                 contenu := VerticalLayout {
-                    padding-left: 28px;
-                    padding-right: 28px;
-                    padding-top: 26px;
-                    padding-bottom: 26px;
-                    spacing: 12px;
+                    padding: 30px;
+                    spacing: 14px;
 
+                    // icône ronde, puis le titre
                     HorizontalLayout {
-                        spacing: 12px;
+                        spacing: 14px;
                         Rectangle {
-                            width: 34px;
-                            height: 34px;
-                            border-radius: 17px;
-                            background: DialogState.danger ? Theme.danger : Theme.blue;
-                            Icon {
-                                text: DialogState.icon;
-                                color: white;
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 22px;
+                            background: DialogState.danger ? Theme.danger.with-alpha(0.16) : Theme.control;
+                            border-width: 1.5px;
+                            border-color: DialogState.danger ? Theme.danger.with-alpha(0.5) : Theme.border-strong;
+                            IconeAuto {
+                                code: DialogState.icon;
+                                taille: 18px;
+                                couleur: DialogState.danger ? Theme.danger : Theme.icon;
                             }
                         }
-                        SectionTitle {
+                        Text {
                             horizontal-stretch: 1;
                             text: DialogState.title;
+                            font-family: Theme.sans-font;
+                            font-size: 21px;
+                            font-weight: 600;
+                            letter-spacing: -0.4px;
+                            color: Theme.ink-strong;
                             vertical-alignment: center;
                             wrap: word-wrap;
                         }
                     }
                     Text {
                         text: DialogState.message;
-                        font-family: Theme.ui-font;
+                        font-family: Theme.sans-font;
                         font-size: 14px;
-                        color: Theme.navy2;
+                        color: Theme.ink-3;
                         wrap: word-wrap;
                     }
-                    // options (mode « choix dans une liste »)
-                    if DialogState.choices.length > 0: ScrollView {
-                        height: min(260px, DialogState.choices.length * 50px);
-                        content-height: DialogState.choices.length * 50px;
-                        content-width: self.visible-width;
-                        for c[i] in DialogState.choices: MButton {
-                            x: 0;
-                            y: i * 50px;
-                            width: parent.width - 12px;
-                            text: c;
-                            clicked => { DialogState.choose(i); }
+                    // options (mode « choix dans une liste ») : une ligne par choix
+                    if DialogState.choices.length > 0: Rectangle {
+                        height: min(300px, DialogState.choices.length * 60px + 8px);
+                        border-radius: 20px;
+                        background: Theme.surface-2;
+                        border-width: 1.5px;
+                        border-color: Theme.border;
+                        clip: true;
+                        ScrollView {
+                            x: 4px;
+                            y: 4px;
+                            width: parent.width - 8px;
+                            height: parent.height - 8px;
+                            content-height: DialogState.choices.length * 60px;
+                            content-width: self.visible-width;
+                            for c[i] in DialogState.choices: Rectangle {
+                                x: 0;
+                                y: i * 60px;
+                                width: parent.width;
+                                height: 56px;
+                                border-radius: 16px;
+                                background: choix.has-hover ? Theme.control : transparent;
+                                animate background { duration: Theme.fast; }
+                                HorizontalLayout {
+                                    padding-left: 10px;
+                                    padding-right: 14px;
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 36px;
+                                            height: 36px;
+                                            border-radius: 18px;
+                                            background: Theme.control;
+                                            border-width: 1.5px;
+                                            border-color: Theme.border-strong;
+                                            Text {
+                                                text: i + 1;
+                                                font-family: Theme.mono-font;
+                                                font-size: 12px;
+                                                color: Theme.ink-3;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                    }
+                                    Text {
+                                        horizontal-stretch: 1;
+                                        text: c;
+                                        font-family: Theme.sans-font;
+                                        font-size: 14px;
+                                        font-weight: 500;
+                                        color: Theme.ink;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        IconeNuit { nom: "suivant"; taille: 14px; couleur: Theme.ink-3; }
+                                    }
+                                }
+                                choix := TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { DialogState.choose(i); }
+                                }
+                            }
                         }
                     }
                     HorizontalLayout {
                         alignment: end;
                         spacing: 10px;
-                        padding-top: 12px;
+                        padding-top: 8px;
                         if DialogState.cancel-text != "": MButton {
                             text: DialogState.cancel-text;
                             clicked => { DialogState.cancel(); }
