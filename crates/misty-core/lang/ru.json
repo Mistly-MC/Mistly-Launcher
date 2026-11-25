@@ -986,5 +986,16 @@
   "Decouvrir_Installe": "Установлено",
   "Decouvrir_Installe_Texte": "{0} установлен в {1}.",
   "Lancement_Premiere": "Первая установка · следующие запуски мгновенные",
-  "Lancement_Console": "Открыть консоль"
+  "Lancement_Console": "Открыть консоль",
+  "Manuel_Auto": "Mistly следит за папкой «Загрузки»: как только вы скачаете файлы, он сам переместит их куда нужно.",
+  "Manuel_Ranges": "Все файлы на месте",
+  "Manuel_Ranges_Texte": "Скачанные файлы перемещены в {0}. Можно играть.",
+  "Instance_MajDispo": "Есть обновление",
+  "Pack_Versions": "Версии",
+  "Pack_Recap": "Сводка",
+  "Pack_Recap_Version": "Версия",
+  "Pack_Recap_Taille": "Загрузка",
+  "Pack_Recap_Date": "Опубликована",
+  "Pack_Recap_Note": "Mistly устанавливает игру, загрузчик и все моды. Файлы, которые автор оставил только на CurseForge, сначала ищутся на Modrinth.",
+  "Pack_Installer": "Установить"
 }

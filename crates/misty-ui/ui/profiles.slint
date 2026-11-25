@@ -1,7 +1,7 @@
 // Liste des profils, création d'un profil, installation d'un modpack.
 
 import { Theme, Tr, Assets } from "theme.slint";
-import { ProfilesState, ProfileCard } from "state.slint";
+import { ProfilesState, ProfileCard, PackVersion } from "state.slint";
 import { Icon, PixelLabel, BodyText, SectionTitle, OutlinedText, GlassCard, Thumb, IconButton, MButton, GlassInput, GlassCombo, Spinner, Puces, Etiquette, TuilePage, EnTetePage, BoutonRond, IconeNuit } from "widgets.slint";
 import { ContentBrowser } from "browser.slint";
 import { ScrollView } from "std-widgets.slint";
@@ -242,6 +242,283 @@ export component ProfileCreateOverlay inherits Rectangle {
                     text: Tr.t("Profil_Creer");
                     enabled: ProfilesState.create-enabled;
                     clicked => { ProfilesState.create(); }
+                }
+            }
+        }
+    }
+}
+
+/// Ligne d'une version de modpack (à gauche de la fenêtre d'installation).
+component LigneVersionPack inherits Rectangle {
+    in property <PackVersion> v;
+    in property <bool> choisi;
+    callback clicked;
+    height: 56px;
+    border-radius: 16px;
+    background: root.choisi ? Theme.control : zone.has-hover ? Theme.surface-2 : transparent;
+    border-width: 1.5px;
+    border-color: root.choisi ? Theme.ink : transparent;
+    animate background, border-color { duration: Theme.fast; }
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 10px;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+            Text {
+                text: root.v.name;
+                font-family: Theme.sans-font;
+                font-size: 14px;
+                font-weight: 500;
+                color: Theme.ink;
+                overflow: elide;
+            }
+            Text {
+                text: root.v.mc + (root.v.loader != "" ? " · " + root.v.loader : "") + (root.v.date != "" ? " · " + root.v.date : "");
+                font-family: Theme.mono-font;
+                font-size: 11.5px;
+                color: Theme.ink-3;
+                overflow: elide;
+            }
+        }
+        if root.v.kind != "release": VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: 22px;
+                width: genre.preferred-width + 16px;
+                border-radius: 11px;
+                background: Theme.surface-2;
+                border-width: 1.5px;
+                border-color: Theme.border-strong;
+                genre := Text {
+                    text: root.v.kind == "beta" ? "BETA" : "ALPHA";
+                    font-family: Theme.mono-font;
+                    font-size: 10.5px;
+                    color: Theme.ink-4;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+    zone := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+/// Une ligne du récapitulatif (« Minecraft · 1.20.1 »).
+component LigneRecap inherits HorizontalLayout {
+    in property <string> titre;
+    in property <string> valeur;
+    height: 40px;
+    Text {
+        horizontal-stretch: 1;
+        text: root.titre;
+        font-family: Theme.sans-font;
+        font-size: 13px;
+        color: Theme.ink-3;
+        vertical-alignment: center;
+    }
+    Text {
+        text: root.valeur == "" ? "—" : root.valeur;
+        font-family: Theme.mono-font;
+        font-size: 13px;
+        color: Theme.ink;
+        vertical-alignment: center;
+    }
+}
+
+/// Fenêtre d'installation d'un modpack : ses versions à gauche, le récapitulatif de celle choisie
+/// à droite (Minecraft, loader, taille, date), puis Installer ; pendant l'installation, l'étape en
+/// cours et des blocs qui avancent.
+export component ModpackInstallOverlay inherits Rectangle {
+    property <PackVersion> v: ProfilesState.pack-versions.length > 0 && ProfilesState.pack-version-index >= 0 ? ProfilesState.pack-versions[ProfilesState.pack-version-index] : { name: "" };
+    property <int> pas: 0;
+    background: Theme.scrim;
+    TouchArea { }
+    // les blocs de l'installation avancent tout seuls (on ne connaît pas le total)
+    Timer {
+        interval: 120ms;
+        running: ProfilesState.pack-installing;
+        triggered => { root.pas = Math.mod(root.pas + 1, 40); }
+    }
+    Rectangle {
+        width: min(860px, parent.width - 80px);
+        height: min(600px, parent.height - 60px);
+        border-radius: 28px;
+        background: Theme.surface;
+        border-width: 1.5px;
+        border-color: Theme.border;
+        drop-shadow-blur: 40px;
+        drop-shadow-color: #00000080;
+        VerticalLayout {
+            padding: 32px;
+            spacing: 18px;
+            // en-tête
+            HorizontalLayout {
+                spacing: 16px;
+                height: 56px;
+                Rectangle {
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 18px;
+                    background: Theme.control;
+                    border-width: 1.5px;
+                    border-color: Theme.border-strong;
+                    IconeNuit { nom: "couches"; taille: 22px; couleur: Theme.icon; }
+                }
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 3px;
+                    Text {
+                        text: ProfilesState.pack-title;
+                        font-family: Theme.sans-font;
+                        font-size: 24px;
+                        font-weight: 600;
+                        letter-spacing: -0.6px;
+                        color: Theme.ink-strong;
+                        overflow: elide;
+                    }
+                    if ProfilesState.pack-author != "": Text {
+                        text: ProfilesState.pack-author;
+                        font-family: Theme.sans-font;
+                        font-size: 13px;
+                        color: Theme.ink-3;
+                        overflow: elide;
+                    }
+                }
+                if !ProfilesState.pack-installing: BoutonRond {
+                    icone: "fermer";
+                    taille: 44px;
+                    clicked => { ProfilesState.pack-cancel(); }
+                }
+            }
+            if ProfilesState.pack-description != "": Text {
+                text: ProfilesState.pack-description;
+                font-family: Theme.sans-font;
+                font-size: 13.5px;
+                color: Theme.ink-3;
+                wrap: word-wrap;
+                max-height: 40px;
+                overflow: elide;
+            }
+            HorizontalLayout {
+                vertical-stretch: 1;
+                spacing: 16px;
+                // versions
+                VerticalLayout {
+                    horizontal-stretch: 3;
+                    spacing: 10px;
+                    Rubrique { text: Tr.t("Pack_Versions"); }
+                    Rectangle {
+                        vertical-stretch: 1;
+                        border-radius: 20px;
+                        background: Theme.surface-2;
+                        border-width: 1.5px;
+                        border-color: Theme.border;
+                        clip: true;
+                        if ProfilesState.pack-loading: Text {
+                            text: Tr.t("Commun_Preparation");
+                            font-family: Theme.sans-font;
+                            font-size: 13px;
+                            color: Theme.ink-3;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        liste := ScrollView {
+                            visible: !ProfilesState.pack-loading;
+                            x: 6px;
+                            y: 6px;
+                            width: parent.width - 12px;
+                            height: parent.height - 12px;
+                            content-width: self.visible-width;
+                            content-height: ProfilesState.pack-versions.length * 60px;
+                            for v[i] in ProfilesState.pack-versions: LigneVersionPack {
+                                x: 0;
+                                y: i * 60px;
+                                width: liste.visible-width;
+                                v: v;
+                                choisi: i == ProfilesState.pack-version-index;
+                                clicked => {
+                                    if (!ProfilesState.pack-installing) {
+                                        ProfilesState.pack-version-index = i;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // récapitulatif
+                VerticalLayout {
+                    horizontal-stretch: 2;
+                    spacing: 10px;
+                    Rubrique { text: Tr.t("Pack_Recap"); }
+                    Rectangle {
+                        vertical-stretch: 1;
+                        border-radius: 20px;
+                        background: Theme.surface-2;
+                        border-width: 1.5px;
+                        border-color: Theme.border;
+                        VerticalLayout {
+                            padding-left: 20px;
+                            padding-right: 20px;
+                            padding-top: 10px;
+                            alignment: start;
+                            LigneRecap { titre: Tr.t("Pack_Recap_Version"); valeur: root.v.name; }
+                            LigneRecap { titre: "Minecraft"; valeur: root.v.mc; }
+                            LigneRecap { titre: Tr.t("Profil_Loader"); valeur: root.v.loader; }
+                            LigneRecap { titre: Tr.t("Pack_Recap_Taille"); valeur: root.v.size; }
+                            LigneRecap { titre: Tr.t("Pack_Recap_Date"); valeur: root.v.date; }
+                            Rectangle { height: 10px; }
+                            Text {
+                                text: Tr.t("Pack_Recap_Note");
+                                font-family: Theme.sans-font;
+                                font-size: 12px;
+                                color: Theme.ink-3;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+            }
+            // installation en cours
+            if ProfilesState.pack-installing: VerticalLayout {
+                spacing: 10px;
+                Text {
+                    text: ProfilesState.pack-status;
+                    font-family: Theme.sans-font;
+                    font-size: 13px;
+                    color: Theme.ink-4;
+                    overflow: elide;
+                }
+                blocs := Rectangle {
+                    height: 12px;
+                    property <length> l: (self.width - 39 * 4px) / 40;
+                    for b in 40: Rectangle {
+                        x: b * (blocs.l + 4px);
+                        width: blocs.l;
+                        height: parent.height;
+                        background: Math.mod(b - root.pas + 40, 40) < 10 ? Theme.active : Theme.control;
+                    }
+                }
+            }
+            if !ProfilesState.pack-installing: HorizontalLayout {
+                spacing: 10px;
+                height: 44px;
+                Rectangle { horizontal-stretch: 1; }
+                MButton {
+                    text: Tr.t("Commun_Annuler");
+                    clicked => { ProfilesState.pack-cancel(); }
+                }
+                MButton {
+                    kind: 1;
+                    text: Tr.t("Pack_Installer");
+                    enabled: !ProfilesState.pack-loading && ProfilesState.pack-versions.length > 0;
+                    clicked => { ProfilesState.pack-install(); }
                 }
             }
         }

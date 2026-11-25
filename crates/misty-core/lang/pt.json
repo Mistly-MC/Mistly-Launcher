@@ -986,5 +986,16 @@
   "Decouvrir_Installe": "Instalado",
   "Decouvrir_Installe_Texte": "{0} foi instalado em {1}.",
   "Lancement_Premiere": "Primeira instalação · as próximas são instantâneas",
-  "Lancement_Console": "Ver o console"
+  "Lancement_Console": "Ver o console",
+  "Manuel_Auto": "O Mistly observa sua pasta Downloads: assim que você baixar, ele os coloca no lugar certo sozinho.",
+  "Manuel_Ranges": "Todos os arquivos estão no lugar",
+  "Manuel_Ranges_Texte": "Os arquivos que você baixou foram movidos para {0}. Você pode jogar.",
+  "Instance_MajDispo": "Atualização disponível",
+  "Pack_Versions": "Versões",
+  "Pack_Recap": "Resumo",
+  "Pack_Recap_Version": "Versão",
+  "Pack_Recap_Taille": "Download",
+  "Pack_Recap_Date": "Publicada",
+  "Pack_Recap_Note": "O Mistly instala o jogo, o loader e todos os mods. Os arquivos que o autor reserva ao CurseForge são procurados primeiro no Modrinth.",
+  "Pack_Installer": "Instalar"
 }

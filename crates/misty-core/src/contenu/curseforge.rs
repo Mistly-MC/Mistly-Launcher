@@ -170,6 +170,9 @@ pub struct FichierCF {
     /// Versions de Minecraft ET noms de loaders ("1.21.1", "Fabric"…).
     #[serde(default)]
     pub game_versions: Vec<String>,
+    /// Taille en octets
+    #[serde(default)]
+    pub file_length: u64,
 }
 
 fn vrai() -> bool {

@@ -292,6 +292,17 @@ export struct ProfileCard {
     art: image,
 }
 
+/// Une version d'un modpack, dans la fenêtre d'installation.
+export struct PackVersion {
+    name: string,
+    mc: string,
+    loader: string,
+    size: string,
+    date: string,
+    /// "release", "beta" ou "alpha"
+    kind: string,
+}
+
 export global ProfilesState {
     in property <[ProfileCard]> list;
     /// Filtres de la liste (« Tous », les mod loaders présents, « Modpacks ») et celui choisi
@@ -314,6 +325,18 @@ export global ProfilesState {
     in property <bool> waiting;
     in property <string> wait-title;
     in property <string> wait-text;
+    // ── Installation d'un modpack : la version, le récapitulatif, puis l'avancement ──
+    in property <bool> pack-open;
+    in property <string> pack-title;
+    in property <string> pack-author;
+    in property <string> pack-description;
+    in property <[PackVersion]> pack-versions;
+    in-out property <int> pack-version-index;
+    in property <bool> pack-loading;
+    in property <bool> pack-installing;
+    in property <string> pack-status;
+    callback pack-install();
+    callback pack-cancel();
 
     callback open(string);
     callback play(string);

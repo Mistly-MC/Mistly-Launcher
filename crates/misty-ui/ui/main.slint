@@ -8,7 +8,7 @@ import { BarreHaut } from "dock.slint";
 import { ChoixCompte } from "bienvenue.slint";
 import { Bienvenue, BienvenueState, ConnexionCode, ConnexionState } from "accueil.slint";
 import { HomePage } from "home.slint";
-import { ProfilesPage, ProfileCreateOverlay, ProfileWaitOverlay } from "profiles.slint";
+import { ProfilesPage, ProfileCreateOverlay, ProfileWaitOverlay, ModpackInstallOverlay } from "profiles.slint";
 import { InstancePage } from "instance.slint";
 import { SettingsModal } from "settings.slint";
 import { ChangelogPage } from "changelog.slint";
@@ -359,6 +359,7 @@ export component MainWindow inherits Window {
         // ═══ Fenêtres modales des pages (sur toute la fenêtre, barre latérale comprise) ═══
         if ProfilesState.creating: ProfileCreateOverlay { }
         if ProfilesState.waiting: ProfileWaitOverlay { }
+        if ProfilesState.pack-open: ModpackInstallOverlay { }
         if PacksState.creating: PackCreateOverlay { }
 
         // ═══ Console du jeu ═══
