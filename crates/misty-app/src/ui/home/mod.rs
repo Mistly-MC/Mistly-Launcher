@@ -119,6 +119,9 @@ pub struct Etat {
     groupe_choisi: String,
     /// Mod loader à présélectionner quand ses modes seront chargés (filtre de la fenêtre de choix)
     loader_voulu: Option<String>,
+    /// Familles de versions Mistly ouvertes dans la fenêtre de choix (« 26.x », « 1.21 »…) ;
+    /// None : seulement celle de la version choisie
+    familles_ouvertes: Option<std::collections::HashSet<String>>,
 }
 
 fn h(app: &App) -> HomeState<'_> {
@@ -262,6 +265,8 @@ pub fn installer(app: &Rc<App>) {
     maj_misty_client(app);
     let a = app.clone();
     s.on_misty_select(move |v| misty_choisir(&a, v.to_string()));
+    let a = app.clone();
+    s.on_misty_family_toggled(move |f| horizon::basculer_famille(&a, f.to_string()));
     let a = app.clone();
     s.on_misty_play(move || {
         let v = h(&a).get_misty_mc().to_string();

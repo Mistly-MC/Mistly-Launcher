@@ -10,8 +10,9 @@
 //  Discord : https://discord.gg/rdQJUgvUh3
 //  Misty License 1.0 : free to use, modify and share, not to sell (LICENSE.txt)
 //
-// Fenêtre de l'installateur (Mistly-Setup.exe), dans le style du launcher : sombre, sans cadre,
-// une seule page (dossier d'installation, conditions, Install), puis l'avancement et Launch.
+// Fenêtre de l'installateur (Mistly-Setup.exe), dans le style du launcher : sombre, sans cadre.
+// Première installation : bienvenue, dossier, conditions, Install, puis Launch. Déjà installé :
+// mettre à jour ou réparer, ou désinstaller (en gardant ou non les données).
 
 import "../../misty-app/assets/fonts/Silkscreen-Bold.ttf";
 import "../../misty-app/assets/fonts/Geist-Regular.ttf";
@@ -123,29 +124,78 @@ component Lien inherits Text {
     }
 }
 
+/// Case à cocher avec son texte.
+component Case inherits HorizontalLayout {
+    in-out property <bool> coche;
+    in property <string> texte;
+    spacing: 10px;
+    VerticalLayout {
+        alignment: center;
+        Rectangle {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            background: root.coche ? C.actif : C.controle;
+            border-width: 1.5px;
+            border-color: root.coche ? C.actif : C.bord-fort;
+            animate background { duration: 150ms; }
+            if root.coche: Path {
+                width: 11px;
+                height: 11px;
+                viewbox-width: 24;
+                viewbox-height: 24;
+                commands: "M5 12l5 5 9-10";
+                stroke: C.sur-actif;
+                stroke-width: 3px;
+                fill: transparent;
+            }
+        }
+    }
+    Text {
+        text: root.texte;
+        font-size: 13px;
+        color: C.encre-2;
+        vertical-alignment: center;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.coche = !root.coche; }
+    }
+}
+
 export component FenetreSetup inherits Window {
     title: "Mistly Launcher Installer";
     icon: @image-url("../../misty-app/assets/icone.png");
     width: 640px;
-    height: 420px;
+    height: 440px;
     no-frame: true;
     background: C.fond;
     default-font-family: "Geist";
 
+    /// version contenue dans cet installateur, et celle déjà installée (vide : aucune)
+    in property <string> version;
+    in property <string> version-installee;
+    /// l'installateur contient une version plus récente que celle installée
+    in property <bool> plus-recente;
     in-out property <string> dossier;
-    /// 0 : choix · 1 : installation · 2 : terminé · 3 : échec
-    in property <int> etape;
+    /// 0 bienvenue · 1 travail en cours · 2 installé · 3 échec · 4 déjà installé · 5 confirmer la
+    /// désinstallation · 6 désinstallé
+    in-out property <int> etape;
+    in property <string> travail;
     in property <string> erreur;
     in-out property <bool> accepte;
+    in-out property <bool> garder: true;
+    in-out property <bool> bureau: true;
     callback parcourir();
     callback installer();
+    callback desinstaller();
     callback lancer();
     callback ouvrir-lien(string);
     callback deplacer();
     callback reduire();
     callback fermer();
 
-    // horloge de l'animation d'installation
+    // horloge de l'animation
     property <duration> temps;
     Timer {
         interval: 50ms;
@@ -192,6 +242,21 @@ export component FenetreSetup inherits Window {
                     color: C.encre;
                     vertical-alignment: center;
                 }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        height: 22px;
+                        width: v.preferred-width + 16px;
+                        border-radius: 11px;
+                        background: C.controle;
+                        v := Text {
+                            text: root.version;
+                            font-family: "Geist Mono";
+                            font-size: 11px;
+                            color: C.encre-2;
+                        }
+                    }
+                }
                 Rectangle { horizontal-stretch: 1; }
                 VerticalLayout {
                     alignment: center;
@@ -215,16 +280,29 @@ export component FenetreSetup inherits Window {
             vertical-stretch: 1;
             padding-left: 30px;
             padding-right: 30px;
-            padding-top: 18px;
+            padding-top: 14px;
             spacing: 12px;
 
+            // bienvenue : le dossier d'installation
             if root.etape == 0: VerticalLayout {
                 spacing: 12px;
                 Text {
-                    text: "Installation folder:";
-                    font-size: 15px;
-                    font-weight: 500;
+                    text: "Welcome to the Mistly installer";
+                    font-size: 22px;
+                    font-weight: 600;
                     color: C.encre-forte;
+                }
+                Text {
+                    text: "Mistly Launcher " + root.version + " will be installed on this PC.";
+                    font-size: 13.5px;
+                    color: C.encre-2;
+                }
+                Rectangle { height: 6px; }
+                Text {
+                    text: "Installation folder:";
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: C.encre;
                 }
                 HorizontalLayout {
                     spacing: 10px;
@@ -253,9 +331,52 @@ export component FenetreSetup inherits Window {
                         clicked => { root.parcourir(); }
                     }
                 }
+                Case {
+                    texte: "Create a desktop shortcut";
+                    coche <=> root.bureau;
+                }
             }
 
-            if root.etape == 1 || root.etape == 2: VerticalLayout {
+            // déjà installé : mettre à jour / réparer, ou désinstaller
+            if root.etape == 4 || root.etape == 5: VerticalLayout {
+                spacing: 12px;
+                Text {
+                    text: root.etape == 5 ? "Uninstall Mistly Launcher?" : "Mistly Launcher is already installed";
+                    font-size: 22px;
+                    font-weight: 600;
+                    color: C.encre-forte;
+                }
+                Text {
+                    text: root.etape == 5 ? "Mistly Launcher " + root.version-installee + " will be removed from this PC."
+                        : "Installed: " + (root.version-installee != "" ? root.version-installee : "unknown version") + "   ·   This installer: " + root.version;
+                    font-size: 13.5px;
+                    color: C.encre-2;
+                }
+                Rectangle {
+                    height: 44px;
+                    border-radius: 14px;
+                    background: C.surface;
+                    border-width: 1.5px;
+                    border-color: C.bord;
+                    Text {
+                        x: 14px;
+                        width: parent.width - 28px;
+                        text: root.dossier;
+                        font-family: "Geist Mono";
+                        font-size: 12.5px;
+                        color: C.encre-3;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+                Case {
+                    texte: "Keep my data (Minecraft versions, profiles, worlds) if I uninstall";
+                    coche <=> root.garder;
+                }
+            }
+
+            // en cours, ou terminé
+            if root.etape == 1 || root.etape == 2 || root.etape == 6: VerticalLayout {
                 alignment: center;
                 vertical-stretch: 1;
                 spacing: 16px;
@@ -270,7 +391,7 @@ export component FenetreSetup inherits Window {
                         color: C.encre-forte;
                     }
                 }
-                // 16 blocs : ils défilent pendant l'installation, tous pleins à la fin
+                // 16 blocs : ils défilent pendant le travail, tous pleins à la fin
                 HorizontalLayout {
                     alignment: center;
                     spacing: 5px;
@@ -279,13 +400,15 @@ export component FenetreSetup inherits Window {
                         width: 18px;
                         height: 18px;
                         border-radius: 2px;
-                        background: root.etape == 2 ? C.actif
+                        background: root.etape != 1 ? C.actif
                             : (n <= self.tete && n > self.tete - 6) ? C.actif
                             : (n == self.tete - 6) ? C.encre-3 : C.controle;
                     }
                 }
                 Text {
-                    text: root.etape == 2 ? "Mistly Launcher is installed" : "Installing Mistly Launcher…";
+                    text: root.etape == 1 ? root.travail
+                        : root.etape == 2 ? "Mistly Launcher " + root.version + " is installed"
+                        : "Mistly Launcher was uninstalled";
                     font-size: 14px;
                     color: C.encre;
                     horizontal-alignment: center;
@@ -297,7 +420,7 @@ export component FenetreSetup inherits Window {
                 vertical-stretch: 1;
                 spacing: 10px;
                 Text {
-                    text: "The installation failed";
+                    text: "Something went wrong";
                     font-size: 16px;
                     font-weight: 600;
                     color: C.encre-forte;
@@ -315,7 +438,7 @@ export component FenetreSetup inherits Window {
             Rectangle { vertical-stretch: 1; }
         }
 
-        // ── en bas : les conditions et le bouton ──
+        // ── en bas : les conditions et les boutons ──
         Rectangle {
             height: 1px;
             x: 30px;
@@ -326,7 +449,7 @@ export component FenetreSetup inherits Window {
             height: 86px;
             padding-left: 30px;
             padding-right: 30px;
-            spacing: 16px;
+            spacing: 12px;
 
             if root.etape == 0: HorizontalLayout {
                 horizontal-stretch: 1;
@@ -386,6 +509,48 @@ export component FenetreSetup inherits Window {
                 }
             }
 
+            if root.etape == 4: HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: 10px;
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        plein: false;
+                        texte: "Uninstall";
+                        clicked => { root.etape = 5; }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        texte: root.plus-recente ? "Update to " + root.version : "Repair";
+                        clicked => { root.installer(); }
+                    }
+                }
+            }
+
+            if root.etape == 5: HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: 10px;
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        plein: false;
+                        texte: "Cancel";
+                        clicked => { root.fermer(); }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        texte: "Uninstall";
+                        clicked => { root.desinstaller(); }
+                    }
+                }
+            }
+
             if root.etape == 1: Text {
                 horizontal-stretch: 1;
                 text: "This only takes a few seconds.";
@@ -399,7 +564,7 @@ export component FenetreSetup inherits Window {
                 spacing: 10px;
                 Text {
                     horizontal-stretch: 1;
-                    text: "A shortcut is on your desktop and in the Start menu.";
+                    text: "Mistly is in the Start menu" + (root.bureau ? " and on your desktop." : ".");
                     font-size: 13px;
                     color: C.encre-3;
                     vertical-alignment: center;
@@ -413,6 +578,24 @@ export component FenetreSetup inherits Window {
                 }
             }
 
+            if root.etape == 6: HorizontalLayout {
+                horizontal-stretch: 1;
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.garder ? "Your data was kept: reinstall Mistly to get it back." : "Your data was removed too.";
+                    font-size: 13px;
+                    color: C.encre-3;
+                    vertical-alignment: center;
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Bouton {
+                        texte: "Close";
+                        clicked => { root.fermer(); }
+                    }
+                }
+            }
+
             if root.etape == 3: HorizontalLayout {
                 horizontal-stretch: 1;
                 spacing: 10px;
@@ -420,16 +603,8 @@ export component FenetreSetup inherits Window {
                 VerticalLayout {
                     alignment: center;
                     Bouton {
-                        plein: false;
                         texte: "Close";
                         clicked => { root.fermer(); }
-                    }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    Bouton {
-                        texte: "Try again";
-                        clicked => { root.installer(); }
                     }
                 }
             }

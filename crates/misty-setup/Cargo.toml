@@ -9,18 +9,25 @@ repository.workspace = true
 publish = false
 build = "build.rs"
 
-# Mistly-Setup.exe : la fenêtre d'installation, qui contient l'installateur Inno Setup
-# (installer/Misty.iss) et le lance sans fenêtre. Voir installer/build.ps1.
+# Mistly-Setup.exe : l'installateur de Mistly Launcher (installation, mise à jour, réparation,
+# désinstallation), qui contient le launcher compressé. Voir installer/build.ps1.
 [[bin]]
 name = "Mistly-Setup"
 path = "src/main.rs"
 
 [dependencies]
-slint.workspace = true
+# rendu logiciel seulement : un exe plus petit que le launcher (pas d'OpenGL)
+slint = { version = "1.18", default-features = false, features = ["std", "backend-winit", "renderer-software", "compat-1-2", "unstable-winit-030"] }
 rfd.workspace = true
 dirs.workspace = true
 open.workspace = true
+zstd.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+winreg.workspace = true
+mslnk.workspace = true
 
 [build-dependencies]
 slint-build.workspace = true
+zstd.workspace = true
 winresource.workspace = true

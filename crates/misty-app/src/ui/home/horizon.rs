@@ -185,6 +185,7 @@ pub(super) fn maj_misty_client(app: &App) {
     let versions: Vec<String> = client::versions().into_iter().rev().collect();
     s.set_misty_versions(modele_textes(&versions));
     let misty = version_misty();
+    afficher_familles(app, &versions, &misty);
     s.set_misty_mc(misty.as_str().into());
     s.set_misty_art(crate::ui::picker::illustration(
         &crate::ui::picker::cle_groupe(&misty, 0),
@@ -195,6 +196,68 @@ pub(super) fn maj_misty_client(app: &App) {
     let skin = app.ui.global::<crate::SkinState>();
     skin.set_misty_in_game(client::disponible());
     skin.set_misty_mc(client::versions_texte().into());
+}
+
+/// Famille d'une version pour la fenêtre de choix : « 26.x » (versions de 2026), « 1.21 »…
+pub(super) fn famille(version: &str) -> String {
+    let mut parties = version.split('.');
+    let premier = parties.next().unwrap_or("");
+    if premier == "1" {
+        format!("1.{}", parties.next().unwrap_or("0"))
+    } else {
+        format!("{premier}.x")
+    }
+}
+
+/// Les versions Mistly regroupées par famille, chaque famille repliable (la fenêtre de choix).
+fn afficher_familles(app: &App, versions: &[String], choisie: &str) {
+    let ouvertes = app
+        .home
+        .borrow()
+        .familles_ouvertes
+        .clone()
+        .unwrap_or_else(|| [famille(choisie)].into_iter().collect());
+    let mut lignes: Vec<crate::MistyLine> = Vec::new();
+    for v in versions {
+        let f = famille(v);
+        let ouverte = ouvertes.contains(&f);
+        if lignes.last().is_none_or(|l| l.family != f.as_str()) {
+            let nombre = versions.iter().filter(|x| famille(x) == f).count() as i32;
+            lignes.push(crate::MistyLine {
+                text: f.as_str().into(),
+                family: f.as_str().into(),
+                header: true,
+                open: ouverte,
+                count: nombre,
+            });
+        }
+        if ouverte {
+            lignes.push(crate::MistyLine {
+                text: v.as_str().into(),
+                family: f.as_str().into(),
+                header: false,
+                open: true,
+                count: 0,
+            });
+        }
+    }
+    h(app).set_misty_lines(crate::ui::modele(lignes));
+}
+
+/// Ouvre ou replie une famille de versions Mistly.
+pub(super) fn basculer_famille(app: &App, f: String) {
+    let choisie = h(app).get_misty_mc().to_string();
+    {
+        let mut etat = app.home.borrow_mut();
+        let ouvertes = etat
+            .familles_ouvertes
+            .get_or_insert_with(|| [famille(&choisie)].into_iter().collect());
+        if !ouvertes.remove(&f) {
+            ouvertes.insert(f);
+        }
+    }
+    let versions: Vec<String> = client::versions().into_iter().rev().collect();
+    afficher_familles(app, &versions, &choisie);
 }
 
 /// La version Misty choisie avant (gardée dans les réglages), sinon la plus récente.
@@ -215,6 +278,8 @@ pub(super) fn misty_choisir(app: &Rc<App>, version: String) {
     }
     let s = h(app);
     s.set_misty_mc(version.as_str().into());
+    let versions: Vec<String> = client::versions().into_iter().rev().collect();
+    afficher_familles(app, &versions, &version);
     s.set_misty_art(crate::ui::picker::illustration(
         &crate::ui::picker::cle_groupe(&version, 0),
     ));

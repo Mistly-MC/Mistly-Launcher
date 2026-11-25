@@ -57,7 +57,7 @@ To build it yourself: `installer/build-linux.sh` (the packages it needs are list
 Cargo.toml             Cargo workspace (version, shared dependencies, build profiles)
 CHANGELOG.md           patch notes (embedded in the exe)
 curseforge.key         CurseForge API key (private, ignored by git)
-installer/             release script (build.ps1) + Inno Setup installer (Misty.iss)
+installer/             release scripts (build.ps1, build-linux.sh); the Windows installer is crates/misty-setup
 .github/workflows/     CI (format, clippy, tests) and signed releases from a version tag
 misty-client/          Mistly Client (submodule → Mistly-MC/Mistly-Client): the in-game Fabric mod, used by the tests
 crates/

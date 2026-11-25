@@ -513,7 +513,8 @@ pub async fn finaliser() -> Result<bool, MajErreur> {
     Ok(true)
 }
 
-/// ID de l'installateur Inno Setup (installer\Misty.iss).
+/// Entrée d'« Applications installées » (crates/misty-setup/src/installation.rs : CLE, l'AppId de
+/// l'ancien installateur Inno Setup).
 #[cfg(windows)]
 const CLE_DESINSTALLATION: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{8F4C2A61-3B7E-4D19-9A55-6C1E0F2B7D43}_is1";
 

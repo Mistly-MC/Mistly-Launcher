@@ -617,18 +617,8 @@ component Scene3D inherits Rectangle {
     }
 
     // ── en bas : animations, cape, élytres ──
-    // les emotes du site, au-dessus des animations
-    if SkinState.has-figure || SkinState.live-ready: Seg {
-        x: 14px;
-        y: parent.height - 2 * self.height - 22px;
-        items: [Tr.t("Emote_Saluer"), Tr.t("Emote_Applaudir"), Tr.t("Emote_Danser"), Tr.t("Emote_Acclamer"), "Facepalm", Tr.t("Emote_Calin")];
-        current: SkinState.anim - 5;
-        choisi(i) => {
-            SkinState.anim = SkinState.anim == 5 + i ? 0 : 5 + i;
-        }
-    }
     if SkinState.has-figure || SkinState.live-ready: Text {
-        y: parent.height - 126px;
+        y: parent.height - 80px;
         width: parent.width;
         text: Tr.t("Skin_Glisser");
         opacity: 1 - root.attire;
@@ -736,8 +726,10 @@ component TuileCos inherits Rectangle {
     in property <string> nom;
     in property <image> image;
     in property <bool> a-image;
-    /// 0 cape (haute), 1 ailes ou chapeau (large), 2 étiquette au-dessus de la tête
+    /// 0 cape (haute), 1 ailes ou chapeau (large), 2 étiquette au-dessus de la tête, 3 emote
     in property <int> forme;
+    /// texte d'état à la place de « Équipé » / « Débloqué » (emotes : « En cours »)
+    in property <string> statut;
     in property <string> style-tag;
     in property <string> pseudo;
     in property <bool> equipe;
@@ -760,7 +752,20 @@ component TuileCos inherits Rectangle {
             border-radius: 14px;
             background: Theme.surface-2;
             clip: true;
-            if root.forme != 2 && root.a-image: Image {
+            if root.forme == 3: Rectangle {
+                width: 56px;
+                height: 56px;
+                border-radius: 28px;
+                background: root.equipe ? Theme.active : Theme.control;
+                border-width: 1.5px;
+                border-color: Theme.border-strong;
+                IconeNuit {
+                    nom: "jouer";
+                    taille: 20px;
+                    couleur: root.equipe ? Theme.on-active : Theme.ink;
+                }
+            }
+            if root.forme < 2 && root.a-image: Image {
                 width: root.forme == 0 ? min(parent.width * 0.34, parent.height * 0.62 / 1.6) : min(parent.width * 0.62, parent.height * 0.9);
                 height: root.forme == 0 ? self.width * 1.6 : self.width / 2;
                 source: root.image;
@@ -768,7 +773,7 @@ component TuileCos inherits Rectangle {
                 image-rendering: pixelated;
                 opacity: root.verrou ? 0.45 : 1;
             }
-            if root.forme != 2 && !root.a-image: IconeNuit {
+            if root.forme < 2 && !root.a-image: IconeNuit {
                 nom: "fermer";
                 taille: 22px;
                 couleur: Theme.ink-3;
@@ -805,7 +810,7 @@ component TuileCos inherits Rectangle {
                     Rectangle { width: 6px; height: 6px; background: root.teinte; }
                 }
                 Text {
-                    text: root.equipe ? Tr.t("Cos_Statut_Equipe") : root.verrou ? Tr.t("Cos_Early_Verrou") : Tr.t("Cos_Statut_Debloque");
+                    text: root.statut != "" ? root.statut : root.equipe ? Tr.t("Cos_Statut_Equipe") : root.verrou ? Tr.t("Cos_Early_Verrou") : Tr.t("Cos_Statut_Debloque");
                     font-family: Theme.sans-font;
                     font-size: 12.5px;
                     color: root.teinte;
@@ -878,7 +883,7 @@ export component SkinPanel inherits Rectangle {
     property <int> i-ailes: root.voir-capes ? root.n-mojang + 2 : 0;
     property <int> i-chapeau: root.i-ailes + (root.voir-ailes ? 2 : 0);
     property <int> i-tags: root.i-chapeau + (root.voir-chapeaux ? 2 : 0);
-    property <int> total: root.i-tags + (root.voir-tags ? 2 : 0);
+    property <int> total: root.onglet == 5 ? 6 : root.i-tags + (root.voir-tags ? 2 : 0);
     property <bool> cape-misty: SkinState.misty-equip == 1 || SkinState.misty-equip == 3;
     function essayer(genre: int) {
         if (genre == 4) {
@@ -957,13 +962,13 @@ export component SkinPanel inherits Rectangle {
             // onglets, puis le modèle de bras à droite
             HorizontalLayout {
                 spacing: 8px;
-                for t[k] in [Tr.t("Cos_Tout"), Tr.t("Cos_Capes"), Tr.t("Cos_Ailes"), Tr.t("Cos_Chapeaux"), Tr.t("Cos_Tags")]: OngletCos {
+                for t[k] in [Tr.t("Cos_Tout"), Tr.t("Cos_Capes"), Tr.t("Cos_Ailes"), Tr.t("Cos_Chapeaux"), Tr.t("Cos_Tags"), Tr.t("Cos_Emotes")]: OngletCos {
                     text: t;
                     actif: root.onglet == k;
                     clicked => { root.onglet = k; }
                 }
                 Rectangle { horizontal-stretch: 1; }
-                for m[k] in [Tr.t("Skin_Classique"), Tr.t("Skin_Fin")]: OngletCos {
+                for m[k] in [Tr.t("Skin_Classique_Court"), Tr.t("Skin_Fin_Court")]: OngletCos {
                     text: m;
                     actif: (k == 1) == SkinState.slim;
                     clicked => {
@@ -1059,6 +1064,21 @@ export component SkinPanel inherits Rectangle {
                 content-width: self.visible-width;
                 content-height: ceil(root.total / 3) * (self.haut + 14px);
 
+                // emotes du site : un clic la joue sur le personnage (la roue pour les équiper
+                // en jeu viendra ensuite)
+                if root.onglet == 5: Rectangle {
+                    for e[i] in [Tr.t("Emote_Saluer"), Tr.t("Emote_Applaudir"), Tr.t("Emote_Danser"), Tr.t("Emote_Acclamer"), "Facepalm", Tr.t("Emote_Calin")]: TuileCos {
+                        x: Math.mod(i, 3) * (grille.case + 14px);
+                        y: floor(i / 3) * (grille.haut + 14px);
+                        width: grille.case;
+                        height: grille.haut;
+                        nom: e;
+                        forme: 3;
+                        equipe: SkinState.anim == 5 + i;
+                        statut: SkinState.anim == 5 + i ? Tr.t("Cos_Emote_EnCours") : Tr.t("Cos_Emote_Jouer");
+                        clicked => { SkinState.anim = SkinState.anim == 5 + i ? 0 : 5 + i; }
+                    }
+                }
                 // capes du compte Mojang
                 if root.voir-capes: Rectangle {
                     for c[i] in SkinState.capes: TuileCos {

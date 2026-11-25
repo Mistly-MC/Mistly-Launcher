@@ -955,5 +955,12 @@
   "Amis_Refuser": "Refuser",
   "Amis_Annuler_Demande": "Annuler la demande",
   "Console_Sautees": "{0} lignes passées dans la console (trop par seconde) ; elles sont dans le fichier du journal",
-  "Console_Attendre": "Les logs viennent d'être envoyés : attends {0} s avant de recommencer"
+  "Console_Attendre": "Les logs viennent d'être envoyés : attends {0} s avant de recommencer",
+  "Manuel_Texte_Auto": "{0} fichier(s) ne se téléchargent que depuis le site CurseForge (choix de leurs auteurs) :\n\n{1}",
+  "Manuel_Auto_Pages": "Mistly ouvre leurs pages de téléchargement dans ton navigateur, une par une : chaque téléchargement démarre tout seul, et Mistly déplace chaque fichier dans le profil dès qu'il arrive. Tu n'as rien d'autre à faire.",
+  "Console_Envoye_Court": "Envoyé ✓",
+  "Cos_Emote_Jouer": "Clique pour la jouer",
+  "Cos_Emote_EnCours": "En cours",
+  "Skin_Classique_Court": "Classique",
+  "Skin_Fin_Court": "Fin"
 }

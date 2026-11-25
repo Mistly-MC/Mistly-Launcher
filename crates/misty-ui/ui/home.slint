@@ -23,23 +23,6 @@ import { ConsoleState } from "console.slint";
 
 // ───────────────────────── Pixel art ─────────────────────────
 
-/// Un bloc d'herbe (Bedrock) : 12 × 12 pixels, herbe dessus, terre dessous.
-component BlocHerbe inherits Rectangle {
-    in property <length> pixel: 13px;
-    width: 12 * root.pixel;
-    height: 12 * root.pixel;
-    for i in 144: Rectangle {
-        property <int> px: Math.mod(i, 12);
-        property <int> py: Math.floor(i / 12);
-        property <int> h: Math.mod(self.px * 7 + self.py * 13, 5);
-        property <bool> herbe: self.py < 3 || (self.py == 3 && self.h < 3);
-        x: self.px * root.pixel;
-        y: self.py * root.pixel;
-        width: root.pixel;
-        height: root.pixel;
-        background: self.herbe ? (self.h == 0 ? #3E8232 : #4E9A3E) : self.h == 0 ? #5E4029 : self.h == 3 ? #8C6440 : #7A5536;
-    }
-}
 
 /// L'engrenage d'Horizon (Rust) : 14 × 14 pixels.
 component Engrenage inherits Rectangle {
@@ -777,11 +760,6 @@ export component HomePage inherits Rectangle {
                         if HomeState.edition == 0 || HomeState.edition == 1: Lune {
                             y: parent.flotte;
                             pixel: 12px;
-                        }
-                        if HomeState.edition == 2: BlocHerbe {
-                            x: 6px;
-                            y: 6px + parent.flotte;
-                            pixel: 13px;
                         }
                         if HomeState.edition == 3: Engrenage {
                             y: parent.flotte;

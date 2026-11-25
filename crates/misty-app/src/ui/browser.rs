@@ -37,6 +37,8 @@ pub enum Contexte {
 
 pub struct Etat {
     contexte: Contexte,
+    /// Profils → Installer un modpack : seulement les modpacks (Découvrir montre tout)
+    modpacks_seuls: bool,
     /// Contexte déjà configuré ("" = à reconfigurer)
     cle: String,
     /// Dernière plateforme choisie, retenue d'un explorateur à l'autre
@@ -58,6 +60,7 @@ impl Default for Etat {
     fn default() -> Self {
         Etat {
             contexte: Contexte::Aucun,
+            modpacks_seuls: false,
             cle: String::new(),
             source: MODRINTH.into(),
             type_: content::MOD.into(),
@@ -157,18 +160,16 @@ pub fn configurer_instance(app: &Rc<App>, instance: Instance) {
     configurer(app, Contexte::Instance(instance), cle, type_);
 }
 
-/// Explorateur de modpacks.
-pub fn configurer_modpacks(app: &Rc<App>) {
-    if app.browser.borrow().cle == "modpacks" {
+/// Explorateur de Découvrir (`seuls` : seulement les modpacks, depuis Profils → Installer un
+/// modpack).
+pub fn configurer_modpacks(app: &Rc<App>, seuls: bool) {
+    let cle = if seuls { "modpacks-seuls" } else { "modpacks" };
+    if app.browser.borrow().cle == cle {
         rafraichir_etats(app);
         return;
     }
-    configurer(
-        app,
-        Contexte::Modpacks,
-        "modpacks".into(),
-        content::MODPACK.into(),
-    );
+    app.browser.borrow_mut().modpacks_seuls = seuls;
+    configurer(app, Contexte::Modpacks, cle.into(), content::MODPACK.into());
 }
 
 /// Un autre profil a été ouvert : l'explorateur devra être reconfiguré.
@@ -210,11 +211,14 @@ fn types_du_contexte(contexte: &Contexte) -> Vec<(String, String)> {
 }
 
 fn construire_types(app: &Rc<App>) {
-    let (contexte, type_) = {
+    let (contexte, type_, seuls) = {
         let e = app.browser.borrow();
-        (e.contexte.clone(), e.type_.clone())
+        (e.contexte.clone(), e.type_.clone(), e.modpacks_seuls)
     };
-    let types = types_du_contexte(&contexte);
+    let mut types = types_du_contexte(&contexte);
+    if seuls && matches!(contexte, Contexte::Modpacks) {
+        types.truncate(1);
+    }
     // Pas de mods possibles sur un profil Vanilla / OptiFine
     let mods_possibles = match &contexte {
         Contexte::Instance(i) => i.supporte_mods(),

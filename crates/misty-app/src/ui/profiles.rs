@@ -75,7 +75,9 @@ pub fn installer(app: &Rc<App>) {
     let a = app.clone();
     s.on_modpacks(move || {
         p(&a).set_view(1);
-        browser::configurer_modpacks(&a);
+        // Découvrir montre tout ; Profils → Installer un modpack, seulement les modpacks
+        let decouvrir = a.ui.global::<AppState>().get_nav() == super::page::DECOUVRIR;
+        browser::configurer_modpacks(&a, !decouvrir);
     });
     let a = app.clone();
     s.on_back(move || rafraichir(&a));
@@ -492,14 +494,16 @@ async fn importer_modpack(app: &Rc<App>) {
     }
 }
 
-/// Certains auteurs CurseForge interdisent le téléchargement par des applications tierces :
-/// on liste ces fichiers et on propose d'ouvrir leur page pour les télécharger à la main.
+/// Certains auteurs CurseForge interdisent le téléchargement par des applications tierces : on
+/// ouvre leurs pages de téléchargement une par une dans le navigateur (chacune lance son
+/// téléchargement d'elle-même), et on range chaque fichier dans le profil dès qu'il arrive dans
+/// le dossier Téléchargements, comme Prism Launcher.
 pub async fn proposer_telechargements_manuels(app: &Rc<App>, r: &modpack::Resultat) {
     let mut liste: Vec<String> = r
         .bloques
         .iter()
         .take(12)
-        .map(|b| format!("• {}", loc::tf("Manuel_Ligne", &[&b.nom, &b.dossier])))
+        .map(|b| format!("• {}", b.nom))
         .collect();
     if r.bloques.len() > 12 {
         liste.push(loc::tf("Manuel_Autres", &[&(r.bloques.len() - 12)]));
@@ -509,8 +513,8 @@ pub async fn proposer_telechargements_manuels(app: &Rc<App>, r: &modpack::Result
         &loc::t("Manuel_Titre"),
         &format!(
             "{}\n\n{}",
-            loc::tf("Manuel_Texte", &[&r.bloques.len(), &liste.join("\n")]),
-            loc::t("Manuel_Auto")
+            loc::tf("Manuel_Texte_Auto", &[&r.bloques.len(), &liste.join("\n")]),
+            loc::t("Manuel_Auto_Pages")
         ),
         Some(&loc::t("Manuel_Ouvrir")),
         Some(&loc::t("Commun_PlusTard")),
@@ -520,25 +524,33 @@ pub async fn proposer_telechargements_manuels(app: &Rc<App>, r: &modpack::Result
     if !ouvrir {
         return;
     }
-    for b in &r.bloques {
-        system_info::ouvrir(&b.page);
-    }
-    // Comme Prism Launcher : les fichiers que le joueur télécharge arrivent dans son dossier
-    // Téléchargements ; on les y cherche toutes les 3 secondes (20 minutes au plus) et on les
-    // range dans le profil.
     let Some(telechargements) = dirs::download_dir() else {
+        for b in &r.bloques {
+            system_info::ouvrir(&b.page);
+        }
         system_info::ouvrir_dossier(&r.instance.dossier());
         return;
     };
+    // une page à la fois : la suivante s'ouvre quand le fichier précédent est arrivé (ou au bout
+    // de 45 s), pour que le navigateur ne bloque pas une rafale d'onglets ; puis on attend les
+    // derniers fichiers (20 minutes au plus en tout)
     let mut restants = r.bloques.clone();
+    let mut a_ouvrir: std::collections::VecDeque<modpack::FichierBloque> =
+        r.bloques.iter().cloned().collect();
+    let mut attente_page = 0u32;
+    if let Some(b) = a_ouvrir.pop_front() {
+        system_info::ouvrir(&b.page);
+    }
     for _ in 0..400 {
         let (d, b) = (telechargements.clone(), restants.clone());
-        restants = app
+        let nouveaux = app
             .bg(async move {
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 modpack::ranger_telecharges(&d, &b)
             })
             .await;
+        let arrive = nouveaux.len() < restants.len();
+        restants = nouveaux;
         if restants.is_empty() {
             dialogs::info(
                 app,
@@ -547,6 +559,17 @@ pub async fn proposer_telechargements_manuels(app: &Rc<App>, r: &modpack::Result
             )
             .await;
             return;
+        }
+        attente_page += 3;
+        if arrive || attente_page >= 45 {
+            attente_page = 0;
+            // la prochaine page dont le fichier manque encore
+            while let Some(b) = a_ouvrir.pop_front() {
+                if restants.iter().any(|x| x.fichier == b.fichier) {
+                    system_info::ouvrir(&b.page);
+                    break;
+                }
+            }
         }
     }
     system_info::ouvrir_dossier(&r.instance.dossier());

@@ -955,5 +955,12 @@
   "Amis_Refuser": "Rechazar",
   "Amis_Annuler_Demande": "Cancelar la solicitud",
   "Console_Sautees": "{0} líneas omitidas en la consola (demasiadas por segundo); están en el archivo de registro",
-  "Console_Attendre": "Los registros se acaban de enviar: espera {0} s antes de enviarlos de nuevo"
+  "Console_Attendre": "Los registros se acaban de enviar: espera {0} s antes de enviarlos de nuevo",
+  "Manuel_Texte_Auto": "{0} archivo(s) solo se pueden descargar desde el sitio de CurseForge (decisión de sus autores):\n\n{1}",
+  "Manuel_Auto_Pages": "Mistly abre sus páginas de descarga en tu navegador una por una: cada descarga empieza sola y Mistly mueve cada archivo al perfil en cuanto llega. No tienes que hacer nada más.",
+  "Console_Envoye_Court": "Enviado ✓",
+  "Cos_Emote_Jouer": "Haz clic para reproducir",
+  "Cos_Emote_EnCours": "Reproduciendo",
+  "Skin_Classique_Court": "Clásico",
+  "Skin_Fin_Court": "Delgado"
 }

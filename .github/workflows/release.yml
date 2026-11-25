@@ -2,7 +2,7 @@
 # ce workflow à la main depuis main (Actions › Release › Run workflow, avec la version), compile le
 # launcher pour Windows (installer/build.ps1) et pour Linux (installer/build-linux.sh), signe les
 # deux archives puis publie la release GitHub avec :
-#   Misty-x.y.z.zip, Misty-Setup-x.y.z.exe                  Windows
+#   Misty-x.y.z.zip, Mistly-Setup-x.y.z.exe                 Windows
 #   Misty-x.y.z-linux-x86_64.tar.gz                          Linux
 #   <archive>.sha256 et <archive>.minisig pour chaque archive
 # La mise à jour automatique refuse toute archive sans ces deux preuves
@@ -111,9 +111,6 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Inno Setup
-        run: choco install innosetup -y --no-progress
-
       - name: Compilation, zip et installateur (installer/build.ps1)
         run: powershell -ExecutionPolicy Bypass -File installer\build.ps1
 
@@ -122,7 +119,7 @@ jobs:
           name: windows
           path: |
             publish/Misty-${{ needs.version.outputs.version }}.zip
-            publish/Misty-Setup-${{ needs.version.outputs.version }}.exe
+            publish/Mistly-Setup-${{ needs.version.outputs.version }}.exe
           if-no-files-found: error
 
   linux:
@@ -235,7 +232,7 @@ jobs:
           if [ "${{ needs.version.outputs.prerelease }}" = "true" ]; then options+=(--prerelease); fi
           gh release create "$version" \
             "publish/Misty-$version.zip" \
-            "publish/Misty-Setup-$version.exe" \
+            "publish/Mistly-Setup-$version.exe" \
             "publish/Misty-$version.zip.sha256" \
             "publish/Misty-$version.zip.minisig" \
             "publish/Misty-$version-linux-x86_64.tar.gz" \
