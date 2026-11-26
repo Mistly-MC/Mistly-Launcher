@@ -582,14 +582,15 @@ fn est_installe(app: &App, p: &ProjetDistant) -> bool {
 pub fn rafraichir_etats(app: &Rc<App>) {
     let projets = app.browser.borrow().projets.clone();
     let installes: Vec<bool> = projets.iter().map(|p| est_installe(app, p)).collect();
-    let (occupes, m, libelle) = {
+    let (occupes, m, libelle, modpack) = {
         let mut e = app.browser.borrow_mut();
         e.installes = installes.clone();
+        let modpack = matches!(e.contexte, Contexte::Modpacks) && e.type_ == content::MODPACK;
         let libelle = match e.contexte {
             Contexte::Modpacks if e.type_ == content::MODPACK => "Profil_Creer",
             _ => "Explorateur_Installer",
         };
-        (e.occupes.clone(), e.modele.clone(), libelle)
+        (e.occupes.clone(), e.modele.clone(), libelle, modpack)
     };
     let Some(m) = m else { return };
     for i in 0..m.row_count().min(projets.len()) {
@@ -606,6 +607,8 @@ pub fn rafraichir_etats(app: &Rc<App>) {
             .into();
             r.button_text = loc::t(if occupe {
                 "Explorateur_EnCours"
+            } else if installe && modpack {
+                "Profil_Reinstaller"
             } else if installe {
                 "Explorateur_Installe"
             } else {
@@ -640,7 +643,9 @@ async fn installer_projet(app: &Rc<App>, i: usize) {
             e.occupes.get(i).copied().unwrap_or(false),
         )
     };
-    if installe || occupe {
+    // un modpack s'installe autant de fois qu'on veut (un nouveau profil à chaque fois)
+    let modpack = matches!(contexte, Contexte::Modpacks) && type_ == content::MODPACK;
+    if (installe && !modpack) || occupe {
         return;
     }
     if let Some(o) = app.browser.borrow_mut().occupes.get_mut(i) {

@@ -6,6 +6,7 @@
 - Emotes have their own tab in the Wardrobe, next to Hats and Tags
 - Choose a version groups the Mistly Client versions by family (26.x, 1.21, 1.20…), each one can be folded
 - Profiles → Install a modpack only shows modpacks
+- The same modpack can be installed several times: each install makes a new profile ("Name (2)", "Name (3)"…)
 - A smaller launcher and installer
 - Fixed: the Mist Wings were cut and badly placed on the character; the camera also steps back to show them whole
 - Fixed: the selected Mistly Client version was not highlighted in Choose a version
