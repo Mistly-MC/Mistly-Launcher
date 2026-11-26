@@ -1,4 +1,19 @@
 # Changelog
+## 0.4.8-beta.1
+### Launcher
+- New installer written for Mistly, Mistly-Setup: a welcome screen with the version, and when Mistly is already installed, Update or Repair, or Uninstall with the choice to keep your data
+- Modpack files that CurseForge keeps for its website now download by themselves: Mistly opens their download pages one by one and moves each file into the profile as soon as it arrives
+- Emotes have their own tab in the Wardrobe, next to Hats and Tags
+- Choose a version groups the Mistly Client versions by family (26.x, 1.21, 1.20…), each one can be folded
+- Profiles → Install a modpack only shows modpacks
+- The same modpack can be installed several times: each install makes a new profile ("Name (2)", "Name (3)"…)
+- A smaller launcher and installer
+- Fixed: the Mist Wings were cut and badly placed on the character; the camera also steps back to show them whole
+- Fixed: the selected Mistly Client version was not highlighted in Choose a version
+- Fixed: the edition selector showed above Choose a version
+- Fixed: your head at the top right could show square
+- Fixed: the console's Send to the team button overflowed with the report code (the code now shows next to the title)
+- The grass block is gone from Bedrock Home
 ## 0.4.7-beta.1
 ### Launcher
 - New installer in Mistly's style: pick the folder, accept the terms, Install, then Launch Mistly

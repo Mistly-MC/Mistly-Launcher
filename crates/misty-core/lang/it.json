@@ -955,5 +955,13 @@
   "Amis_Refuser": "Rifiuta",
   "Amis_Annuler_Demande": "Annulla la richiesta",
   "Console_Sautees": "{0} righe saltate nella console (troppe al secondo); sono nel file di log",
-  "Console_Attendre": "I log sono appena stati inviati: attendi {0} s prima di inviarli di nuovo"
+  "Console_Attendre": "I log sono appena stati inviati: attendi {0} s prima di inviarli di nuovo",
+  "Manuel_Texte_Auto": "{0} file si possono scaricare solo dal sito di CurseForge (scelta dei loro autori):\n\n{1}",
+  "Manuel_Auto_Pages": "Mistly apre le loro pagine di download nel browser una alla volta: ogni download parte da solo e Mistly sposta ogni file nel profilo appena arriva. Non devi fare altro.",
+  "Console_Envoye_Court": "Inviato ✓",
+  "Cos_Emote_Jouer": "Clicca per riprodurla",
+  "Cos_Emote_EnCours": "In corso",
+  "Skin_Classique_Court": "Classico",
+  "Skin_Fin_Court": "Sottile",
+  "Profil_Reinstaller": "Installa di nuovo"
 }

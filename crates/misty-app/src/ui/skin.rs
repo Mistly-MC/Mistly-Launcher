@@ -440,7 +440,7 @@ async fn afficher_charge(app: &Rc<App>, c: Charge, epoque: u64) -> bool {
     if let Some(tete) = skins::rendre_tete(&c.skin) {
         let home = app.ui.global::<HomeState>();
         home.set_has_avatar(true);
-        home.set_avatar(Image::from_rgba8(images::tampon(&tete)));
+        home.set_avatar(images::rond(&Image::from_rgba8(images::tampon(&tete))));
     }
     {
         let mut e = app.skin.borrow_mut();
@@ -859,7 +859,7 @@ async fn appliquer(app: &Rc<App>) {
             if let Some(tete) = skins::rendre_tete(&png) {
                 let home = app.ui.global::<HomeState>();
                 home.set_has_avatar(true);
-                home.set_avatar(Image::from_rgba8(images::tampon(&tete)));
+                home.set_avatar(images::rond(&Image::from_rgba8(images::tampon(&tete))));
             }
         }
         Err(e) => {

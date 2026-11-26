@@ -37,6 +37,8 @@ pub enum Contexte {
 
 pub struct Etat {
     contexte: Contexte,
+    /// Profils → Installer un modpack : seulement les modpacks (Découvrir montre tout)
+    modpacks_seuls: bool,
     /// Contexte déjà configuré ("" = à reconfigurer)
     cle: String,
     /// Dernière plateforme choisie, retenue d'un explorateur à l'autre
@@ -58,6 +60,7 @@ impl Default for Etat {
     fn default() -> Self {
         Etat {
             contexte: Contexte::Aucun,
+            modpacks_seuls: false,
             cle: String::new(),
             source: MODRINTH.into(),
             type_: content::MOD.into(),
@@ -157,18 +160,16 @@ pub fn configurer_instance(app: &Rc<App>, instance: Instance) {
     configurer(app, Contexte::Instance(instance), cle, type_);
 }
 
-/// Explorateur de modpacks.
-pub fn configurer_modpacks(app: &Rc<App>) {
-    if app.browser.borrow().cle == "modpacks" {
+/// Explorateur de Découvrir (`seuls` : seulement les modpacks, depuis Profils → Installer un
+/// modpack).
+pub fn configurer_modpacks(app: &Rc<App>, seuls: bool) {
+    let cle = if seuls { "modpacks-seuls" } else { "modpacks" };
+    if app.browser.borrow().cle == cle {
         rafraichir_etats(app);
         return;
     }
-    configurer(
-        app,
-        Contexte::Modpacks,
-        "modpacks".into(),
-        content::MODPACK.into(),
-    );
+    app.browser.borrow_mut().modpacks_seuls = seuls;
+    configurer(app, Contexte::Modpacks, cle.into(), content::MODPACK.into());
 }
 
 /// Un autre profil a été ouvert : l'explorateur devra être reconfiguré.
@@ -210,11 +211,14 @@ fn types_du_contexte(contexte: &Contexte) -> Vec<(String, String)> {
 }
 
 fn construire_types(app: &Rc<App>) {
-    let (contexte, type_) = {
+    let (contexte, type_, seuls) = {
         let e = app.browser.borrow();
-        (e.contexte.clone(), e.type_.clone())
+        (e.contexte.clone(), e.type_.clone(), e.modpacks_seuls)
     };
-    let types = types_du_contexte(&contexte);
+    let mut types = types_du_contexte(&contexte);
+    if seuls && matches!(contexte, Contexte::Modpacks) {
+        types.truncate(1);
+    }
     // Pas de mods possibles sur un profil Vanilla / OptiFine
     let mods_possibles = match &contexte {
         Contexte::Instance(i) => i.supporte_mods(),
@@ -578,14 +582,15 @@ fn est_installe(app: &App, p: &ProjetDistant) -> bool {
 pub fn rafraichir_etats(app: &Rc<App>) {
     let projets = app.browser.borrow().projets.clone();
     let installes: Vec<bool> = projets.iter().map(|p| est_installe(app, p)).collect();
-    let (occupes, m, libelle) = {
+    let (occupes, m, libelle, modpack) = {
         let mut e = app.browser.borrow_mut();
         e.installes = installes.clone();
+        let modpack = matches!(e.contexte, Contexte::Modpacks) && e.type_ == content::MODPACK;
         let libelle = match e.contexte {
             Contexte::Modpacks if e.type_ == content::MODPACK => "Profil_Creer",
             _ => "Explorateur_Installer",
         };
-        (e.occupes.clone(), e.modele.clone(), libelle)
+        (e.occupes.clone(), e.modele.clone(), libelle, modpack)
     };
     let Some(m) = m else { return };
     for i in 0..m.row_count().min(projets.len()) {
@@ -602,6 +607,8 @@ pub fn rafraichir_etats(app: &Rc<App>) {
             .into();
             r.button_text = loc::t(if occupe {
                 "Explorateur_EnCours"
+            } else if installe && modpack {
+                "Profil_Reinstaller"
             } else if installe {
                 "Explorateur_Installe"
             } else {
@@ -636,7 +643,9 @@ async fn installer_projet(app: &Rc<App>, i: usize) {
             e.occupes.get(i).copied().unwrap_or(false),
         )
     };
-    if installe || occupe {
+    // un modpack s'installe autant de fois qu'on veut (un nouveau profil à chaque fois)
+    let modpack = matches!(contexte, Contexte::Modpacks) && type_ == content::MODPACK;
+    if (installe && !modpack) || occupe {
         return;
     }
     if let Some(o) = app.browser.borrow_mut().occupes.get_mut(i) {

@@ -532,7 +532,7 @@ export component ConsoleOverlay inherits Rectangle {
         VerticalLayout {
             padding-bottom: 40px;
             // ── en-tête (Figma) : titre, état de la partie, filtres, dossier, fermer ──
-            HorizontalLayout {
+            entete := HorizontalLayout {
                 height: 52px;
                 padding-left: 8px;
                 spacing: 12px;
@@ -545,11 +545,13 @@ export component ConsoleOverlay inherits Rectangle {
                     color: Theme.ink-strong;
                     vertical-alignment: center;
                 }
-                if ConsoleState.subtitle != "": VerticalLayout {
+                // l'état des parties, ou le code du rapport envoyé
+                property <string> puce: ConsoleState.panes.length == 1 && ConsoleState.panes[0].report-text != "" ? ConsoleState.panes[0].report-text : ConsoleState.subtitle;
+                if entete.puce != "": VerticalLayout {
                     alignment: center;
                     Rectangle {
                         height: 28px;
-                        width: sous-titre.preferred-width + 34px;
+                        width: min(sous-titre.preferred-width, 420px) + 34px;
                         border-radius: 14px;
                         background: Theme.online-bg;
                         Rectangle {
@@ -561,7 +563,9 @@ export component ConsoleOverlay inherits Rectangle {
                         }
                         sous-titre := Text {
                             x: 25px;
-                            text: ConsoleState.subtitle;
+                            width: min(self.preferred-width, 420px);
+                            text: entete.puce;
+                            overflow: elide;
                             font-family: Theme.sans-font;
                             font-size: 12.5px;
                             color: Theme.online-text;
@@ -659,7 +663,7 @@ export component ConsoleOverlay inherits Rectangle {
                         kind: 1;
                         height: 44px;
                         text: ConsoleState.panes[0].sending ? Tr.t("Console_Envoi")
-                            : ConsoleState.panes[0].report-text != "" ? ConsoleState.panes[0].report-text
+                            : ConsoleState.panes[0].report-text != "" ? Tr.t("Console_Envoye_Court")
                             : Tr.t("Console_Envoyer");
                         enabled: !ConsoleState.panes[0].sending;
                         clicked => { ConsoleState.send-report(ConsoleState.panes[0].id); }

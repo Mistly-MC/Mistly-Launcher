@@ -272,14 +272,61 @@ component PanneauMisty inherits HorizontalLayout {
         grille-misty := ScrollView {
             vertical-stretch: 1;
             content-width: self.visible-width;
-            content-height: HomeState.misty-versions.length * 64px + 8px;
-            for v[i] in HomeState.misty-versions: PuceMisty {
+            content-height: liste-misty.preferred-height + 8px;
+            liste-misty := VerticalLayout {
                 x: 4px;
-                y: 4px + i * 64px;
+                y: 4px;
                 width: grille-misty.visible-width - 8px;
-                version: v;
-                checked: HomeState.misty-selected && v == HomeState.misty-mc;
-                clicked => { HomeState.misty-select(v); }
+                spacing: 8px;
+                for l in HomeState.misty-lines: VerticalLayout {
+                    // en-tête d'une famille : un clic l'ouvre ou la replie
+                    if l.header: Rectangle {
+                        height: 44px;
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            spacing: 10px;
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 16px;
+                                    height: 16px;
+                                    transform-rotation: l.open ? 0deg : -90deg;
+                                    animate transform-rotation { duration: 200ms; easing: ease-out; }
+                                    IconeNuit {
+                                        nom: "chevron";
+                                        taille: 14px;
+                                        couleur: Theme.ink-3;
+                                    }
+                                }
+                            }
+                            Text {
+                                text: l.text;
+                                font-family: Theme.mono-font;
+                                font-size: 14px;
+                                font-weight: 500;
+                                color: Theme.ink;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                horizontal-stretch: 1;
+                                text: l.count;
+                                font-family: Theme.mono-font;
+                                font-size: 12px;
+                                color: Theme.ink-4;
+                                vertical-alignment: center;
+                            }
+                        }
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { HomeState.misty-family-toggled(l.family); }
+                        }
+                    }
+                    if !l.header: PuceMisty {
+                        version: l.text;
+                        checked: l.text == HomeState.misty-mc;
+                        clicked => { HomeState.misty-select(l.text); }
+                    }
+                }
             }
         }
     }

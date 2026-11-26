@@ -145,6 +145,15 @@ export struct ProfileItem {
 }
 
 /// Build d'Horizon publié sur GitHub.
+/// Une ligne de la liste des versions Mistly : l'en-tête d'une famille (repliable) ou une version.
+export struct MistyLine {
+    text: string,
+    family: string,
+    header: bool,
+    open: bool,
+    count: int,
+}
+
 export struct HorizonBuild {
     tag: string,
     date: string,
@@ -191,6 +200,9 @@ export global HomeState {
     in property <bool> misty-available;
     /// Versions de Minecraft où Misty Client existe, la plus récente d'abord
     in property <[string]> misty-versions;
+    /// Les mêmes, regroupées par famille (« 26.x », « 1.21 »…), les familles repliables
+    in property <[MistyLine]> misty-lines;
+    callback misty-family-toggled(string);
     /// Version Misty choisie ("26.3")
     in property <string> misty-mc;
     in property <image> misty-art;

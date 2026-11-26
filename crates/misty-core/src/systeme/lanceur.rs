@@ -27,7 +27,7 @@
 use crate::{systeme::paths, systeme::update};
 use std::path::{Path, PathBuf};
 
-/// Identifiant d'application de Misty dans la barre des tâches (installer\Misty.iss : AppUserModelID).
+/// Identifiant d'application de Misty dans la barre des tâches (le même que celui des anciens raccourcis Inno Setup).
 pub const AUMID: &str = "MistyMC.Misty";
 const PREFIXE: &str = "Misty-";
 

@@ -536,6 +536,13 @@ pub fn rendre_live_modeles(
     // donc une simple projection). Un pixel ne teste que les boîtes dont le rectangle le contient,
     // et les lignes sans aucune boîte sont sautées.
     let demi = LIVE as f32 / 2.0;
+    // des ailes 3D (plus larges que le personnage) : la caméra recule un peu pour les montrer
+    // en entier
+    let echelle = if modeles.iter().any(|m| m.attache == Attache::Corps) {
+        ECHELLE * 0.78
+    } else {
+        ECHELLE
+    };
     let rectangles: Vec<[u32; 4]> = posees
         .iter()
         .map(|bp| {
@@ -571,7 +578,7 @@ pub fn rendre_live_modeles(
                 let sx = v[0] * bp.droite[0] + v[1] * bp.droite[1] + v[2] * bp.droite[2];
                 let sy = v[0] * bp.haut[0] + v[1] * bp.haut[1] + v[2] * bp.haut[2];
                 // pixel dont le centre est en (sx, sy) : voir le calcul de sx et sy plus bas
-                let (px, py) = (sx * ECHELLE + demi - 0.5, demi - sy * ECHELLE - 0.5);
+                let (px, py) = (sx * echelle + demi - 0.5, demi - sy * echelle - 0.5);
                 x0 = x0.min(px);
                 x1 = x1.max(px);
                 y0 = y0.min(py);
@@ -636,9 +643,9 @@ pub fn rendre_live_modeles(
                             .map(|&i| rectangles[i][1])
                             .max()
                             .unwrap_or(0);
-                        let sy = (demi - (py as f32 + 0.5)) / ECHELLE;
+                        let sy = (demi - (py as f32 + 0.5)) / echelle;
                         for px in x0..x1 {
-                            let sx = (px as f32 + 0.5 - demi) / ECHELLE;
+                            let sx = (px as f32 + 0.5 - demi) / echelle;
                             let mut meilleur: Option<(f32, Rgba<u8>, u8)> = None;
                             for &i in candidates.iter() {
                                 if !(rectangles[i][0]..rectangles[i][1]).contains(&px) {

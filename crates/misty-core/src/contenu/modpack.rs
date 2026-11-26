@@ -378,7 +378,15 @@ fn preparer_profil(
 ) -> anyhow::Result<Instance> {
     match cible {
         Cible::Nouveau(origine) => {
-            let mut instance = instances::creer(titre, version_mc, loader, version_loader)?;
+            // le même modpack peut être installé plusieurs fois : « Nom (2) », « Nom (3) »…
+            let noms: Vec<String> = instances::lister().into_iter().map(|i| i.nom).collect();
+            let mut nom = titre.trim().to_string();
+            let mut n = 2;
+            while noms.iter().any(|x| x.eq_ignore_ascii_case(&nom)) {
+                nom = format!("{} ({n})", titre.trim());
+                n += 1;
+            }
+            let mut instance = instances::creer(&nom, version_mc, loader, version_loader)?;
             instance.icone_url = origine.icone_url.clone();
             if let Some((source, id)) = &origine.projet {
                 instance.modpack_source = Some(source.clone());

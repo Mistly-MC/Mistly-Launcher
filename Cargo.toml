@@ -10,7 +10,7 @@ default-members = ["crates/misty-app", "crates/misty-core"]
 [workspace.package]
 # Seule source de la version du launcher (app_info::VERSION, installer/build.ps1, release.yml).
 # Le tag de la release GitHub (sans « v ») doit être identique.
-version = "0.4.7-beta.1"
+version = "0.4.8-beta.1"
 edition = "2021"
 authors = ["xTheoxreborn"]
 license-file = "LICENSE.txt"
@@ -69,6 +69,8 @@ base64 = "0.23"
 # Windows
 winreg = "0.56"
 mslnk = "0.1"
+# Installateur (crates/misty-setup) : le launcher compressé dans l'exe
+zstd = { version = "0.13", default-features = false }
 windows-sys = { version = "0.61", features = ["Win32_System_SystemInformation", "Win32_Foundation", "Win32_Graphics_Dwm", "Win32_System_Threading"] }
 # Musique en jeu : morceau lu par les contrôles multimédia de Windows (media/musique.rs)
 # + raccourcis et barre des tâches (systeme/lanceur.rs)
@@ -104,3 +106,12 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 strip = true
+
+# L'interface générée par Slint (près de 20 Mo de Rust) : optimisée pour la taille, elle ne fait
+# que décrire les pages (le rendu, dans Slint, garde le niveau 3). Exe plus petit, même fluidité.
+[profile.release.package.misty-ui]
+opt-level = "s"
+
+# L'installateur : le plus petit possible (une fenêtre et une décompression)
+[profile.release.package.misty-setup]
+opt-level = "z"

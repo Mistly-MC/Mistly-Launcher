@@ -461,14 +461,15 @@ pub async fn empreintes(empreintes: &[u32]) -> anyhow::Result<Vec<Correspondance
     Ok(r.data.exact_matches)
 }
 
-/// Page du fichier sur le site CurseForge (pour un téléchargement manuel).
+/// Page de téléchargement du fichier sur le site CurseForge (téléchargement manuel) : ouverte
+/// dans le navigateur, elle lance le téléchargement d'elle-même après son compte à rebours.
 pub fn page_fichier(m: Option<&ModCF>, mod_id: i64, file_id: i64) -> String {
     match m
         .and_then(|m| m.links.as_ref())
         .and_then(|l| l.website_url.as_deref())
         .filter(|s| !s.is_empty())
     {
-        Some(site) => format!("{}/files/{file_id}", site.trim_end_matches('/')),
+        Some(site) => format!("{}/download/{file_id}", site.trim_end_matches('/')),
         None => format!("https://www.curseforge.com/projects/{mod_id}"),
     }
 }

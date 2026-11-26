@@ -19,8 +19,8 @@
       - Misty-<version>\            l'application (un seul fichier : Misty.exe)
       - Misty-<version>.zip         version portable, à joindre aussi à la release GitHub
                                     (c'est ce zip que télécharge la mise à jour automatique)
-      - Misty-Setup-<version>.exe   l'installateur : la fenêtre Mistly (crates\misty-setup), qui
-                                    contient l'installateur Inno Setup (nécessite Inno Setup 6.3+)
+      - Mistly-Setup-<version>.exe  l'installateur (crates\misty-setup, en Rust), qui contient
+                                    Misty.exe compressé
 
     La version est lue dans Cargo.toml à la racine ([workspace.package], seule source de la version).
 
@@ -28,8 +28,6 @@
     powershell -ExecutionPolicy Bypass -File installer\build.ps1
 #>
 param(
-    # Chemin de ISCC.exe si Inno Setup n'est pas installé à un emplacement standard
-    [string]$Iscc = "",
     # Ne génère que le dossier et le zip
     [switch]$SansInstallateur
 )
@@ -93,38 +91,17 @@ Write-Host "Zip : $zip" -ForegroundColor Green
 
 if ($SansInstallateur) { return }
 
-# ── Installateur ──
-if (-not $Iscc) {
-    $candidats = @(
-        (Get-Command ISCC.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
-        "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
-        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-        "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
-    )
-    $Iscc = $candidats | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-}
-if (-not $Iscc) {
-    throw "Inno Setup introuvable. Installe-le (winget install JRSoftware.InnoSetup) ou passe -Iscc <chemin de ISCC.exe>."
-}
-
-& $Iscc "/DVersion=$version" "/DNumVersion=$($version -replace '-.*$', '')" "/DSource=$dossier" "/DSortie=$publish" (Join-Path $PSScriptRoot "Misty.iss")
-if ($LASTEXITCODE -ne 0) { throw "ISCC a échoué" }
-
-# ── Fenêtre d'installation (crates\misty-setup) : elle contient l'installateur Inno Setup et le
-#    lance sans fenêtre, avec le dossier choisi ──
-$interne = Join-Path $publish "Mistly-Setup-Inno-$version.exe"
-Signer $interne
-$env:MISTY_SETUP_INTERIEUR = $interne
+# ── Installateur (crates\misty-setup, en Rust) : Misty.exe y est compressé ──
+$env:MISTY_SETUP_EXE = Join-Path $projet "target\release\Misty.exe"
 Push-Location $projet
 try {
     cargo build --release -p misty-setup
     if ($LASTEXITCODE -ne 0) { throw "cargo build (misty-setup) a échoué" }
 } finally {
     Pop-Location
-    Remove-Item Env:\MISTY_SETUP_INTERIEUR
+    Remove-Item Env:\MISTY_SETUP_EXE
 }
-Copy-Item (Join-Path $projet "target\release\Mistly-Setup.exe") (Join-Path $publish "Misty-Setup-$version.exe") -Force
-Remove-Item $interne
-
-Signer (Join-Path $publish "Misty-Setup-$version.exe")
-Write-Host "Installateur : $(Join-Path $publish "Misty-Setup-$version.exe")" -ForegroundColor Green
+$setup = Join-Path $publish "Mistly-Setup-$version.exe"
+Copy-Item (Join-Path $projet "target\release\Mistly-Setup.exe") $setup -Force
+Signer $setup
+Write-Host "Installateur : $setup" -ForegroundColor Green

@@ -187,14 +187,16 @@ pub(super) fn charger(json: &str, attache: Attache) -> Option<Modele3d> {
         .decode(donnees)
         .ok()?;
     let texture = image::load_from_memory(&octets).ok()?.to_rgba8();
-    // les UV sont en unités de la texture « uv_width » (64), l'image peut être plus grande
-    let uv_l = tex["uv_width"]
+    // les UV des faces sont dans l'espace de la résolution du projet (« resolution », 128 pour
+    // les ailes de brume) ; « uv_width » de la texture ne sert qu'en secours (lire les UV en
+    // 64 alors que le projet est en 128 décalait les ailes : seule la membrane s'affichait)
+    let uv_l = m["resolution"]["width"]
         .as_f64()
-        .or_else(|| m["resolution"]["width"].as_f64())
+        .or_else(|| tex["uv_width"].as_f64())
         .unwrap_or(64.0) as f32;
-    let uv_h = tex["uv_height"]
+    let uv_h = m["resolution"]["height"]
         .as_f64()
-        .or_else(|| m["resolution"]["height"].as_f64())
+        .or_else(|| tex["uv_height"].as_f64())
         .unwrap_or(64.0) as f32;
     let (ex, ey) = (
         texture.width() as f32 / uv_l,
@@ -276,11 +278,20 @@ fn boite(e: &Value, parent: &Affine, ex: f32, ey: f32) -> Option<Boite> {
         de[1].min(a[1]) - gonfle,
         -a[2].max(de[2]) - gonfle,
     ];
-    let max = [
+    let mut max = [
         -a[0].min(de[0]) + gonfle,
         de[1].max(a[1]) + gonfle,
         -a[2].min(de[2]) + gonfle,
     ];
+    let mut min = min;
+    // un plan (épaisseur nulle, comme la membrane des ailes) : le rayon le traverserait sans le
+    // toucher ; on lui donne une épaisseur à peine visible
+    for i in 0..3 {
+        if max[i] - min[i] < 0.02 {
+            min[i] -= 0.01;
+            max[i] += 0.01;
+        }
+    }
     // UV par face, dans l'ordre du studio : +z (nord), -z (sud), -x (est), +x (ouest), dessus,
     // dessous ; une face sans texture reste vide (NaN)
     let face = |nom: &str| -> [f32; 4] {
